@@ -14,18 +14,21 @@ function App() {
           <button 
             className={activeTab === 'dashboard' ? 'active' : ''}
             onClick={() => setActiveTab('dashboard')}
+            data-tab="dashboard"
           >
             Dashboard
           </button>
           <button 
             className={activeTab === 'transcripts' ? 'active' : ''}
             onClick={() => setActiveTab('transcripts')}
+            data-tab="transcripts"
           >
             Transcripts
           </button>
           <button 
             className={activeTab === 'config' ? 'active' : ''}
             onClick={() => setActiveTab('config')}
+            data-tab="config"
           >
             Configuration
           </button>
@@ -33,7 +36,7 @@ function App() {
       </header>
 
       <main className="container">
-        {activeTab === 'dashboard' && <Dashboard />}
+        {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
         {activeTab === 'transcripts' && <Transcripts />}
         {activeTab === 'config' && <Configuration />}
       </main>

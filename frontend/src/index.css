@@ -243,3 +243,81 @@ table {
 .card > div[style*="background"] {
   background-color: #18181b !important;
 }
+
+/* Loading spinner animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Markdown content styling for briefs */
+.brief-content h1 {
+  font-size: 1.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: #e4e4e7;
+  border-bottom: 2px solid #3f3f46;
+  padding-bottom: 0.5rem;
+}
+
+.brief-content h2 {
+  font-size: 1.25rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #60a5fa;
+}
+
+.brief-content h3 {
+  font-size: 1.1rem;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  color: #a1a1aa;
+}
+
+.brief-content p {
+  margin-bottom: 0.75rem;
+}
+
+.brief-content ul, .brief-content ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.brief-content li {
+  margin-bottom: 0.5rem;
+}
+
+.brief-content strong {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+.brief-content em {
+  color: #a1a1aa;
+  font-style: italic;
+}
+
+.brief-content code {
+  background-color: #18181b;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.9em;
+  color: #60a5fa;
+}
+
+.brief-content pre {
+  background-color: #18181b;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.brief-content pre code {
+  background: none;
+  padding: 0;
+}
