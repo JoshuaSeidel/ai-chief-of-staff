@@ -209,4 +209,47 @@ router.get('/:key', async (req, res) => {
   }
 });
 
+/**
+ * Debug endpoint to check what's actually stored in the database
+ */
+router.get('/debug/raw/:key', async (req, res) => {
+  try {
+    const key = req.params.key;
+    logger.info(`DEBUG: Fetching raw config key: ${key}`);
+    
+    const db = getDb();
+    const row = await db.get('SELECT key, value, updated_date FROM config WHERE key = ?', [key]);
+    
+    if (!row) {
+      return res.json({ 
+        found: false, 
+        key,
+        message: 'Key not found in database' 
+      });
+    }
+    
+    // Return debug info (mask sensitive values)
+    const isSensitive = key.toLowerCase().includes('key') || key.toLowerCase().includes('password');
+    const displayValue = isSensitive && row.value ? 
+      `${row.value.substring(0, 10)}... (length: ${row.value.length})` : 
+      row.value;
+    
+    res.json({
+      found: true,
+      key: row.key,
+      valueLength: row.value ? row.value.length : 0,
+      valueType: typeof row.value,
+      valueStartsWith: row.value ? row.value.substring(0, 8) : null,
+      valueEndsWith: row.value ? row.value.substring(row.value.length - 8) : null,
+      displayValue,
+      startsWithQuote: row.value ? row.value.startsWith('"') : false,
+      endsWithQuote: row.value ? row.value.endsWith('"') : false,
+      updatedDate: row.updated_date
+    });
+  } catch (err) {
+    logger.error(`Error in debug endpoint:`, err);
+    res.status(500).json({ error: 'Error fetching debug info', message: err.message });
+  }
+});
+
 module.exports = router;

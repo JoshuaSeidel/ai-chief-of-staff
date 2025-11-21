@@ -19,18 +19,28 @@ async function getAnthropicClient() {
     throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
   }
   
-  try {
-    // Handle both plain strings and JSON-encoded values
-    let apiKey = row.value;
-    if (apiKey.startsWith('"')) {
+  // Handle both plain strings and JSON-encoded values
+  let apiKey = row.value;
+  logger.info(`Retrieved API key from database (length: ${apiKey ? apiKey.length : 0}, starts with: ${apiKey ? apiKey.substring(0, 8) : 'null'})`);
+  
+  // If it's wrapped in quotes (JSON stringified), parse it
+  if (apiKey && typeof apiKey === 'string' && apiKey.startsWith('"') && apiKey.endsWith('"')) {
+    try {
       apiKey = JSON.parse(apiKey);
+      logger.info('API key was JSON-encoded, unwrapped successfully');
+    } catch (parseErr) {
+      logger.error('Failed to parse JSON-encoded API key:', parseErr);
+      throw new Error('Invalid API key format in database');
     }
-    logger.info('Anthropic client initialized successfully');
-    return new Anthropic({ apiKey });
-  } catch (e) {
-    logger.error('Invalid API key format', e);
-    throw new Error('Invalid API key format');
   }
+  
+  if (!apiKey || apiKey.trim() === '') {
+    logger.error('API key is empty or whitespace');
+    throw new Error('Anthropic API key is empty. Please set it in the Configuration page.');
+  }
+  
+  logger.info(`Creating Anthropic client with API key: ${apiKey.substring(0, 8)}...`);
+  return new Anthropic({ apiKey: apiKey.trim() });
 }
 
 /**
