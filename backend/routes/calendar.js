@@ -117,6 +117,27 @@ router.post('/block', async (req, res) => {
 });
 
 /**
+ * Google OAuth - Debug redirect URI
+ */
+router.get('/google/debug-redirect', async (req, res) => {
+  try {
+    const { getDb } = require('../database/db');
+    const db = getDb();
+    
+    const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleRedirectUri']);
+    const envRedirectUri = process.env.GOOGLE_REDIRECT_URI;
+    
+    res.json({
+      configuredInDatabase: redirectUriRow?.value || null,
+      environmentVariable: envRedirectUri || null,
+      willUse: envRedirectUri || redirectUriRow?.value || 'http://localhost:3001/api/calendar/google/callback'
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * Google OAuth - Initiate
  */
 router.get('/google/auth', async (req, res) => {
