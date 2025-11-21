@@ -157,27 +157,65 @@ Generate a clear, actionable brief in markdown format.`;
 
 /**
  * Extract commitments and action items from transcript
+ * @param {string} transcriptText - The meeting transcript
+ * @param {string} meetingDate - Optional meeting date (ISO format)
  */
-async function extractCommitments(transcriptText) {
+async function extractCommitments(transcriptText, meetingDate = null) {
   logger.info('Extracting commitments from transcript', {
-    transcriptLength: transcriptText.length
+    transcriptLength: transcriptText.length,
+    meetingDate
   });
 
-  const prompt = `Analyze this meeting transcript and extract:
-1. Commitments made (who committed to what, by when)
-2. Action items assigned
-3. Follow-ups needed
-4. Risks or blockers mentioned
+  const today = new Date().toISOString().split('T')[0];
+  const dateContext = meetingDate ? `This meeting occurred on: ${meetingDate}` : `Today's date: ${today}`;
+
+  const prompt = `You are an AI assistant analyzing a meeting transcript. Your job is to extract ALL actionable items, both explicitly stated AND implied by the conversation.
+
+${dateContext}
+
+**Important Instructions:**
+1. Look for EXPLICIT commitments where someone says "I will...", "I'll...", "We'll...", "Let me..."
+2. Look for IMPLICIT tasks that logically follow from the discussion (e.g., "We need to decide..." implies someone should schedule a decision meeting)
+3. For EVERY commitment/task, determine a reasonable deadline based on urgency cues:
+   - If a specific date/deadline is mentioned, use it (convert relative dates like "next week" to actual dates)
+   - If urgency is mentioned ("ASAP", "urgent", "critical", "blocker"), assign deadline within 2-3 business days
+   - If something blocks other work, assign deadline within 1 week
+   - If no urgency mentioned, assign deadline 2 weeks from meeting date
+   - For research/investigation tasks, assign 1 week
+   - For follow-up meetings, assign 1-2 weeks
+4. Extract the meeting context and decisions
+5. Provide a brief solution suggestion for each commitment when applicable
 
 Transcript:
 ${transcriptText}
 
-Return the results as JSON with this structure:
+Return results as JSON:
 {
-  "commitments": [{"description": "...", "assignee": "...", "deadline": "..."}],
-  "actionItems": [{"description": "...", "priority": "high|medium|low"}],
-  "followUps": [{"description": "...", "with": "..."}],
-  "risks": [{"description": "...", "impact": "..."}]
+  "meetingContext": "Brief summary of what this meeting was about",
+  "commitments": [
+    {
+      "description": "Clear description of what needs to be done",
+      "assignee": "Name or 'team' or 'TBD' if unclear",
+      "deadline": "YYYY-MM-DD format",
+      "urgency": "high|medium|low",
+      "suggestedApproach": "Brief suggestion on how to tackle this",
+      "blocksOtherWork": true/false
+    }
+  ],
+  "actionItems": [
+    {
+      "description": "Specific action needed", 
+      "priority": "high|medium|low",
+      "category": "decision|research|implementation|communication|follow-up"
+    }
+  ],
+  "followUps": [
+    {"description": "...", "with": "person/team name"}
+  ],
+  "risks": [
+    {"description": "...", "impact": "high|medium|low"}
+  ],
+  "decisions": ["Key decision 1", "Key decision 2"]
 }`;
 
   try {

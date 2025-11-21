@@ -160,16 +160,10 @@ async function runStartupChecks() {
   console.log('\n' + '='.repeat(70));
   console.log('STARTUP CHECKS COMPLETE');
   console.log('='.repeat(70));
-  
-  // Remind user to configure API keys on first run
-  if (!config || !config.anthropicApiKey) {
-    console.log('\n⚠️  IMPORTANT: Anthropic API key not configured');
-    console.log('   To use AI features (brief generation, commitment extraction):');
-    console.log('   1. Open the web interface');
-    console.log('   2. Go to Configuration tab');
-    console.log('   3. Enter your Anthropic API key');
-    console.log('   4. Click Save Configuration\n');
-  }
+  console.log('');
+  console.log('✓ Application started successfully');
+  console.log('  Access the web interface to configure API keys and settings');
+  console.log('');
 }
 
 // Run checks if executed directly

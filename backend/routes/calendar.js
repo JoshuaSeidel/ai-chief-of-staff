@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const ical = require('node-ical');
+const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('CALENDAR');
@@ -9,11 +10,19 @@ const logger = createModuleLogger('CALENDAR');
  * Fetch calendar events from iCloud
  */
 router.get('/events', async (req, res) => {
-  const calendarUrl = process.env.ICAL_CALENDAR_URL;
-  
-  if (!calendarUrl) {
-    logger.warn('Calendar events requested but iCloud calendar URL not configured');
-    return res.status(400).json({ error: 'iCloud calendar URL not configured' });
+  try {
+    // Get calendar URL from database config
+    const db = getDb();
+    const row = await db.get('SELECT value FROM config WHERE key = ?', ['icalCalendarUrl']);
+    const calendarUrl = row?.value;
+    
+    if (!calendarUrl || calendarUrl.trim() === '') {
+      logger.warn('Calendar events requested but iCloud calendar URL not configured');
+      return res.status(400).json({ error: 'iCloud calendar URL not configured. Please set it in Configuration page.' });
+    }
+  } catch (dbError) {
+    logger.error('Error retrieving calendar URL from database', dbError);
+    return res.status(500).json({ error: 'Error retrieving calendar configuration' });
   }
 
   try {
