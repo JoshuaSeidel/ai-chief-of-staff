@@ -87,7 +87,8 @@ After starting the container:
 
 ### Optional Configuration
 - **Plaud API**: For automatic transcript pulling
-- **iCloud Calendar**: For calendar integration
+- **Google Calendar**: OAuth integration for automatic event creation (recommended)
+- **iCloud Calendar**: Read-only calendar viewing (alternative to Google Calendar)
 - **Database**: Switch from SQLite to PostgreSQL
 
 ### Database Configuration
@@ -185,6 +186,48 @@ All configuration is done through the web UI Configuration tab:
 - **Claude Model**: Choose from Claude Sonnet 4.5 (latest), Sonnet 4, 3.5 Sonnet, or 3 Opus
 
 ### Integrations (Optional)
+
+#### Google Calendar Integration (Recommended)
+
+Automatically create calendar events for commitments with deadlines:
+
+1. **Get Google OAuth Credentials:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   - Create a new project or select an existing one
+   - Enable the **Google Calendar API**:
+     - Search for "Google Calendar API" in the API Library
+     - Click **Enable**
+   - Create **OAuth 2.0 Client ID**:
+     - Go to **Credentials** → **Create Credentials** → **OAuth client ID**
+     - Application type: **Web application**
+     - Name: `AI Chief of Staff`
+     - **Authorized redirect URIs**: Add `http://YOUR-IP:3001/api/calendar/google/callback`
+       - For local dev: `http://localhost:3001/api/calendar/google/callback`
+       - For production: Replace `YOUR-IP` with your server's IP or domain
+   - Copy the **Client ID** and **Client Secret**
+
+2. **Configure in the App:**
+   - Open the Configuration tab
+   - Scroll to "Calendar Integration"
+   - Paste your **Google Client ID** and **Client Secret**
+   - Click **Save Configuration**
+   - Click **Connect Google Calendar** button
+   - Authorize the app in the Google OAuth flow
+   - ✅ Done! Commitments with deadlines will now automatically create calendar events
+
+**Features:**
+- Auto-creates calendar events for all extracted commitments with deadlines
+- Events include deadline, suggested approach, and urgency
+- Syncs across all your devices
+- One-click disconnect in settings
+
+**Environment Variables (Optional):**
+If running in Docker, you can also set:
+```
+GOOGLE_REDIRECT_URI=http://YOUR-IP:3001/api/calendar/google/callback
+```
+
+#### Plaud API Integration
 - **Plaud API**: Automatic transcript pulling from Plaud
 - **iCloud Calendar**: Calendar integration for event context
 

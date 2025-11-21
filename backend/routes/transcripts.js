@@ -2,10 +2,63 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
 const { extractCommitments } = require('../services/claude');
+const googleCalendar = require('../services/google-calendar');
 const fs = require('fs');
 const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('TRANSCRIPTS');
+
+/**
+ * Save commitments and optionally create calendar events
+ */
+async function saveCommitmentsWithCalendar(db, transcriptId, commitments) {
+  if (!commitments || commitments.length === 0) {
+    return { saved: 0, calendarEvents: 0 };
+  }
+
+  const stmt = db.prepare(
+    'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach) VALUES (?, ?, ?, ?, ?, ?)'
+  );
+  
+  let calendarEventsCreated = 0;
+  const isGoogleConnected = await googleCalendar.isConnected();
+  
+  for (const commitment of commitments) {
+    // Save to database
+    const result = await stmt.run(
+      transcriptId,
+      commitment.description,
+      commitment.assignee || null,
+      commitment.deadline || null,
+      commitment.urgency || 'medium',
+      commitment.suggested_approach || null
+    );
+    
+    // Try to create calendar event if deadline exists and Google Calendar is connected
+    if (commitment.deadline && isGoogleConnected) {
+      try {
+        const commitmentWithId = {
+          ...commitment,
+          id: result.lastID
+        };
+        await googleCalendar.createEventFromCommitment(commitmentWithId);
+        calendarEventsCreated++;
+        logger.info(`Created calendar event for commitment: ${commitment.description.substring(0, 50)}...`);
+      } catch (calError) {
+        logger.warn(`Failed to create calendar event for commitment ${result.lastID}:`, calError.message);
+        // Don't fail the whole operation if calendar event creation fails
+      }
+    }
+  }
+  
+  await stmt.finalize();
+  logger.info(`Saved ${commitments.length} commitments, created ${calendarEventsCreated} calendar events`);
+  
+  return {
+    saved: commitments.length,
+    calendarEvents: calendarEventsCreated
+  };
+}
 
 /**
  * Upload transcript file
@@ -55,17 +108,8 @@ router.post('/upload', (req, res) => {
         const extracted = await extractCommitments(content);
         logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
 
-        // Save commitments
-        if (extracted.commitments && extracted.commitments.length > 0) {
-          const stmt = db.prepare('INSERT INTO commitments (transcript_id, description, assignee, deadline) VALUES (?, ?, ?, ?)');
-          
-          for (const commitment of extracted.commitments) {
-            stmt.run(transcriptId, commitment.description, commitment.assignee || null, commitment.deadline || null);
-          }
-          
-          await stmt.finalize();
-          logger.info(`Saved ${extracted.commitments.length} commitments`);
-        }
+        // Save commitments and create calendar events
+        const commitmentStats = await saveCommitmentsWithCalendar(db, transcriptId, extracted.commitments);
 
         // Save context items
         if (extracted.actionItems && extracted.actionItems.length > 0) {
@@ -82,7 +126,8 @@ router.post('/upload', (req, res) => {
         res.json({
           message: 'Transcript uploaded and processed successfully',
           transcriptId,
-          extracted
+          extracted,
+          calendarEventsCreated: commitmentStats.calendarEvents
         });
       } catch (extractError) {
         logger.error('Error extracting commitments:', extractError);
@@ -135,17 +180,8 @@ router.post('/upload-text', async (req, res) => {
       const extracted = await extractCommitments(content);
       logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
 
-      // Save commitments
-      if (extracted.commitments && extracted.commitments.length > 0) {
-        const stmt = db.prepare('INSERT INTO commitments (transcript_id, description, assignee, deadline) VALUES (?, ?, ?, ?)');
-        
-        for (const commitment of extracted.commitments) {
-          stmt.run(transcriptId, commitment.description, commitment.assignee || null, commitment.deadline || null);
-        }
-        
-        await stmt.finalize();
-        logger.info(`Saved ${extracted.commitments.length} commitments`);
-      }
+      // Save commitments and create calendar events
+      const commitmentStats = await saveCommitmentsWithCalendar(db, transcriptId, extracted.commitments);
 
       // Save context items
       if (extracted.actionItems && extracted.actionItems.length > 0) {
@@ -162,7 +198,8 @@ router.post('/upload-text', async (req, res) => {
       res.json({
         message: 'Transcript saved and processed successfully',
         transcriptId,
-        extracted
+        extracted,
+        calendarEventsCreated: commitmentStats.calendarEvents
       });
     } catch (extractError) {
       logger.error('Error extracting commitments:', extractError);
@@ -351,19 +388,8 @@ router.post('/:id/reprocess', async (req, res) => {
         actionItems: extracted.actionItems?.length || 0
       });
       
-      // Save commitments
-      if (extracted.commitments && extracted.commitments.length > 0) {
-        const stmt = db.prepare(
-          'INSERT INTO commitments (transcript_id, description, deadline, assignee, status) VALUES (?, ?, ?, ?, ?)'
-        );
-        
-        for (const commitment of extracted.commitments) {
-          stmt.run(id, commitment.description, commitment.deadline || null, commitment.assignee || null, 'pending');
-        }
-        
-        await stmt.finalize();
-        logger.info(`Saved ${extracted.commitments.length} commitments`);
-      }
+      // Save commitments and create calendar events
+      const commitmentStats = await saveCommitmentsWithCalendar(db, id, extracted.commitments);
       
       // Save action items as context
       if (extracted.actionItems && extracted.actionItems.length > 0) {
@@ -420,7 +446,8 @@ router.post('/:id/reprocess', async (req, res) => {
           actionItems: extracted.actionItems?.length || 0,
           followUps: extracted.followUps?.length || 0,
           risks: extracted.risks?.length || 0
-        }
+        },
+        calendarEventsCreated: commitmentStats.calendarEvents
       });
       
     } catch (extractError) {

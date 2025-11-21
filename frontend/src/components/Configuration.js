@@ -8,6 +8,8 @@ function Configuration() {
     plaudApiKey: '',
     plaudApiUrl: 'https://api.plaud.ai',
     icalCalendarUrl: '',
+    googleClientId: '',
+    googleClientSecret: '',
     dbType: 'sqlite',
     postgresHost: '',
     postgresPort: '5432',
@@ -21,9 +23,12 @@ function Configuration() {
   
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [checkingGoogle, setCheckingGoogle] = useState(true);
 
   useEffect(() => {
     loadConfig();
+    checkGoogleCalendarStatus();
   }, []);
 
   const loadConfig = async () => {
@@ -40,6 +45,7 @@ function Configuration() {
       const loaded = {
         anthropicApiKey: !!appData.anthropicApiKey,
         plaudApiKey: !!appData.plaudApiKey,
+        googleClientSecret: !!appData.googleClientSecret,
         postgresPassword: !!(sysData.postgres?.password && sysData.postgres.password !== '********')
       };
       
@@ -50,6 +56,8 @@ function Configuration() {
         plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
         plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
         icalCalendarUrl: appData.icalCalendarUrl || '',
+        googleClientId: appData.googleClientId || '',
+        googleClientSecret: appData.googleClientSecret ? '••••••••' : '',
         dbType: sysData.dbType || 'sqlite',
         postgresHost: sysData.postgres?.host || '',
         postgresPort: sysData.postgres?.port || '5432',
@@ -59,6 +67,44 @@ function Configuration() {
       });
     } catch (err) {
       console.error('Failed to load config:', err);
+    }
+  };
+
+  const checkGoogleCalendarStatus = async () => {
+    try {
+      const response = await fetch('/api/calendar/google/status');
+      const data = await response.json();
+      setGoogleConnected(data.connected);
+    } catch (err) {
+      console.error('Failed to check Google Calendar status:', err);
+    } finally {
+      setCheckingGoogle(false);
+    }
+  };
+
+  const handleGoogleConnect = async () => {
+    try {
+      const response = await fetch('/api/calendar/google/auth');
+      const data = await response.json();
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to initiate Google Calendar connection' });
+    }
+  };
+
+  const handleGoogleDisconnect = async () => {
+    if (!window.confirm('Are you sure you want to disconnect Google Calendar?')) {
+      return;
+    }
+    
+    try {
+      await fetch('/api/calendar/google/disconnect', { method: 'POST' });
+      setGoogleConnected(false);
+      setMessage({ type: 'success', text: 'Google Calendar disconnected successfully' });
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to disconnect Google Calendar' });
     }
   };
 
@@ -101,6 +147,16 @@ function Configuration() {
       appUpdates.claudeModel = config.claudeModel;
       appUpdates.plaudApiUrl = config.plaudApiUrl;
       appUpdates.icalCalendarUrl = config.icalCalendarUrl;
+      
+      // Google OAuth credentials
+      if (config.googleClientId) {
+        appUpdates.googleClientId = config.googleClientId;
+      }
+      if (config.googleClientSecret && !config.googleClientSecret.includes('•')) {
+        appUpdates.googleClientSecret = config.googleClientSecret;
+      } else if (!config.googleClientSecret && loadedFields.googleClientSecret) {
+        appUpdates.googleClientSecret = '';
+      }
       
       // System configuration (stored in /app/data/config.json)
       if (config.dbType === 'postgres') {
@@ -241,19 +297,161 @@ function Configuration() {
         </div>
 
         <div style={{ marginBottom: '2rem' }}>
-          <h3>iCloud Calendar</h3>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            Calendar URL (webcal:// or https://)
-          </label>
-          <input
-            type="text"
-            value={config.icalCalendarUrl}
-            onChange={(e) => handleChange('icalCalendarUrl', e.target.value)}
-            placeholder="webcal://p01-caldav.icloud.com/..."
-          />
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
-            Find this in Calendar app → Calendar Settings → Right-click your calendar → Share
-          </p>
+          <h3>📅 Calendar Integration</h3>
+          
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            border: '2px solid #3f3f46', 
+            borderRadius: '12px', 
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>🗓️</span>
+              Google Calendar (Recommended)
+            </h4>
+            
+            {checkingGoogle ? (
+              <p style={{ color: '#a1a1aa' }}>Checking connection status...</p>
+            ) : googleConnected ? (
+              <div>
+                <div style={{ 
+                  backgroundColor: '#e5ffe5', 
+                  color: '#00a000',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span>
+                    <strong>✓ Connected</strong> - Calendar events will be created automatically
+                  </span>
+                  <button 
+                    onClick={handleGoogleDisconnect}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#ff4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.5rem' }}>
+                  Commitments with deadlines will automatically create calendar events. Events sync across all your devices.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
+                  Connect your Google Calendar to automatically create events for commitments with deadlines.
+                  One-click setup with OAuth.
+                </p>
+                
+                {!config.googleClientId || !config.googleClientSecret ? (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <p style={{ fontSize: '0.9rem', color: '#fbbf24', marginBottom: '1rem' }}>
+                      ⚠️ Setup required: Add your Google OAuth credentials below, then click Connect
+                    </p>
+                    
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                      Google Client ID
+                    </label>
+                    <input
+                      type="text"
+                      value={config.googleClientId}
+                      onChange={(e) => handleChange('googleClientId', e.target.value)}
+                      placeholder="123456789-xxxxxxxx.apps.googleusercontent.com"
+                      style={{ marginBottom: '1rem' }}
+                    />
+                    
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                      Google Client Secret
+                    </label>
+                    <input
+                      type="password"
+                      value={config.googleClientSecret}
+                      onChange={(e) => handleChange('googleClientSecret', e.target.value)}
+                      placeholder="GOCSPX-xxxxxxxx"
+                    />
+                    {config.googleClientSecret.includes('•') && (
+                      <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '0.5rem' }}>
+                        ✓ Client secret is configured
+                      </p>
+                    )}
+                    
+                    <details style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#a1a1aa' }}>
+                      <summary style={{ cursor: 'pointer', marginBottom: '0.5rem' }}>
+                        How to get Google OAuth credentials
+                      </summary>
+                      <ol style={{ marginLeft: '1.5rem', lineHeight: '1.8' }}>
+                        <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud Console</a></li>
+                        <li>Create a new project or select existing</li>
+                        <li>Enable Google Calendar API</li>
+                        <li>Create OAuth 2.0 Client ID (Web application)</li>
+                        <li>Add authorized redirect URI: <code>http://localhost:3001/api/calendar/google/callback</code></li>
+                        <li>Copy Client ID and Client Secret here</li>
+                      </ol>
+                    </details>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleGoogleConnect}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#4285f4',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.2rem' }}>🔗</span>
+                    Connect Google Calendar
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <details style={{ marginBottom: '1rem' }}>
+            <summary style={{ 
+              cursor: 'pointer', 
+              fontWeight: 'bold',
+              padding: '0.5rem',
+              color: '#a1a1aa'
+            }}>
+              📱 Alternative: iCloud Calendar (Read-only)
+            </summary>
+            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                Calendar URL (webcal:// or https://)
+              </label>
+              <input
+                type="text"
+                value={config.icalCalendarUrl}
+                onChange={(e) => handleChange('icalCalendarUrl', e.target.value)}
+                placeholder="webcal://p01-caldav.icloud.com/..."
+              />
+              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.5rem' }}>
+                Find this in Calendar app → Calendar Settings → Right-click your calendar → Share
+              </p>
+              <p style={{ fontSize: '0.85rem', color: '#fbbf24', marginTop: '0.5rem' }}>
+                ⚠️ iCloud webcal URLs are read-only. Cannot create events automatically.
+              </p>
+            </div>
+          </details>
         </div>
 
         <div style={{ marginBottom: '2rem' }}>

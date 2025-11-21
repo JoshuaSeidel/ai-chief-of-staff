@@ -3,24 +3,35 @@ const router = express.Router();
 const ical = require('node-ical');
 const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
+const googleCalendar = require('../services/google-calendar');
 
 const logger = createModuleLogger('CALENDAR');
 
 /**
- * Fetch calendar events from iCloud
+ * Fetch calendar events (tries Google Calendar first, falls back to iCloud)
  */
 router.get('/events', async (req, res) => {
-  let calendarUrl;
-  
   try {
-    // Get calendar URL from database config
+    // Check if Google Calendar is connected
+    const isGoogleConnected = await googleCalendar.isConnected();
+    
+    if (isGoogleConnected) {
+      logger.info('Fetching events from Google Calendar');
+      const events = await googleCalendar.listEvents(50);
+      return res.json({ source: 'google', events });
+    }
+    
+    // Fall back to iCloud
+    logger.info('Google Calendar not connected, trying iCloud');
     const db = getDb();
     const row = await db.get('SELECT value FROM config WHERE key = ?', ['icalCalendarUrl']);
-    calendarUrl = row?.value;
+    const calendarUrl = row?.value;
     
     if (!calendarUrl || calendarUrl.trim() === '') {
-      logger.warn('Calendar events requested but iCloud calendar URL not configured');
-      return res.status(400).json({ error: 'iCloud calendar URL not configured. Please set it in Configuration page.' });
+      return res.status(400).json({ 
+        error: 'No calendar configured',
+        message: 'Please connect Google Calendar or configure iCloud calendar URL'
+      });
     }
     
     logger.info('Fetching calendar events from iCloud');
@@ -40,52 +51,135 @@ router.get('/events', async (req, res) => {
       }
     }
 
-    logger.info(`Retrieved ${eventList.length} calendar events`);
-    res.json(eventList);
+    logger.info(`Retrieved ${eventList.length} calendar events from iCloud`);
+    res.json({ source: 'icloud', events: eventList });
   } catch (error) {
     logger.error('Error fetching calendar events', error);
     res.status(500).json({ 
       error: 'Error fetching calendar events', 
-      message: error.message,
-      details: 'Check that your iCloud calendar URL is correct and accessible'
+      message: error.message
     });
   }
 });
 
 /**
- * Create calendar block (note: iCloud webcal is read-only, this is a placeholder)
+ * Create calendar event
  */
 router.post('/block', async (req, res) => {
-  const { title, startTime, endTime, description } = req.body;
+  const { title, startTime, endTime, description, attendees } = req.body;
 
   if (!title || !startTime || !endTime) {
-    logger.warn('Calendar block creation attempted with missing required fields');
     return res.status(400).json({ error: 'Title, startTime, and endTime are required' });
   }
 
-  logger.info(`Creating calendar block: ${title}`, {
-    start: startTime,
-    end: endTime
-  });
+  try {
+    // Try Google Calendar first
+    const isGoogleConnected = await googleCalendar.isConnected();
+    
+    if (isGoogleConnected) {
+      logger.info(`Creating Google Calendar event: ${title}`);
+      const event = await googleCalendar.createEvent({
+        title,
+        startTime,
+        endTime,
+        description,
+        attendees
+      });
+      
+      return res.json({
+        success: true,
+        source: 'google',
+        event: {
+          id: event.id,
+          link: event.htmlLink
+        },
+        message: 'Event created in Google Calendar'
+      });
+    }
+    
+    // Fall back to ICS file generation
+    logger.info(`Generating ICS file for: ${title}`);
+    const icsContent = generateICS(title, startTime, endTime, description);
+    
+    res.json({
+      success: true,
+      source: 'ics',
+      icsContent,
+      message: 'ICS file generated. Download and import to your calendar.'
+    });
+  } catch (error) {
+    logger.error('Error creating calendar event', error);
+    res.status(500).json({ 
+      error: 'Error creating calendar event',
+      message: error.message
+    });
+  }
+});
 
-  // NOTE: iCloud calendar URLs are typically read-only
-  // To create events, you would need to use CalDAV protocol or macOS Calendar app
-  // This is a placeholder that returns the event data for manual creation
+/**
+ * Google OAuth - Initiate
+ */
+router.get('/google/auth', async (req, res) => {
+  try {
+    const authUrl = await googleCalendar.getAuthUrl();
+    res.json({ authUrl });
+  } catch (error) {
+    logger.error('Error generating auth URL', error);
+    res.status(500).json({ 
+      error: 'Error initiating Google Calendar authorization',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Google OAuth - Callback
+ */
+router.get('/google/callback', async (req, res) => {
+  const { code, error } = req.query;
   
-  const event = {
-    title,
-    startTime,
-    endTime,
-    description,
-    icsFormat: generateICS(title, startTime, endTime, description)
-  };
+  if (error) {
+    logger.error('OAuth callback error', error);
+    return res.redirect('/#config?error=oauth_failed');
+  }
+  
+  if (!code) {
+    return res.redirect('/#config?error=no_code');
+  }
+  
+  try {
+    await googleCalendar.getTokenFromCode(code);
+    logger.info('Google Calendar connected successfully');
+    res.redirect('/#config?success=google_calendar_connected');
+  } catch (error) {
+    logger.error('Error exchanging code for token', error);
+    res.redirect('/#config?error=oauth_exchange_failed');
+  }
+});
 
-  logger.info('Calendar block data generated (manual import needed)');
-  res.json({
-    message: 'Calendar block created (manual import needed)',
-    event,
-    instructions: 'Download the ICS file and import it into your iCloud calendar'
-  });
+/**
+ * Google Calendar - Check connection status
+ */
+router.get('/google/status', async (req, res) => {
+  try {
+    const connected = await googleCalendar.isConnected();
+    res.json({ connected });
+  } catch (error) {
+    res.json({ connected: false, error: error.message });
+  }
+});
+
+/**
+ * Google Calendar - Disconnect
+ */
+router.post('/google/disconnect', async (req, res) => {
+  try {
+    await googleCalendar.disconnect();
+    res.json({ message: 'Google Calendar disconnected successfully' });
+  } catch (error) {
+    logger.error('Error disconnecting Google Calendar', error);
+    res.status(500).json({ error: 'Error disconnecting Google Calendar' });
+  }
 });
 
 /**
@@ -99,7 +193,7 @@ function generateICS(title, startTime, endTime, description) {
 VERSION:2.0
 PRODID:-//AI Chief of Staff//EN
 BEGIN:VEVENT
-UID:${Date.now()}@aichief
+UID:${Date.now()}@aichiefofstaff
 DTSTAMP:${start}
 DTSTART:${start}
 DTEND:${end}
@@ -108,16 +202,5 @@ DESCRIPTION:${description || ''}
 END:VEVENT
 END:VCALENDAR`;
 }
-
-/**
- * Download ICS file
- */
-router.get('/block/:id/download', (req, res) => {
-  logger.info(`ICS download requested for event ID: ${req.params.id}`);
-  // This would retrieve a stored event and return as ICS file
-  res.setHeader('Content-Type', 'text/calendar');
-  res.setHeader('Content-Disposition', 'attachment; filename=event.ics');
-  res.send('Placeholder ICS content');
-});
 
 module.exports = router;
