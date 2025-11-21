@@ -14,11 +14,11 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3001
-      - CONFIG_DIR=/data
-      - LOG_DIR=/data
+      - CONFIG_DIR=/app/data
+      - LOG_DIR=/app/data
     volumes:
-      # Mount to /data instead of /app/data to match production
-      - ./dev-data:/data
+      # Mount local dev-data to /app/data for persistence
+      - ./dev-data:/app/data
       - ./dev-uploads:/app/uploads
     restart: unless-stopped
     healthcheck:

@@ -65,7 +65,7 @@ async function initializeDatabase() {
  */
 function initSQLite() {
   return new Promise((resolve, reject) => {
-    const dbPath = config.sqlite?.path || '/data/ai-chief-of-staff.db';
+    const dbPath = config.sqlite?.path || '/app/data/ai-chief-of-staff.db';
     const dbDir = path.dirname(dbPath);
 
     // Ensure data directory exists
@@ -356,7 +356,7 @@ async function migrateToPostgres() {
   
   try {
     // Load SQLite database
-    const sqlitePath = config.sqlite?.path || '/data/ai-chief-of-staff.db';
+    const sqlitePath = config.sqlite?.path || '/app/data/ai-chief-of-staff.db';
     if (!fs.existsSync(sqlitePath)) {
       dbLogger.info('No SQLite database found, skipping migration');
       return;

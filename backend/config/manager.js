@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const CONFIG_DIR = process.env.CONFIG_DIR || '/data';
+const CONFIG_DIR = process.env.CONFIG_DIR || '/app/data';
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 // Simple console logger (can't use winston here as it might not be loaded yet)
@@ -15,7 +15,7 @@ const logger = {
 const DEFAULT_CONFIG = {
   dbType: 'sqlite',
   sqlite: {
-    path: path.join(CONFIG_DIR, 'ai-chief-of-staff.db')
+    path: '/app/data/ai-chief-of-staff.db'
   },
   postgres: {
     host: 'localhost',

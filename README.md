@@ -43,7 +43,7 @@ An intelligent executive assistant that automates personal productivity by inges
 - **Container Port**: `3001` → **Host Port**: `3001`
 
 **Volume Mappings:**
-- **Container Path**: `/data` → **Host Path**: `/mnt/user/appdata/ai-chief-of-staff`
+- **Container Path**: `/app/data` → **Host Path**: `/mnt/user/appdata/ai-chief-of-staff/data`
 - **Container Path**: `/app/uploads` → **Host Path**: `/mnt/user/appdata/ai-chief-of-staff/uploads`
 
 **Environment Variables (Optional):**
@@ -67,7 +67,7 @@ SSH into your Unraid server and run:
 docker run -d \
   --name=ai-chief-of-staff \
   -p 3001:3001 \
-  -v /mnt/user/appdata/ai-chief-of-staff:/data \
+  -v /mnt/user/appdata/ai-chief-of-staff/data:/app/data \
   -v /mnt/user/appdata/ai-chief-of-staff/uploads:/app/uploads \
   --restart=unless-stopped \
   ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest
@@ -92,11 +92,11 @@ After starting the container:
 
 ### Database Configuration
 
-The app stores all configuration in `/data/config.json` and uses it at startup. You have two database options:
+The app stores all configuration in `/app/data/config.json` and uses it at startup. You have two database options:
 
 #### SQLite (Default)
 - Zero configuration required
-- Database stored in `/data/ai-chief-of-staff.db`
+- Database stored in `/app/data/ai-chief-of-staff.db`
 - Perfect for single-user deployments
 
 #### PostgreSQL
@@ -119,7 +119,7 @@ The app stores all configuration in `/data/config.json` and uses it at startup. 
 4. Click Save
 5. Restart the container - data will be migrated automatically
 
-**Note:** All credentials are stored in `/data/config.json` which persists across container restarts.
+**Note:** All credentials are stored in `/app/data/config.json` which persists across container restarts when `/app/data` is mounted to a host volume.
 
 ## Docker Installation (Other Platforms)
 
@@ -297,15 +297,15 @@ docker exec ai-chief-of-staff node /app/check-db-config.js
 docker logs ai-chief-of-staff | grep -A 20 "DATABASE INITIALIZATION"
 
 # 3. Verify the config file exists and is correct
-docker exec ai-chief-of-staff cat /data/config.json
+docker exec ai-chief-of-staff cat /app/data/config.json
 
 # 4. If config is being lost, check volume mounting
 docker inspect ai-chief-of-staff | grep -A 10 Mounts
-# Should show: /data mounted to host path
+# Should show: /app/data mounted to host path
 ```
 
 **Common Issues:**
-- **Config keeps resetting**: Volume mount may not be properly configured. Ensure `/data` is mounted to a persistent host path.
+- **Config keeps resetting**: Volume mount may not be properly configured. Ensure `/app/data` is mounted to a persistent host path.
 - **PostgreSQL won't connect**: 
   - Verify PostgreSQL server is accessible from the container
   - Check host uses the correct hostname (use `host.docker.internal` for localhost on Mac/Windows)
@@ -315,12 +315,15 @@ docker inspect ai-chief-of-staff | grep -A 10 Mounts
 
 **To manually set PostgreSQL configuration:**
 ```bash
-# Edit the config file directly
-docker exec -it ai-chief-of-staff vi /data/config.json
+# Edit the config file directly in the container
+docker exec -it ai-chief-of-staff vi /app/data/config.json
 
-# Or replace it entirely (stop container first)
+# Or edit it on the Unraid host (recommended)
+# Stop the container first
 docker stop ai-chief-of-staff
-# Edit /mnt/user/appdata/ai-chief-of-staff/config.json on host
+# Edit the file on the host at the mapped path:
+# /mnt/user/appdata/ai-chief-of-staff/data/config.json
+# Then restart
 docker start ai-chief-of-staff
 ```
 
