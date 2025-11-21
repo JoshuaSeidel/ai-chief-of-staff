@@ -46,6 +46,9 @@ async function initializeDatabase() {
       await initSQLite();
     }
     
+    // Run migrations for both SQLite and PostgreSQL
+    await runMigrations();
+    
     dbLogger.info('='.repeat(60));
     dbLogger.info(`✓ Database initialized successfully: ${dbType}`);
     dbLogger.info('='.repeat(60));
@@ -716,6 +719,74 @@ function getDb() {
  */
 function getDbType() {
   return dbType;
+}
+
+/**
+ * Run database migrations
+ */
+async function runMigrations() {
+  try {
+    dbLogger.info('Running database migrations...');
+    
+    if (dbType === 'postgres') {
+      // Migration: Add urgency and suggested_approach columns to commitments table
+      try {
+        await pool.query(`
+          ALTER TABLE commitments 
+          ADD COLUMN IF NOT EXISTS urgency TEXT,
+          ADD COLUMN IF NOT EXISTS suggested_approach TEXT
+        `);
+        dbLogger.info('✓ Added urgency and suggested_approach columns to commitments');
+      } catch (err) {
+        // Column might already exist, that's okay
+        if (!err.message.includes('already exists')) {
+          dbLogger.warn('Migration warning:', err.message);
+        }
+      }
+    } else {
+      // SQLite migrations
+      // Check if columns exist
+      const tableInfo = await new Promise((resolve, reject) => {
+        db.all('PRAGMA table_info(commitments)', (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        });
+      });
+      
+      const hasUrgency = tableInfo.some(col => col.name === 'urgency');
+      const hasSuggestedApproach = tableInfo.some(col => col.name === 'suggested_approach');
+      
+      if (!hasUrgency || !hasSuggestedApproach) {
+        dbLogger.info('Adding missing columns to commitments table...');
+        
+        // SQLite doesn't support ADD COLUMN IF NOT EXISTS or multiple columns at once
+        if (!hasUrgency) {
+          await new Promise((resolve, reject) => {
+            db.run('ALTER TABLE commitments ADD COLUMN urgency TEXT', (err) => {
+              if (err && !err.message.includes('duplicate column')) reject(err);
+              else resolve();
+            });
+          });
+          dbLogger.info('✓ Added urgency column');
+        }
+        
+        if (!hasSuggestedApproach) {
+          await new Promise((resolve, reject) => {
+            db.run('ALTER TABLE commitments ADD COLUMN suggested_approach TEXT', (err) => {
+              if (err && !err.message.includes('duplicate column')) reject(err);
+              else resolve();
+            });
+          });
+          dbLogger.info('✓ Added suggested_approach column');
+        }
+      }
+    }
+    
+    dbLogger.info('All migrations completed successfully');
+  } catch (err) {
+    dbLogger.error('Migration error:', err);
+    // Don't throw - migrations are best-effort
+  }
 }
 
 module.exports = {
