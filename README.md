@@ -22,7 +22,8 @@ An intelligent executive assistant that automates personal productivity by inges
 ## Prerequisites
 
 - Docker (for production deployment)
-- Anthropic API key from [console.anthropic.com](https://console.anthropic.com/)
+- Anthropic API key from [console.anthropic.com](https://console.anthropic.com/) - configured in UI after installation
+- (Optional) PostgreSQL database if you don't want to use SQLite
 - (Optional) Node.js 18+ and npm (for local development)
 
 ## Unraid Installation
@@ -45,10 +46,12 @@ An intelligent executive assistant that automates personal productivity by inges
 - **Container Path**: `/app/data` → **Host Path**: `/mnt/user/appdata/ai-chief-of-staff/data`
 - **Container Path**: `/app/uploads` → **Host Path**: `/mnt/user/appdata/ai-chief-of-staff/uploads`
 
-**Environment Variables:**
-- **Variable**: `ANTHROPIC_API_KEY` → **Value**: `your_api_key_here` (Required)
+**Environment Variables (Optional):**
 - **Variable**: `NODE_ENV` → **Value**: `production`
 - **Variable**: `PORT` → **Value**: `3001`
+- **Variable**: `DB_TYPE` → **Value**: `sqlite` or `postgres` (optional, can configure in UI)
+
+**Note:** API keys and database credentials are configured through the web UI, not environment variables.
 
 4. Click **Apply** to start the container
 5. Access at `http://YOUR-UNRAID-IP:3001`
@@ -65,13 +68,13 @@ SSH into your Unraid server and run:
 docker run -d \
   --name=ai-chief-of-staff \
   -p 3001:3001 \
-  -e ANTHROPIC_API_KEY=your_api_key_here \
-  -e NODE_ENV=production \
   -v /mnt/user/appdata/ai-chief-of-staff/data:/app/data \
   -v /mnt/user/appdata/ai-chief-of-staff/uploads:/app/uploads \
   --restart=unless-stopped \
   ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest
 ```
+
+**Note:** All API keys and credentials are configured through the web UI after first launch.
 
 ## Docker Installation (Other Platforms)
 
@@ -79,7 +82,6 @@ docker run -d \
 docker run -d \
   --name=ai-chief-of-staff \
   -p 3001:3001 \
-  -e ANTHROPIC_API_KEY=your_api_key_here \
   -v ai-chief-data:/app/data \
   -v ai-chief-uploads:/app/uploads \
   --restart=unless-stopped \
@@ -87,6 +89,12 @@ docker run -d \
 ```
 
 Access at: http://localhost:3001
+
+**After installation, configure through the web UI:**
+1. Open http://localhost:3001
+2. Go to Configuration tab
+3. Enter your Anthropic API key
+4. Configure optional integrations (Plaud, iCloud Calendar, PostgreSQL)
 
 ## Local Development
 
@@ -125,28 +133,44 @@ npm start
 
 ## Configuration
 
-### Required Environment Variables
+All configuration is done through the web UI Configuration tab:
 
-- **ANTHROPIC_API_KEY**: Your Claude API key from https://console.anthropic.com/
+### AI Configuration
+- **Anthropic API Key** (Required): Get from https://console.anthropic.com/
+- **Claude Model**: Choose from Claude Sonnet 4.5 (latest), Sonnet 4, 3.5 Sonnet, or 3 Opus
 
-### Optional Environment Variables
+### Integrations (Optional)
+- **Plaud API**: Automatic transcript pulling from Plaud
+- **iCloud Calendar**: Calendar integration for event context
 
-- **ICAL_CALENDAR_URL**: iCloud calendar URL for integration
-- **PLAUD_API_KEY**: Plaud API key for automatic transcript fetching
+### Database
+- **SQLite** (Default): No setup required, uses local file storage
+- **PostgreSQL**: Configure host, port, database name, and credentials for external database
+
+### Environment Variables (Optional)
 - **NODE_ENV**: Environment mode (default: production)
 - **PORT**: Port to run on (default: 3001)
+- **DB_TYPE**: `sqlite` or `postgres` (can also be set in UI)
 
 ## How to Use
 
 1. **Access the Application**: Open `http://YOUR-IP:3001` in your browser
-2. **Configure API Key**: 
+
+2. **Initial Configuration**: 
    - Go to Configuration tab
-   - Enter your Anthropic API key
-   - Click Save
+   - Enter your Anthropic API key (required)
+   - Select Claude model (default: Claude Sonnet 4.5)
+   - Configure optional integrations:
+     - Plaud API for automatic transcript pulling
+     - iCloud Calendar for calendar integration
+     - PostgreSQL if you don't want to use SQLite
+   - Click Save Configuration
+
 3. **Upload Transcripts**:
    - Go to Transcripts tab
    - Upload meeting transcripts (.txt, .doc, .docx, .pdf)
    - System automatically extracts commitments and action items
+
 4. **Generate Daily Brief**:
    - Go to Dashboard tab
    - Click "Generate Brief"
@@ -213,7 +237,8 @@ docker logs ai-chief-of-staff
 
 - Get key from https://console.anthropic.com/
 - Key should start with `sk-ant-`
-- Set as environment variable in Docker container settings
+- Configure in the Configuration tab, not as environment variable
+- If brief generation fails, verify API key is correctly entered
 
 ### Reset Database
 
