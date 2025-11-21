@@ -2,13 +2,18 @@ const express = require('express');
 const router = express.Router();
 const { getDb, getDbType, migrateToPostgres } = require('../database/db');
 const configManager = require('../config/manager');
+const { createModuleLogger } = require('../utils/logger');
+
+const logger = createModuleLogger('CONFIG');
 
 /**
  * Get system configuration from /data/config.json
  */
 router.get('/system', (req, res) => {
   try {
+    logger.info('Fetching system configuration');
     const config = configManager.loadConfig();
+    
     // Don't send passwords in response
     if (config.postgres) {
       const sanitized = { ...config };
@@ -17,10 +22,11 @@ router.get('/system', (req, res) => {
       }
       return res.json(sanitized);
     }
+    
     res.json(config);
   } catch (err) {
-    console.error('Error loading system config:', err);
-    res.status(500).json({ error: 'Error loading system configuration' });
+    logger.error('Error loading system config', err);
+    res.status(500).json({ error: 'Error loading system configuration', message: err.message });
   }
 });
 
@@ -30,17 +36,21 @@ router.get('/system', (req, res) => {
 router.post('/system', async (req, res) => {
   try {
     const updates = req.body;
-    console.log('Updating system configuration:', { ...updates, postgres: updates.postgres ? { ...updates.postgres, password: '****' } : undefined });
+    logger.info('Updating system configuration', { 
+      dbType: updates.dbType,
+      hasPostgresConfig: !!updates.postgres 
+    });
     
     const currentConfig = configManager.loadConfig();
     const dbTypeChanged = updates.dbType && updates.dbType !== currentConfig.dbType;
     
     // Save new configuration
     const newConfig = configManager.updateConfig(updates);
+    logger.info('Configuration updated successfully');
     
     // If switching to PostgreSQL, trigger migration
     if (dbTypeChanged && updates.dbType === 'postgres') {
-      console.log('Database type changed to PostgreSQL, migration will occur on next restart');
+      logger.warn('Database type changed to PostgreSQL, restart required for migration');
       return res.json({ 
         message: 'Configuration saved. Please restart the application to migrate to PostgreSQL.',
         requiresRestart: true
@@ -49,8 +59,8 @@ router.post('/system', async (req, res) => {
     
     res.json({ message: 'Configuration updated successfully', config: newConfig });
   } catch (err) {
-    console.error('Error updating system config:', err);
-    res.status(500).json({ error: 'Error updating system configuration' });
+    logger.error('Error updating system config', err);
+    res.status(500).json({ error: 'Error updating system configuration', message: err.message });
   }
 });
 
@@ -59,15 +69,19 @@ router.post('/system', async (req, res) => {
  */
 router.post('/migrate', async (req, res) => {
   try {
+    logger.info('Manual migration triggered');
     const config = configManager.loadConfig();
+    
     if (config.dbType !== 'postgres') {
+      logger.warn('Migration attempted but target database is not PostgreSQL');
       return res.status(400).json({ error: 'Target database must be PostgreSQL' });
     }
     
     await migrateToPostgres();
+    logger.info('Migration completed successfully');
     res.json({ message: 'Migration completed successfully' });
   } catch (err) {
-    console.error('Error during migration:', err);
+    logger.error('Error during migration', err);
     res.status(500).json({ error: 'Migration failed', details: err.message });
   }
 });
@@ -77,6 +91,7 @@ router.post('/migrate', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
+    logger.info('Fetching application configuration from database');
     const db = getDb();
     const dbType = getDbType();
     
@@ -90,29 +105,24 @@ router.get('/', async (req, res) => {
           config[row.key] = row.value;
         }
       });
+      logger.info(`Retrieved ${Object.keys(config).length} config keys`);
       res.json(config);
     } else {
-      db.all('SELECT * FROM config', (err, rows) => {
-        if (err) {
-          console.error('Error fetching config:', err);
-          return res.status(500).json({ error: 'Error fetching configuration' });
+      const rows = await db.all('SELECT * FROM config');
+      const config = {};
+      rows.forEach(row => {
+        try {
+          config[row.key] = JSON.parse(row.value);
+        } catch {
+          config[row.key] = row.value;
         }
-        
-        const config = {};
-        rows.forEach(row => {
-          try {
-            config[row.key] = JSON.parse(row.value);
-          } catch {
-            config[row.key] = row.value;
-          }
-        });
-        
-        res.json(config);
       });
+      logger.info(`Retrieved ${Object.keys(config).length} config keys`);
+      res.json(config);
     }
   } catch (err) {
-    console.error('Error fetching config:', err);
-    res.status(500).json({ error: 'Error fetching configuration' });
+    logger.error('Error fetching config', err);
+    res.status(500).json({ error: 'Error fetching configuration', message: err.message });
   }
 });
 
@@ -124,9 +134,11 @@ router.post('/', async (req, res) => {
     const { key, value } = req.body;
     
     if (!key || value === undefined) {
+      logger.warn('Invalid config update request - missing key or value');
       return res.status(400).json({ error: 'Key and value are required' });
     }
     
+    logger.info(`Updating config key: ${key}`);
     const db = getDb();
     const dbType = getDbType();
     
@@ -140,23 +152,19 @@ router.post('/', async (req, res) => {
          ON CONFLICT (key) DO UPDATE SET value = $2, updated_date = CURRENT_TIMESTAMP`,
         [key, storedValue]
       );
+      logger.info(`Config key updated successfully: ${key}`);
       res.json({ message: 'Configuration updated successfully', key, value });
     } else {
-      db.run(
+      await db.run(
         'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-        [key, storedValue],
-        function(err) {
-          if (err) {
-            console.error('Error updating config:', err);
-            return res.status(500).json({ error: 'Error updating configuration' });
-          }
-          res.json({ message: 'Configuration updated successfully', key, value });
-        }
+        [key, storedValue]
       );
+      logger.info(`Config key updated successfully: ${key}`);
+      res.json({ message: 'Configuration updated successfully', key, value });
     }
   } catch (err) {
-    console.error('Error updating config:', err);
-    res.status(500).json({ error: 'Error updating configuration' });
+    logger.error('Error updating config', err);
+    res.status(500).json({ error: 'Error updating configuration', message: err.message });
   }
 });
 
@@ -168,15 +176,18 @@ router.put('/', async (req, res) => {
     const config = req.body;
     
     if (!config || typeof config !== 'object') {
+      logger.warn('Invalid bulk config update - not an object');
       return res.status(400).json({ error: 'Configuration object required' });
     }
+    
+    const keys = Object.keys(config);
+    logger.info(`Bulk updating ${keys.length} config keys`);
     
     const db = getDb();
     const dbType = getDbType();
     
     if (dbType === 'postgres') {
       for (const [key, value] of Object.entries(config)) {
-        // Store strings as-is, only stringify complex objects
         const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
         await db.query(
           `INSERT INTO config (key, value, updated_date) 
@@ -185,27 +196,23 @@ router.put('/', async (req, res) => {
           [key, storedValue]
         );
       }
-      res.json({ message: 'Configuration updated successfully' });
+      logger.info('Bulk update completed successfully');
+      res.json({ message: 'Configuration updated successfully', count: keys.length });
     } else {
       const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)');
       
       for (const [key, value] of Object.entries(config)) {
-        // Store strings as-is, only stringify complex objects
         const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
         stmt.run(key, storedValue);
       }
       
-      stmt.finalize((err) => {
-        if (err) {
-          console.error('Error updating config:', err);
-          return res.status(500).json({ error: 'Error updating configuration' });
-        }
-        res.json({ message: 'Configuration updated successfully' });
-      });
+      await stmt.finalize();
+      logger.info('Bulk update completed successfully');
+      res.json({ message: 'Configuration updated successfully', count: keys.length });
     }
   } catch (err) {
-    console.error('Error updating config:', err);
-    res.status(500).json({ error: 'Error updating configuration' });
+    logger.error('Error in bulk config update', err);
+    res.status(500).json({ error: 'Error updating configuration', message: err.message });
   }
 });
 
@@ -214,42 +221,38 @@ router.put('/', async (req, res) => {
  */
 router.get('/:key', async (req, res) => {
   try {
+    const key = req.params.key;
+    logger.info(`Fetching config key: ${key}`);
+    
     const db = getDb();
     const dbType = getDbType();
     
     if (dbType === 'postgres') {
-      const result = await db.query('SELECT value FROM config WHERE key = $1', [req.params.key]);
+      const result = await db.query('SELECT value FROM config WHERE key = $1', [key]);
       if (result.rows.length === 0) {
+        logger.warn(`Config key not found: ${key}`);
         return res.status(404).json({ error: 'Configuration key not found' });
       }
       try {
-        res.json({ key: req.params.key, value: JSON.parse(result.rows[0].value) });
+        res.json({ key, value: JSON.parse(result.rows[0].value) });
       } catch {
-        res.json({ key: req.params.key, value: result.rows[0].value });
+        res.json({ key, value: result.rows[0].value });
       }
     } else {
-      db.get(
-        'SELECT value FROM config WHERE key = ?',
-        [req.params.key],
-        (err, row) => {
-          if (err) {
-            console.error('Error fetching config:', err);
-            return res.status(500).json({ error: 'Error fetching configuration' });
-          }
-          if (!row) {
-            return res.status(404).json({ error: 'Configuration key not found' });
-          }
-          try {
-            res.json({ key: req.params.key, value: JSON.parse(row.value) });
-          } catch {
-            res.json({ key: req.params.key, value: row.value });
-          }
-        }
-      );
+      const row = await db.get('SELECT value FROM config WHERE key = ?', [key]);
+      if (!row) {
+        logger.warn(`Config key not found: ${key}`);
+        return res.status(404).json({ error: 'Configuration key not found' });
+      }
+      try {
+        res.json({ key, value: JSON.parse(row.value) });
+      } catch {
+        res.json({ key, value: row.value });
+      }
     }
   } catch (err) {
-    console.error('Error fetching config:', err);
-    res.status(500).json({ error: 'Error fetching configuration' });
+    logger.error(`Error fetching config key: ${req.params.key}`, err);
+    res.status(500).json({ error: 'Error fetching configuration', message: err.message });
   }
 });
 

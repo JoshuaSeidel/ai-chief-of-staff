@@ -4,6 +4,13 @@ const path = require('path');
 const CONFIG_DIR = process.env.CONFIG_DIR || '/data';
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
+// Simple console logger (can't use winston here as it might not be loaded yet)
+const logger = {
+  info: (msg) => console.log(`[CONFIG-MANAGER] ${msg}`),
+  error: (msg, err) => console.error(`[CONFIG-MANAGER ERROR] ${msg}`, err ? err.message : ''),
+  warn: (msg) => console.warn(`[CONFIG-MANAGER WARNING] ${msg}`)
+};
+
 // Default configuration
 const DEFAULT_CONFIG = {
   dbType: 'sqlite',
@@ -25,7 +32,7 @@ const DEFAULT_CONFIG = {
 function ensureConfigDir() {
   if (!fs.existsSync(CONFIG_DIR)) {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    console.log(`Created config directory: ${CONFIG_DIR}`);
+    logger.info(`Created config directory: ${CONFIG_DIR}`);
   }
 }
 
@@ -39,17 +46,17 @@ function loadConfig() {
     if (fs.existsSync(CONFIG_FILE)) {
       const data = fs.readFileSync(CONFIG_FILE, 'utf8');
       const config = JSON.parse(data);
-      console.log(`Loaded configuration from ${CONFIG_FILE}`);
-      console.log(`Database type: ${config.dbType}`);
+      logger.info(`Loaded configuration from ${CONFIG_FILE}`);
+      logger.info(`Database type: ${config.dbType || 'sqlite'}`);
       return config;
     } else {
-      console.log('No config file found, using defaults');
+      logger.info('No config file found, using defaults');
       saveConfig(DEFAULT_CONFIG);
       return DEFAULT_CONFIG;
     }
   } catch (err) {
-    console.error('Error loading config:', err);
-    console.log('Using default configuration');
+    logger.error('Error loading config:', err);
+    logger.info('Using default configuration');
     return DEFAULT_CONFIG;
   }
 }
@@ -62,10 +69,10 @@ function saveConfig(config) {
   
   try {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
-    console.log(`Saved configuration to ${CONFIG_FILE}`);
+    logger.info(`Saved configuration to ${CONFIG_FILE}`);
     return true;
   } catch (err) {
-    console.error('Error saving config:', err);
+    logger.error('Error saving config:', err);
     return false;
   }
 }
@@ -76,6 +83,16 @@ function saveConfig(config) {
 function updateConfig(updates) {
   const config = loadConfig();
   const newConfig = { ...config, ...updates };
+  
+  // Deep merge for nested objects like postgres config
+  if (updates.postgres && config.postgres) {
+    newConfig.postgres = { ...config.postgres, ...updates.postgres };
+  }
+  if (updates.sqlite && config.sqlite) {
+    newConfig.sqlite = { ...config.sqlite, ...updates.sqlite };
+  }
+  
+  logger.info(`Updating configuration with ${Object.keys(updates).length} changes`);
   return saveConfig(newConfig) ? newConfig : config;
 }
 

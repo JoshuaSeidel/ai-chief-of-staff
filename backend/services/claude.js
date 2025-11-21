@@ -1,16 +1,21 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getDb, getDbType } = require('../database/db');
+const { createModuleLogger } = require('../utils/logger');
+
+const logger = createModuleLogger('CLAUDE');
 
 /**
  * Get Anthropic client with API key from database config
  */
 async function getAnthropicClient() {
+  logger.info('Retrieving Anthropic API key from configuration');
   const db = getDb();
   const dbType = getDbType();
   
   if (dbType === 'postgres') {
     const result = await db.query('SELECT value FROM config WHERE key = $1', ['anthropicApiKey']);
     if (result.rows.length === 0) {
+      logger.error('Anthropic API key not found in configuration');
       throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
     }
     try {
@@ -19,32 +24,30 @@ async function getAnthropicClient() {
       if (apiKey.startsWith('"')) {
         apiKey = JSON.parse(apiKey);
       }
+      logger.info('Anthropic client initialized successfully');
       return new Anthropic({ apiKey });
     } catch (e) {
+      logger.error('Invalid API key format', e);
       throw new Error('Invalid API key format');
     }
   } else {
-    return new Promise((resolve, reject) => {
-      db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey'], (err, row) => {
-        if (err) {
-          reject(err);
-        } else if (!row) {
-          reject(new Error('Anthropic API key not configured. Please set it in the Configuration page.'));
-        } else {
-          try {
-            // Handle both plain strings and JSON-encoded values
-            let apiKey = row.value;
-            if (apiKey.startsWith('"')) {
-              apiKey = JSON.parse(apiKey);
-            }
-            const anthropic = new Anthropic({ apiKey });
-            resolve(anthropic);
-          } catch (e) {
-            reject(new Error('Invalid API key format'));
-          }
-        }
-      });
-    });
+    const row = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
+    if (!row) {
+      logger.error('Anthropic API key not found in configuration');
+      throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
+    }
+    try {
+      // Handle both plain strings and JSON-encoded values
+      let apiKey = row.value;
+      if (apiKey.startsWith('"')) {
+        apiKey = JSON.parse(apiKey);
+      }
+      logger.info('Anthropic client initialized successfully');
+      return new Anthropic({ apiKey });
+    } catch (e) {
+      logger.error('Invalid API key format', e);
+      throw new Error('Invalid API key format');
+    }
   }
 }
 
@@ -58,6 +61,7 @@ async function getClaudeModel() {
   if (dbType === 'postgres') {
     const result = await db.query('SELECT value FROM config WHERE key = $1', ['claudeModel']);
     if (result.rows.length === 0) {
+      logger.info('Claude model not configured, using default: claude-sonnet-4-5-20250929');
       return 'claude-sonnet-4-5-20250929'; // Default model
     }
     try {
@@ -66,29 +70,30 @@ async function getClaudeModel() {
       if (model.startsWith('"')) {
         model = JSON.parse(model);
       }
+      logger.info(`Using Claude model: ${model}`);
       return model;
     } catch (e) {
+      logger.warn('Error parsing model config, using default', e);
       return 'claude-sonnet-4-5-20250929';
     }
   } else {
-    return new Promise((resolve) => {
-      db.get('SELECT value FROM config WHERE key = ?', ['claudeModel'], (err, row) => {
-        if (err || !row) {
-          resolve('claude-sonnet-4-5-20250929'); // Default model
-        } else {
-          try {
-            // Handle both plain strings and JSON-encoded values
-            let model = row.value;
-            if (model.startsWith('"')) {
-              model = JSON.parse(model);
-            }
-            resolve(model);
-          } catch (e) {
-            resolve('claude-sonnet-4-5-20250929');
-          }
-        }
-      });
-    });
+    const row = await db.get('SELECT value FROM config WHERE key = ?', ['claudeModel']);
+    if (!row) {
+      logger.info('Claude model not configured, using default: claude-sonnet-4-5-20250929');
+      return 'claude-sonnet-4-5-20250929'; // Default model
+    }
+    try {
+      // Handle both plain strings and JSON-encoded values
+      let model = row.value;
+      if (model.startsWith('"')) {
+        model = JSON.parse(model);
+      }
+      logger.info(`Using Claude model: ${model}`);
+      return model;
+    } catch (e) {
+      logger.warn('Error parsing model config, using default', e);
+      return 'claude-sonnet-4-5-20250929';
+    }
   }
 }
 
@@ -96,6 +101,12 @@ async function getClaudeModel() {
  * Generate a daily brief from context
  */
 async function generateDailyBrief(contextData) {
+  logger.info('Generating daily brief', {
+    contextCount: contextData.context?.length || 0,
+    commitmentCount: contextData.commitments?.length || 0,
+    transcriptCount: contextData.recentTranscripts?.length || 0
+  });
+
   const prompt = `You are an AI executive assistant. Based on the following context from the last 2 weeks, generate a concise daily brief for your executive.
 
 Context includes:
@@ -118,6 +129,9 @@ Generate a clear, actionable brief in markdown format.`;
     const anthropic = await getAnthropicClient();
     const model = await getClaudeModel();
     
+    logger.info(`Calling Claude API with model: ${model}`);
+    const startTime = Date.now();
+    
     const message = await anthropic.messages.create({
       model: model,
       max_tokens: 2000,
@@ -129,9 +143,15 @@ Generate a clear, actionable brief in markdown format.`;
       ]
     });
 
+    const duration = Date.now() - startTime;
+    logger.info(`Brief generated successfully in ${duration}ms`, {
+      tokens: message.usage?.total_tokens,
+      model: message.model
+    });
+
     return message.content[0].text;
   } catch (error) {
-    console.error('Error generating brief:', error);
+    logger.error('Error generating brief', error);
     throw error;
   }
 }
@@ -140,6 +160,10 @@ Generate a clear, actionable brief in markdown format.`;
  * Extract commitments and action items from transcript
  */
 async function extractCommitments(transcriptText) {
+  logger.info('Extracting commitments from transcript', {
+    transcriptLength: transcriptText.length
+  });
+
   const prompt = `Analyze this meeting transcript and extract:
 1. Commitments made (who committed to what, by when)
 2. Action items assigned
@@ -161,6 +185,9 @@ Return the results as JSON with this structure:
     const anthropic = await getAnthropicClient();
     const model = await getClaudeModel();
     
+    logger.info(`Calling Claude API for extraction with model: ${model}`);
+    const startTime = Date.now();
+    
     const message = await anthropic.messages.create({
       model: model,
       max_tokens: 1500,
@@ -172,15 +199,30 @@ Return the results as JSON with this structure:
       ]
     });
 
+    const duration = Date.now() - startTime;
     const responseText = message.content[0].text;
+    
     // Extract JSON from response (Claude sometimes wraps it in markdown)
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    let extracted;
+    
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      extracted = JSON.parse(jsonMatch[0]);
+    } else {
+      extracted = JSON.parse(responseText);
     }
-    return JSON.parse(responseText);
+    
+    logger.info(`Extraction completed in ${duration}ms`, {
+      commitments: extracted.commitments?.length || 0,
+      actionItems: extracted.actionItems?.length || 0,
+      followUps: extracted.followUps?.length || 0,
+      risks: extracted.risks?.length || 0,
+      tokens: message.usage?.total_tokens
+    });
+    
+    return extracted;
   } catch (error) {
-    console.error('Error extracting commitments:', error);
+    logger.error('Error extracting commitments', error);
     throw error;
   }
 }
@@ -189,6 +231,10 @@ Return the results as JSON with this structure:
  * Generate weekly report
  */
 async function generateWeeklyReport(weekData) {
+  logger.info('Generating weekly report', {
+    dataKeys: Object.keys(weekData)
+  });
+
   const prompt = `Generate a concise weekly report for my manager based on this week's activity:
 
 ${JSON.stringify(weekData, null, 2)}
@@ -204,6 +250,9 @@ Keep it executive-level: clear, concise, outcome-focused.`;
     const anthropic = await getAnthropicClient();
     const model = await getClaudeModel();
     
+    logger.info(`Calling Claude API for weekly report with model: ${model}`);
+    const startTime = Date.now();
+    
     const message = await anthropic.messages.create({
       model: model,
       max_tokens: 1500,
@@ -215,9 +264,14 @@ Keep it executive-level: clear, concise, outcome-focused.`;
       ]
     });
 
+    const duration = Date.now() - startTime;
+    logger.info(`Weekly report generated successfully in ${duration}ms`, {
+      tokens: message.usage?.total_tokens
+    });
+
     return message.content[0].text;
   } catch (error) {
-    console.error('Error generating weekly report:', error);
+    logger.error('Error generating weekly report', error);
     throw error;
   }
 }

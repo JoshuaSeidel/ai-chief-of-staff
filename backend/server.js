@@ -3,24 +3,52 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const path = require('path');
+const logger = require('./utils/logger');
+const { createModuleLogger } = require('./utils/logger');
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const serverLogger = createModuleLogger('SERVER');
 
 // Initialize database before loading routes
 const { initializeDatabase } = require('./database/db');
 
-console.log('=================================');
-console.log('AI Chief of Staff - Starting...');
-console.log('=================================');
+serverLogger.info('=================================');
+serverLogger.info('AI Chief of Staff - Starting...');
+serverLogger.info('=================================');
+serverLogger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
+serverLogger.info(`Port: ${PORT}`);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  // Log when response is finished
+  res.on('finish', () => {
+    const duration = Date.now() - startTime;
+    const logLevel = res.statusCode >= 400 ? 'warn' : 'info';
+    
+    logger[logLevel]('HTTP Request', {
+      module: 'HTTP',
+      method: req.method,
+      url: req.url,
+      status: res.statusCode,
+      duration: `${duration}ms`,
+      ip: req.ip,
+      userAgent: req.get('user-agent')
+    });
+  });
+  
+  next();
+});
 
 // Serve static frontend files (for all-in-one container)
 app.use(express.static(path.join(__dirname, 'public')));
@@ -34,23 +62,42 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + '-' + file.originalname);
   }
 });
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Log file uploads
+    serverLogger.info('File upload initiated', {
+      filename: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    cb(null, true);
+  }
+});
 
 // Make upload middleware available to routes
 app.set('upload', upload);
 
 // Health check (available before database is initialized)
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'AI Chief of Staff API is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'AI Chief of Staff API is running',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Initialize and start server
 async function startServer() {
   try {
     // Initialize database first
-    console.log('Initializing database...');
+    serverLogger.info('Initializing database...');
     await initializeDatabase();
-    console.log('Database ready');
+    serverLogger.info('Database ready');
     
     // Import and setup routes after database is initialized
     const briefRoutes = require('./routes/brief');
@@ -63,33 +110,97 @@ async function startServer() {
     app.use('/api/config', configRoutes);
     app.use('/api/calendar', calendarRoutes);
     
+    serverLogger.info('API routes initialized');
+    
     // Serve frontend for any non-API routes (for all-in-one container)
     app.get('*', (req, res) => {
       res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
     
+    // 404 handler for API routes
+    app.use('/api/*', (req, res) => {
+      serverLogger.warn('API endpoint not found', { 
+        method: req.method, 
+        url: req.url 
+      });
+      res.status(404).json({ 
+        error: 'API endpoint not found',
+        path: req.url,
+        method: req.method
+      });
+    });
+    
     // Error handling middleware
     app.use((err, req, res, next) => {
-      console.error('Error:', err);
-      res.status(500).json({ 
-        error: 'Something went wrong!',
-        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+      serverLogger.error('Unhandled error in request', {
+        error: err.message,
+        stack: err.stack,
+        url: req.url,
+        method: req.method,
+        body: req.body,
+        params: req.params,
+        query: req.query
+      });
+      
+      // Multer errors
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ 
+            error: 'File too large',
+            message: 'File size limit is 10MB'
+          });
+        }
+        return res.status(400).json({ 
+          error: 'File upload error',
+          message: err.message
+        });
+      }
+      
+      // Generic error response
+      res.status(err.status || 500).json({ 
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+        requestId: req.id,
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
       });
     });
     
     // Start server
     app.listen(PORT, () => {
-      console.log('=================================');
-      console.log(`Server running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV || 'production'}`);
-      console.log('=================================');
+      serverLogger.info('=================================');
+      serverLogger.info(`Server running on port ${PORT}`);
+      serverLogger.info(`Environment: ${process.env.NODE_ENV || 'production'}`);
+      serverLogger.info('=================================');
     });
     
   } catch (err) {
-    console.error('Failed to start server:', err);
+    serverLogger.error('Failed to start server', { error: err.message, stack: err.stack });
     process.exit(1);
   }
 }
+
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+  serverLogger.info('SIGTERM signal received: closing HTTP server');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  serverLogger.info('SIGINT signal received: closing HTTP server');
+  process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  serverLogger.error('Uncaught Exception', { error: err.message, stack: err.stack });
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  serverLogger.error('Unhandled Rejection', { reason, promise });
+  process.exit(1);
+});
 
 startServer();
 

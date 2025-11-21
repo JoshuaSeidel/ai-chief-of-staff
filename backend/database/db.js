@@ -9,6 +9,13 @@ let pool;
 let config;
 let dbType;
 
+// Create a unified database interface logger
+const dbLogger = {
+  info: (msg, ...args) => console.log(`[DB] ${msg}`, ...args),
+  error: (msg, ...args) => console.error(`[DB ERROR] ${msg}`, ...args),
+  warn: (msg, ...args) => console.warn(`[DB WARNING] ${msg}`, ...args)
+};
+
 /**
  * Initialize database connection based on config
  */
@@ -18,7 +25,7 @@ async function initializeDatabase() {
     config = configManager.loadConfig();
     dbType = config.dbType || 'sqlite';
     
-    console.log(`Initializing ${dbType} database...`);
+    dbLogger.info(`Initializing ${dbType} database...`);
     
     if (dbType === 'postgres') {
       await initPostgres();
@@ -26,9 +33,9 @@ async function initializeDatabase() {
       await initSQLite();
     }
     
-    console.log(`Database initialized successfully`);
+    dbLogger.info(`Database initialized successfully`);
   } catch (err) {
-    console.error('Failed to initialize database:', err);
+    dbLogger.error('Failed to initialize database:', err);
     throw err;
   }
 }
@@ -44,14 +51,15 @@ function initSQLite() {
     // Ensure data directory exists
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true });
+      dbLogger.info(`Created data directory: ${dbDir}`);
     }
 
     db = new sqlite3.Database(dbPath, async (err) => {
       if (err) {
-        console.error('Error opening SQLite database:', err);
+        dbLogger.error('Error opening SQLite database:', err);
         reject(err);
       } else {
-        console.log(`Connected to SQLite database at ${dbPath}`);
+        dbLogger.info(`Connected to SQLite database at ${dbPath}`);
         try {
           await initDatabaseTables();
           resolve();
@@ -80,7 +88,7 @@ async function initPostgres() {
       password: pgConfig.password || '',
     });
     
-    console.log(`Connecting to PostgreSQL at ${pgConfig.host}:${pgConfig.port}...`);
+    dbLogger.info(`Connecting to PostgreSQL at ${pgConfig.host}:${pgConfig.port}...`);
     await adminClient.connect();
     
     // Check if database exists
@@ -90,11 +98,11 @@ async function initPostgres() {
     );
     
     if (result.rows.length === 0) {
-      console.log(`Database '${dbName}' does not exist, creating...`);
+      dbLogger.info(`Database '${dbName}' does not exist, creating...`);
       await adminClient.query(`CREATE DATABASE ${dbName}`);
-      console.log(`Database '${dbName}' created successfully`);
+      dbLogger.info(`Database '${dbName}' created successfully`);
     } else {
-      console.log(`Database '${dbName}' already exists`);
+      dbLogger.info(`Database '${dbName}' already exists`);
     }
     
     await adminClient.end();
@@ -109,14 +117,14 @@ async function initPostgres() {
     });
     
     pool.on('error', (err) => {
-      console.error('PostgreSQL pool error:', err);
+      dbLogger.error('PostgreSQL pool error:', err);
     });
     
-    console.log(`Connected to PostgreSQL database '${dbName}'`);
+    dbLogger.info(`Connected to PostgreSQL database '${dbName}'`);
     await initDatabaseTablesPostgres();
     
   } catch (err) {
-    console.error('Error initializing PostgreSQL:', err);
+    dbLogger.error('Error initializing PostgreSQL:', err);
     throw err;
   }
 }
@@ -189,10 +197,10 @@ function initDatabaseTables() {
         )
       `, (err) => {
         if (err) {
-          console.error('Error creating tables:', err);
+          dbLogger.error('Error creating tables:', err);
           reject(err);
         } else {
-          console.log('SQLite tables initialized');
+          dbLogger.info('SQLite tables initialized');
           resolve();
         }
       });
@@ -265,9 +273,9 @@ async function initDatabaseTablesPostgres() {
       )
     `);
 
-    console.log('PostgreSQL tables initialized');
+    dbLogger.info('PostgreSQL tables initialized');
   } catch (err) {
-    console.error('Error initializing PostgreSQL tables:', err);
+    dbLogger.error('Error initializing PostgreSQL tables:', err);
     throw err;
   }
 }
@@ -276,13 +284,13 @@ async function initDatabaseTablesPostgres() {
  * Migrate data from SQLite to PostgreSQL
  */
 async function migrateToPostgres() {
-  console.log('Starting migration from SQLite to PostgreSQL...');
+  dbLogger.info('Starting migration from SQLite to PostgreSQL...');
   
   try {
     // Load SQLite database
     const sqlitePath = config.sqlite?.path || '/data/ai-chief-of-staff.db';
     if (!fs.existsSync(sqlitePath)) {
-      console.log('No SQLite database found, skipping migration');
+      dbLogger.info('No SQLite database found, skipping migration');
       return;
     }
     
@@ -303,7 +311,7 @@ async function migrateToPostgres() {
         [row.id, row.filename, row.content, row.upload_date, row.processed, row.source]
       );
     }
-    console.log(`Migrated ${transcripts.length} transcripts`);
+    dbLogger.info(`Migrated ${transcripts.length} transcripts`);
     
     // Migrate context
     const contexts = await new Promise((resolve, reject) => {
@@ -320,7 +328,7 @@ async function migrateToPostgres() {
         [row.id, row.transcript_id, row.context_type, row.content, row.priority, row.deadline, row.status, row.created_date]
       );
     }
-    console.log(`Migrated ${contexts.length} context entries`);
+    dbLogger.info(`Migrated ${contexts.length} context entries`);
     
     // Migrate commitments
     const commitments = await new Promise((resolve, reject) => {
@@ -337,7 +345,7 @@ async function migrateToPostgres() {
         [row.id, row.transcript_id, row.description, row.deadline, row.assignee, row.status, row.created_date, row.completed_date]
       );
     }
-    console.log(`Migrated ${commitments.length} commitments`);
+    dbLogger.info(`Migrated ${commitments.length} commitments`);
     
     // Migrate briefs
     const briefs = await new Promise((resolve, reject) => {
@@ -354,7 +362,7 @@ async function migrateToPostgres() {
         [row.id, row.brief_date, row.content, row.top_priorities, row.created_date]
       );
     }
-    console.log(`Migrated ${briefs.length} briefs`);
+    dbLogger.info(`Migrated ${briefs.length} briefs`);
     
     // Migrate config
     const configRows = await new Promise((resolve, reject) => {
@@ -371,22 +379,200 @@ async function migrateToPostgres() {
         [row.key, row.value, row.updated_date]
       );
     }
-    console.log(`Migrated ${configRows.length} config entries`);
+    dbLogger.info(`Migrated ${configRows.length} config entries`);
     
     sqliteDb.close();
-    console.log('Migration completed successfully');
+    dbLogger.info('Migration completed successfully');
     
   } catch (err) {
-    console.error('Error during migration:', err);
+    dbLogger.error('Error during migration:', err);
     throw err;
   }
 }
 
 /**
+ * Unified Database Query Interface
+ * Provides consistent API regardless of database type
+ */
+class DatabaseWrapper {
+  /**
+   * Execute a query and return all results
+   * @param {string} query - SQL query
+   * @param {array} params - Query parameters
+   * @returns {Promise<array>} - Array of result rows
+   */
+  async all(query, params = []) {
+    try {
+      if (dbType === 'postgres') {
+        // Convert ? placeholders to $1, $2, etc. for PostgreSQL
+        let pgQuery = query;
+        let paramIndex = 1;
+        pgQuery = pgQuery.replace(/\?/g, () => `$${paramIndex++}`);
+        
+        dbLogger.info(`Executing query: ${pgQuery.substring(0, 100)}...`);
+        const result = await pool.query(pgQuery, params);
+        dbLogger.info(`Query returned ${result.rows.length} rows`);
+        return result.rows;
+      } else {
+        return new Promise((resolve, reject) => {
+          dbLogger.info(`Executing query: ${query.substring(0, 100)}...`);
+          db.all(query, params, (err, rows) => {
+            if (err) {
+              dbLogger.error('Query error:', err);
+              reject(err);
+            } else {
+              dbLogger.info(`Query returned ${rows ? rows.length : 0} rows`);
+              resolve(rows || []);
+            }
+          });
+        });
+      }
+    } catch (err) {
+      dbLogger.error('Database query error:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Execute a query and return a single result
+   * @param {string} query - SQL query
+   * @param {array} params - Query parameters
+   * @returns {Promise<object|null>} - Single result row or null
+   */
+  async get(query, params = []) {
+    try {
+      if (dbType === 'postgres') {
+        // Convert ? placeholders to $1, $2, etc. for PostgreSQL
+        let pgQuery = query;
+        let paramIndex = 1;
+        pgQuery = pgQuery.replace(/\?/g, () => `$${paramIndex++}`);
+        
+        dbLogger.info(`Executing query: ${pgQuery.substring(0, 100)}...`);
+        const result = await pool.query(pgQuery, params);
+        const row = result.rows.length > 0 ? result.rows[0] : null;
+        dbLogger.info(`Query returned ${row ? '1 row' : 'no rows'}`);
+        return row;
+      } else {
+        return new Promise((resolve, reject) => {
+          dbLogger.info(`Executing query: ${query.substring(0, 100)}...`);
+          db.get(query, params, (err, row) => {
+            if (err) {
+              dbLogger.error('Query error:', err);
+              reject(err);
+            } else {
+              dbLogger.info(`Query returned ${row ? '1 row' : 'no rows'}`);
+              resolve(row || null);
+            }
+          });
+        });
+      }
+    } catch (err) {
+      dbLogger.error('Database query error:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Execute a query that modifies data (INSERT, UPDATE, DELETE)
+   * @param {string} query - SQL query
+   * @param {array} params - Query parameters
+   * @returns {Promise<object>} - Object with lastID and changes properties
+   */
+  async run(query, params = []) {
+    try {
+      if (dbType === 'postgres') {
+        // Convert ? placeholders to $1, $2, etc. for PostgreSQL
+        let pgQuery = query;
+        let paramIndex = 1;
+        pgQuery = pgQuery.replace(/\?/g, () => `$${paramIndex++}`);
+        
+        // Add RETURNING id to INSERT queries to get the lastID
+        if (pgQuery.trim().toUpperCase().startsWith('INSERT') && !pgQuery.toUpperCase().includes('RETURNING')) {
+          pgQuery += ' RETURNING id';
+        }
+        
+        dbLogger.info(`Executing query: ${pgQuery.substring(0, 100)}...`);
+        const result = await pool.query(pgQuery, params);
+        
+        return {
+          lastID: result.rows.length > 0 ? result.rows[0].id : null,
+          changes: result.rowCount || 0
+        };
+      } else {
+        return new Promise((resolve, reject) => {
+          dbLogger.info(`Executing query: ${query.substring(0, 100)}...`);
+          db.run(query, params, function(err) {
+            if (err) {
+              dbLogger.error('Query error:', err);
+              reject(err);
+            } else {
+              dbLogger.info(`Query affected ${this.changes} rows`);
+              resolve({
+                lastID: this.lastID,
+                changes: this.changes
+              });
+            }
+          });
+        });
+      }
+    } catch (err) {
+      dbLogger.error('Database query error:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Prepare a statement for multiple executions (batch operations)
+   * @param {string} query - SQL query
+   * @returns {object} - Statement object with run and finalize methods
+   */
+  prepare(query) {
+    if (dbType === 'postgres') {
+      // For PostgreSQL, we'll batch the operations and execute them all in finalize()
+      const operations = [];
+      let pgQuery = query;
+      let paramIndex = 1;
+      pgQuery = pgQuery.replace(/\?/g, () => `$${paramIndex++}`);
+      
+      return {
+        run: (...params) => {
+          operations.push([...params]);
+        },
+        finalize: async (callback) => {
+          try {
+            for (const params of operations) {
+              await pool.query(pgQuery, params);
+            }
+            dbLogger.info(`Batch operation completed: ${operations.length} queries executed`);
+            if (callback) callback(null);
+          } catch (err) {
+            dbLogger.error('Batch operation error:', err);
+            if (callback) callback(err);
+            else throw err;
+          }
+        }
+      };
+    } else {
+      return db.prepare(query);
+    }
+  }
+
+  /**
+   * Get the raw database connection (for advanced use cases)
+   */
+  getRawConnection() {
+    return dbType === 'postgres' ? pool : db;
+  }
+}
+
+// Create singleton instance of the wrapper
+const dbWrapper = new DatabaseWrapper();
+
+/**
  * Get the database connection (unified interface)
  */
 function getDb() {
-  return dbType === 'postgres' ? pool : db;
+  return dbWrapper;
 }
 
 /**

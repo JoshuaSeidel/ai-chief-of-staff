@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const ical = require('node-ical');
-const https = require('https');
+const { createModuleLogger } = require('../utils/logger');
+
+const logger = createModuleLogger('CALENDAR');
 
 /**
  * Fetch calendar events from iCloud
@@ -10,10 +12,12 @@ router.get('/events', async (req, res) => {
   const calendarUrl = process.env.ICAL_CALENDAR_URL;
   
   if (!calendarUrl) {
+    logger.warn('Calendar events requested but iCloud calendar URL not configured');
     return res.status(400).json({ error: 'iCloud calendar URL not configured' });
   }
 
   try {
+    logger.info('Fetching calendar events from iCloud');
     const events = await ical.async.fromURL(calendarUrl);
     const eventList = [];
 
@@ -30,8 +34,10 @@ router.get('/events', async (req, res) => {
       }
     }
 
+    logger.info(`Retrieved ${eventList.length} calendar events`);
     res.json(eventList);
   } catch (error) {
+    logger.error('Error fetching calendar events', error);
     res.status(500).json({ error: 'Error fetching calendar events', message: error.message });
   }
 });
@@ -43,8 +49,14 @@ router.post('/block', async (req, res) => {
   const { title, startTime, endTime, description } = req.body;
 
   if (!title || !startTime || !endTime) {
+    logger.warn('Calendar block creation attempted with missing required fields');
     return res.status(400).json({ error: 'Title, startTime, and endTime are required' });
   }
+
+  logger.info(`Creating calendar block: ${title}`, {
+    start: startTime,
+    end: endTime
+  });
 
   // NOTE: iCloud calendar URLs are typically read-only
   // To create events, you would need to use CalDAV protocol or macOS Calendar app
@@ -58,6 +70,7 @@ router.post('/block', async (req, res) => {
     icsFormat: generateICS(title, startTime, endTime, description)
   };
 
+  logger.info('Calendar block data generated (manual import needed)');
   res.json({
     message: 'Calendar block created (manual import needed)',
     event,
@@ -90,6 +103,7 @@ END:VCALENDAR`;
  * Download ICS file
  */
 router.get('/block/:id/download', (req, res) => {
+  logger.info(`ICS download requested for event ID: ${req.params.id}`);
   // This would retrieve a stored event and return as ICS file
   res.setHeader('Content-Type', 'text/calendar');
   res.setHeader('Content-Disposition', 'attachment; filename=event.ics');
