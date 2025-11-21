@@ -21,9 +21,17 @@ async function saveCommitmentsWithCalendar(db, transcriptId, commitments) {
   );
   
   let calendarEventsCreated = 0;
+  let commitmentsWithDeadlines = 0;
   const isGoogleConnected = await googleCalendar.isConnected();
   
+  logger.info(`Google Calendar connected: ${isGoogleConnected}`);
+  
   for (const commitment of commitments) {
+    // Count commitments with deadlines
+    if (commitment.deadline) {
+      commitmentsWithDeadlines++;
+    }
+    
     // Save to database
     const result = await stmt.run(
       transcriptId,
@@ -52,7 +60,11 @@ async function saveCommitmentsWithCalendar(db, transcriptId, commitments) {
   }
   
   await stmt.finalize();
-  logger.info(`Saved ${commitments.length} commitments, created ${calendarEventsCreated} calendar events`);
+  logger.info(`Saved ${commitments.length} commitments (${commitmentsWithDeadlines} with deadlines), created ${calendarEventsCreated} calendar events`);
+  
+  if (commitmentsWithDeadlines > 0 && !isGoogleConnected) {
+    logger.warn(`${commitmentsWithDeadlines} commitments have deadlines but Google Calendar is not connected. Connect Google Calendar in Configuration to auto-create events.`);
+  }
   
   return {
     saved: commitments.length,
