@@ -300,17 +300,26 @@ function Configuration() {
           <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             Max Tokens (Response Length)
           </label>
-          <input
-            type="number"
+          <select
             value={config.claudeMaxTokens}
             onChange={(e) => handleChange('claudeMaxTokens', e.target.value)}
-            placeholder="4096"
-            min="1000"
-            max="8192"
-          />
+            style={{ 
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #d2d2d7',
+              borderRadius: '8px',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              marginBottom: '1rem'
+            }}
+          >
+            <option value="2048">2048 - Short meetings (cheaper)</option>
+            <option value="4096">4096 - Normal meetings (recommended)</option>
+            <option value="6144">6144 - Long meetings</option>
+            <option value="8192">8192 - Very long meetings (max)</option>
+          </select>
           <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
-            Maximum tokens for AI responses. Higher = longer responses but more cost. 
-            Recommended: 4096 for large transcripts, 2048 for short meetings.
+            Maximum tokens for AI responses. Higher = longer/complete responses but more cost.
           </p>
         </div>
 
