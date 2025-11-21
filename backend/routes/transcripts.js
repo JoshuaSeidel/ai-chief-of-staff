@@ -318,4 +318,131 @@ router.get('/:id/context', async (req, res) => {
   }
 });
 
+/**
+ * Reprocess a transcript to extract commitments again
+ */
+router.post('/:id/reprocess', async (req, res) => {
+  const id = req.params.id;
+  logger.info(`Reprocessing transcript ID: ${id}`);
+  
+  try {
+    const db = getDb();
+    
+    // Get the transcript
+    const transcript = await db.get('SELECT * FROM transcripts WHERE id = ?', [id]);
+    
+    if (!transcript) {
+      logger.warn(`Transcript ${id} not found for reprocessing`);
+      return res.status(404).json({ error: 'Transcript not found' });
+    }
+    
+    logger.info(`Reprocessing transcript: ${transcript.filename}`);
+    
+    // Delete existing commitments and context for this transcript
+    await db.run('DELETE FROM commitments WHERE transcript_id = ?', [id]);
+    await db.run('DELETE FROM context WHERE transcript_id = ?', [id]);
+    logger.info(`Cleared existing commitments and context for transcript ${id}`);
+    
+    // Extract commitments using Claude
+    try {
+      const extracted = await extractCommitments(transcript.content);
+      logger.info('Commitments extracted successfully', {
+        commitments: extracted.commitments?.length || 0,
+        actionItems: extracted.actionItems?.length || 0
+      });
+      
+      // Save commitments
+      if (extracted.commitments && extracted.commitments.length > 0) {
+        const stmt = db.prepare(
+          'INSERT INTO commitments (transcript_id, description, deadline, assignee, status) VALUES (?, ?, ?, ?, ?)'
+        );
+        
+        for (const commitment of extracted.commitments) {
+          stmt.run(id, commitment.description, commitment.deadline || null, commitment.assignee || null, 'pending');
+        }
+        
+        await stmt.finalize();
+        logger.info(`Saved ${extracted.commitments.length} commitments`);
+      }
+      
+      // Save action items as context
+      if (extracted.actionItems && extracted.actionItems.length > 0) {
+        const stmt = db.prepare(
+          'INSERT INTO context (transcript_id, context_type, content, priority) VALUES (?, ?, ?, ?)'
+        );
+        
+        for (const item of extracted.actionItems) {
+          stmt.run(id, 'action_item', item.description, item.priority || 'medium');
+        }
+        
+        await stmt.finalize();
+        logger.info(`Saved ${extracted.actionItems.length} action items`);
+      }
+      
+      // Save follow-ups as context
+      if (extracted.followUps && extracted.followUps.length > 0) {
+        const stmt = db.prepare(
+          'INSERT INTO context (transcript_id, context_type, content) VALUES (?, ?, ?)'
+        );
+        
+        for (const followUp of extracted.followUps) {
+          const description = followUp.with ? `Follow up with ${followUp.with}: ${followUp.description}` : followUp.description;
+          stmt.run(id, 'follow_up', description);
+        }
+        
+        await stmt.finalize();
+        logger.info(`Saved ${extracted.followUps.length} follow-ups`);
+      }
+      
+      // Save risks as context
+      if (extracted.risks && extracted.risks.length > 0) {
+        const stmt = db.prepare(
+          'INSERT INTO context (transcript_id, context_type, content, priority) VALUES (?, ?, ?, ?)'
+        );
+        
+        for (const risk of extracted.risks) {
+          const description = risk.impact ? `${risk.description} (Impact: ${risk.impact})` : risk.description;
+          stmt.run(id, 'risk', description, 'high');
+        }
+        
+        await stmt.finalize();
+        logger.info(`Saved ${extracted.risks.length} risks`);
+      }
+      
+      // Mark transcript as processed
+      await db.run('UPDATE transcripts SET processed = ? WHERE id = ?', [true, id]);
+      
+      res.json({ 
+        success: true,
+        message: 'Transcript reprocessed successfully',
+        extracted: {
+          commitments: extracted.commitments?.length || 0,
+          actionItems: extracted.actionItems?.length || 0,
+          followUps: extracted.followUps?.length || 0,
+          risks: extracted.risks?.length || 0
+        }
+      });
+      
+    } catch (extractError) {
+      logger.error('Error extracting commitments:', extractError);
+      
+      // Still mark as processed even if extraction fails
+      await db.run('UPDATE transcripts SET processed = ? WHERE id = ?', [true, id]);
+      
+      res.json({
+        success: false,
+        message: 'Transcript saved but commitment extraction failed. Please check your Anthropic API key configuration.',
+        error: extractError.message
+      });
+    }
+    
+  } catch (err) {
+    logger.error(`Error reprocessing transcript ${id}:`, err);
+    res.status(500).json({ 
+      error: 'Error reprocessing transcript',
+      message: err.message
+    });
+  }
+});
+
 module.exports = router;

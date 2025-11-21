@@ -147,6 +147,11 @@ Return the results as JSON with this structure:
 
   try {
     const anthropic = await getAnthropicClient();
+    
+    if (!anthropic) {
+      throw new Error('Failed to initialize Anthropic client. Please check your API key configuration.');
+    }
+    
     const model = await getClaudeModel();
     
     logger.info(`Calling Claude API for extraction with model: ${model}`);

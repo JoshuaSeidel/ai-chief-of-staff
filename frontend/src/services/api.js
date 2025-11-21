@@ -30,6 +30,7 @@ export const transcriptsAPI = {
   getAll: (limit = 50) => api.get(`/transcripts?limit=${limit}`),
   getById: (id) => api.get(`/transcripts/${id}`),
   delete: (id) => api.delete(`/transcripts/${id}`),
+  reprocess: (id) => api.post(`/transcripts/${id}/reprocess`),
 };
 
 // Config API

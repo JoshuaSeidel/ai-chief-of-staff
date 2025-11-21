@@ -109,6 +109,40 @@ function Transcripts() {
     }
   };
 
+  const handleReprocess = async (id, filename) => {
+    if (!window.confirm(`Reprocess "${filename}"?\n\nThis will re-extract commitments and action items using Claude AI.`)) {
+      return;
+    }
+
+    setUploading(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await transcriptsAPI.reprocess(id);
+      const data = response.data;
+      
+      if (data.success) {
+        let message = `Successfully reprocessed: ${filename}`;
+        if (data.extracted) {
+          message += `\n✓ Extracted ${data.extracted.commitments || 0} commitments`;
+          message += `\n✓ Extracted ${data.extracted.actionItems || 0} action items`;
+          message += `\n✓ Extracted ${data.extracted.followUps || 0} follow-ups`;
+          message += `\n✓ Extracted ${data.extracted.risks || 0} risks`;
+        }
+        setSuccessMessage(message);
+      } else {
+        setError(data.message || 'Reprocessing failed');
+      }
+      
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to reprocess transcript');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleViewTranscript = async (id) => {
     try {
       const response = await transcriptsAPI.getById(id);
@@ -348,6 +382,15 @@ function Transcripts() {
                         onClick={() => handleViewTranscript(transcript.id)}
                       >
                         View
+                      </button>
+                      <button
+                        className="secondary"
+                        style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
+                        onClick={() => handleReprocess(transcript.id, transcript.filename)}
+                        disabled={uploading}
+                        title="Re-extract commitments and action items"
+                      >
+                        🔄 Reprocess
                       </button>
                       <button
                         className="secondary"
