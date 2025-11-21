@@ -5,6 +5,7 @@ function Configuration() {
   const [config, setConfig] = useState({
     anthropicApiKey: '',
     claudeModel: 'claude-sonnet-4-5-20250929',
+    claudeMaxTokens: '4096',
     plaudApiKey: '',
     plaudApiUrl: 'https://api.plaud.ai',
     icalCalendarUrl: '',
@@ -67,6 +68,7 @@ function Configuration() {
       setConfig({
         anthropicApiKey: appData.anthropicApiKey ? '••••••••' : '',
         claudeModel: appData.claudeModel || 'claude-sonnet-4-5-20250929',
+        claudeMaxTokens: appData.claudeMaxTokens || '4096',
         plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
         plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
         icalCalendarUrl: appData.icalCalendarUrl || '',
@@ -167,6 +169,7 @@ function Configuration() {
       
       // Always save these fields (they're not masked)
       appUpdates.claudeModel = config.claudeModel;
+      appUpdates.claudeMaxTokens = config.claudeMaxTokens;
       appUpdates.plaudApiUrl = config.plaudApiUrl;
       appUpdates.icalCalendarUrl = config.icalCalendarUrl;
       
@@ -293,6 +296,22 @@ function Configuration() {
             <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
             <option value="claude-3-opus-20240229">Claude 3 Opus</option>
           </select>
+
+          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            Max Tokens (Response Length)
+          </label>
+          <input
+            type="number"
+            value={config.claudeMaxTokens}
+            onChange={(e) => handleChange('claudeMaxTokens', e.target.value)}
+            placeholder="4096"
+            min="1000"
+            max="8192"
+          />
+          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
+            Maximum tokens for AI responses. Higher = longer responses but more cost. 
+            Recommended: 4096 for large transcripts, 2048 for short meetings.
+          </p>
         </div>
 
         <div style={{ marginBottom: '2rem' }}>

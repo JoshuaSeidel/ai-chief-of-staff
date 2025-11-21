@@ -97,6 +97,18 @@ async function getClaudeModel() {
 }
 
 /**
+ * Get configured max tokens or default
+ */
+async function getMaxTokens() {
+  const db = getDb();
+  const row = await db.get('SELECT value FROM config WHERE key = ?', ['claudeMaxTokens']);
+  const maxTokens = row?.value ? parseInt(row.value) : 4096;
+  const clamped = isNaN(maxTokens) ? 4096 : Math.min(Math.max(maxTokens, 1000), 8192); // Clamp between 1000-8192
+  logger.info(`Max tokens configured: ${clamped}`);
+  return clamped;
+}
+
+/**
  * Generate a daily brief from context
  */
 async function generateDailyBrief(contextData) {
@@ -133,7 +145,7 @@ Generate a clear, actionable brief in markdown format.`;
     
     const message = await anthropic.messages.create({
       model: model,
-      max_tokens: 2000,
+      max_tokens: 4096,
       messages: [
         {
           role: 'user',
@@ -209,13 +221,14 @@ Return ONLY valid JSON (no markdown, no explanations):
     }
     
     const model = await getClaudeModel();
+    const maxTokens = await getMaxTokens();
     
-    logger.info(`Calling Claude API for extraction with model: ${model}`);
+    logger.info(`Calling Claude API for extraction with model: ${model}, max_tokens: ${maxTokens}`);
     const startTime = Date.now();
     
     const message = await anthropic.messages.create({
       model: model,
-      max_tokens: 1500,
+      max_tokens: maxTokens,
       messages: [
         {
           role: 'user',
@@ -388,7 +401,7 @@ Return results as JSON:
     
     const message = await anthropic.messages.create({
       model: model,
-      max_tokens: 2000,
+      max_tokens: 4096,
       messages: [
         {
           role: 'user',
