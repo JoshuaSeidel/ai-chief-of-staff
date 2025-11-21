@@ -42,18 +42,21 @@ async function saveCommitmentsWithCalendar(db, transcriptId, commitments) {
       commitment.suggested_approach || null
     );
     
+    // Get the inserted ID (works for both SQLite and PostgreSQL)
+    const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
+    
     // Try to create calendar event if deadline exists and Google Calendar is connected
     if (commitment.deadline && isGoogleConnected) {
       try {
         const commitmentWithId = {
           ...commitment,
-          id: result.lastID
+          id: insertedId
         };
         await googleCalendar.createEventFromCommitment(commitmentWithId);
         calendarEventsCreated++;
         logger.info(`Created calendar event for commitment: ${commitment.description.substring(0, 50)}...`);
       } catch (calError) {
-        logger.warn(`Failed to create calendar event for commitment ${result.lastID}:`, calError.message);
+        logger.warn(`Failed to create calendar event for commitment ${insertedId}:`, calError.message);
         // Don't fail the whole operation if calendar event creation fails
       }
     }
