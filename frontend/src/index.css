@@ -10,8 +10,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f5f5f7;
-  color: #1d1d1f;
+  background-color: #1a1a1a;
+  color: #e4e4e7;
 }
 
 code {
@@ -26,16 +26,16 @@ code {
 }
 
 .header {
-  background-color: #fff;
-  border-bottom: 1px solid #d2d2d7;
+  background-color: #27272a;
+  border-bottom: 1px solid #3f3f46;
   padding: 1rem 2rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .header h1 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #1d1d1f;
+  color: #e4e4e7;
 }
 
 .nav {
@@ -50,18 +50,18 @@ code {
   border: none;
   cursor: pointer;
   font-size: 0.95rem;
-  color: #6e6e73;
+  color: #a1a1aa;
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
 }
 
 .nav button:hover {
-  color: #1d1d1f;
+  color: #e4e4e7;
 }
 
 .nav button.active {
-  color: #0071e3;
-  border-bottom-color: #0071e3;
+  color: #60a5fa;
+  border-bottom-color: #60a5fa;
 }
 
 .container {
@@ -72,18 +72,19 @@ code {
 }
 
 .card {
-  background: #fff;
+  background: #27272a;
   border-radius: 12px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid #3f3f46;
 }
 
 .card h2 {
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 1rem;
-  color: #1d1d1f;
+  color: #e4e4e7;
 }
 
 .card h3 {
@@ -91,12 +92,12 @@ code {
   font-weight: 600;
   margin-top: 1.5rem;
   margin-bottom: 0.75rem;
-  color: #1d1d1f;
+  color: #e4e4e7;
 }
 
 button {
   padding: 0.75rem 1.5rem;
-  background-color: #0071e3;
+  background-color: #3b82f6;
   color: white;
   border: none;
   border-radius: 8px;
@@ -107,54 +108,66 @@ button {
 }
 
 button:hover {
-  background-color: #0077ed;
+  background-color: #60a5fa;
 }
 
 button:disabled {
-  background-color: #d2d2d7;
+  background-color: #52525b;
   cursor: not-allowed;
+  color: #a1a1aa;
 }
 
 button.secondary {
-  background-color: #f5f5f7;
-  color: #1d1d1f;
+  background-color: #3f3f46;
+  color: #e4e4e7;
 }
 
 button.secondary:hover {
-  background-color: #e8e8ed;
+  background-color: #52525b;
 }
 
 input[type="text"],
 input[type="url"],
 input[type="password"],
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 0.75rem;
-  border: 1px solid #d2d2d7;
+  border: 1px solid #3f3f46;
   border-radius: 8px;
   font-size: 1rem;
   font-family: inherit;
   margin-bottom: 1rem;
+  background-color: #18181b;
+  color: #e4e4e7;
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
-  border-color: #0071e3;
+  border-color: #3b82f6;
+  background-color: #27272a;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #71717a;
 }
 
 .file-upload {
-  border: 2px dashed #d2d2d7;
+  border: 2px dashed #3f3f46;
   border-radius: 12px;
   padding: 2rem;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;
+  background-color: #18181b;
 }
 
 .file-upload:hover {
-  border-color: #0071e3;
-  background-color: #f5f5f7;
+  border-color: #3b82f6;
+  background-color: #27272a;
 }
 
 .file-upload input {
@@ -191,12 +204,12 @@ textarea:focus {
 .loading {
   text-align: center;
   padding: 3rem;
-  color: #6e6e73;
+  color: #a1a1aa;
 }
 
 .error {
-  background-color: #ffe5e5;
-  color: #d70015;
+  background-color: #3f1a1a;
+  color: #fca5a5;
   padding: 1rem;
   border-radius: 8px;
   margin-bottom: 1rem;
@@ -209,4 +222,24 @@ ul {
 
 li {
   margin-bottom: 0.5rem;
+}
+
+a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+a:hover {
+  color: #93c5fd;
+  text-decoration: underline;
+}
+
+/* Dark mode table styles */
+table {
+  color: #e4e4e7;
+}
+
+/* Style for nested card backgrounds */
+.card > div[style*="background"] {
+  background-color: #18181b !important;
 }

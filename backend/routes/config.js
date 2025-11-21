@@ -130,18 +130,21 @@ router.post('/', async (req, res) => {
     const db = getDb();
     const dbType = getDbType();
     
+    // Store strings as-is, only stringify complex objects
+    const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
+    
     if (dbType === 'postgres') {
       await db.query(
         `INSERT INTO config (key, value, updated_date) 
          VALUES ($1, $2, CURRENT_TIMESTAMP) 
          ON CONFLICT (key) DO UPDATE SET value = $2, updated_date = CURRENT_TIMESTAMP`,
-        [key, JSON.stringify(value)]
+        [key, storedValue]
       );
       res.json({ message: 'Configuration updated successfully', key, value });
     } else {
       db.run(
         'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-        [key, JSON.stringify(value)],
+        [key, storedValue],
         function(err) {
           if (err) {
             console.error('Error updating config:', err);
@@ -173,11 +176,13 @@ router.put('/', async (req, res) => {
     
     if (dbType === 'postgres') {
       for (const [key, value] of Object.entries(config)) {
+        // Store strings as-is, only stringify complex objects
+        const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
         await db.query(
           `INSERT INTO config (key, value, updated_date) 
            VALUES ($1, $2, CURRENT_TIMESTAMP) 
            ON CONFLICT (key) DO UPDATE SET value = $2, updated_date = CURRENT_TIMESTAMP`,
-          [key, JSON.stringify(value)]
+          [key, storedValue]
         );
       }
       res.json({ message: 'Configuration updated successfully' });
@@ -185,7 +190,9 @@ router.put('/', async (req, res) => {
       const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)');
       
       for (const [key, value] of Object.entries(config)) {
-        stmt.run(key, JSON.stringify(value));
+        // Store strings as-is, only stringify complex objects
+        const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
+        stmt.run(key, storedValue);
       }
       
       stmt.finalize((err) => {

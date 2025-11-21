@@ -14,7 +14,11 @@ async function getAnthropicClient() {
       throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
     }
     try {
-      const apiKey = JSON.parse(result.rows[0].value);
+      // Handle both plain strings and JSON-encoded values
+      let apiKey = result.rows[0].value;
+      if (apiKey.startsWith('"')) {
+        apiKey = JSON.parse(apiKey);
+      }
       return new Anthropic({ apiKey });
     } catch (e) {
       throw new Error('Invalid API key format');
@@ -28,7 +32,11 @@ async function getAnthropicClient() {
           reject(new Error('Anthropic API key not configured. Please set it in the Configuration page.'));
         } else {
           try {
-            const apiKey = JSON.parse(row.value);
+            // Handle both plain strings and JSON-encoded values
+            let apiKey = row.value;
+            if (apiKey.startsWith('"')) {
+              apiKey = JSON.parse(apiKey);
+            }
             const anthropic = new Anthropic({ apiKey });
             resolve(anthropic);
           } catch (e) {
@@ -53,7 +61,12 @@ async function getClaudeModel() {
       return 'claude-sonnet-4-5-20250929'; // Default model
     }
     try {
-      return JSON.parse(result.rows[0].value);
+      // Handle both plain strings and JSON-encoded values
+      let model = result.rows[0].value;
+      if (model.startsWith('"')) {
+        model = JSON.parse(model);
+      }
+      return model;
     } catch (e) {
       return 'claude-sonnet-4-5-20250929';
     }
@@ -64,7 +77,12 @@ async function getClaudeModel() {
           resolve('claude-sonnet-4-5-20250929'); // Default model
         } else {
           try {
-            resolve(JSON.parse(row.value));
+            // Handle both plain strings and JSON-encoded values
+            let model = row.value;
+            if (model.startsWith('"')) {
+              model = JSON.parse(model);
+            }
+            resolve(model);
           } catch (e) {
             resolve('claude-sonnet-4-5-20250929');
           }

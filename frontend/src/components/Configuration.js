@@ -123,7 +123,7 @@ function Configuration() {
     <div className="configuration">
       <div className="card">
         <h2>Configuration</h2>
-        <p style={{ color: '#6e6e73', marginBottom: '1.5rem' }}>
+        <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
           Configure your AI Chief of Staff application settings.
         </p>
 
@@ -141,7 +141,7 @@ function Configuration() {
 
         <div style={{ marginBottom: '2rem' }}>
           <h3>Anthropic Claude API</h3>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             API Key (Required)
           </label>
           <input
@@ -150,11 +150,11 @@ function Configuration() {
             onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
             placeholder="sk-ant-..."
           />
-          <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem' }}>
+          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
             Get your API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>
           </p>
 
-          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             Claude Model
           </label>
           <select
@@ -179,7 +179,7 @@ function Configuration() {
 
         <div style={{ marginBottom: '2rem' }}>
           <h3>Plaud Integration</h3>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             Plaud API Key (Optional)
           </label>
           <input
@@ -189,7 +189,7 @@ function Configuration() {
             placeholder="Your Plaud API key"
           />
           
-          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             Plaud API URL
           </label>
           <input
@@ -198,52 +198,43 @@ function Configuration() {
             onChange={(e) => handleChange('plaudApiUrl', e.target.value)}
             placeholder="https://api.plaud.ai"
           />
-          <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem' }}>
+          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
             Configure to automatically pull transcripts from Plaud
           </p>
         </div>
 
         <div style={{ marginBottom: '2rem' }}>
           <h3>iCloud Calendar</h3>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
-            Calendar URL (webcal://)
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            Calendar URL (webcal:// or https://)
           </label>
           <input
-            type="url"
+            type="text"
             value={config.icalCalendarUrl}
             onChange={(e) => handleChange('icalCalendarUrl', e.target.value)}
-            placeholder="webcal://..."
+            placeholder="webcal://p01-caldav.icloud.com/..."
           />
-          <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem' }}>
+          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
             Find this in Calendar app → Calendar Settings → Right-click your calendar → Share
           </p>
         </div>
 
         <div style={{ marginBottom: '2rem' }}>
           <h3>Database Configuration</h3>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             Database Type
           </label>
           <select
             value={config.dbType}
             onChange={(e) => handleChange('dbType', e.target.value)}
-            style={{ 
-              width: '100%',
-              padding: '0.75rem',
-              border: '1px solid #d2d2d7',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontFamily: 'inherit',
-              marginBottom: '1rem'
-            }}
           >
             <option value="sqlite">SQLite (Default)</option>
             <option value="postgres">PostgreSQL</option>
           </select>
 
           {config.dbType === 'postgres' && (
-            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f5f5f7', borderRadius: '8px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
                 PostgreSQL Host
               </label>
               <input
@@ -253,7 +244,7 @@ function Configuration() {
                 placeholder="localhost"
               />
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
                 Port
               </label>
               <input
@@ -263,7 +254,7 @@ function Configuration() {
                 placeholder="5432"
               />
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
                 Database Name
               </label>
               <input
@@ -273,7 +264,7 @@ function Configuration() {
                 placeholder="ai_chief_of_staff"
               />
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
                 Username
               </label>
               <input
@@ -283,7 +274,7 @@ function Configuration() {
                 placeholder="postgres"
               />
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
                 Password
               </label>
               <input
@@ -307,11 +298,11 @@ function Configuration() {
         <p>
           <strong>AI Chief of Staff</strong> - Your intelligent executive assistant
         </p>
-        <p style={{ marginTop: '1rem', color: '#6e6e73', lineHeight: '1.6' }}>
+        <p style={{ marginTop: '1rem', color: '#a1a1aa', lineHeight: '1.6' }}>
           This application uses Claude AI to generate daily briefs, track commitments, 
           and maintain context from your meetings and emails.
         </p>
-        <ul style={{ marginTop: '1rem', color: '#6e6e73', lineHeight: '1.8' }}>
+        <ul style={{ marginTop: '1rem', color: '#a1a1aa', lineHeight: '1.8' }}>
           <li>Upload meeting transcripts to extract action items</li>
           <li>Generate AI-powered daily briefs in 10 seconds</li>
           <li>Track commitments across a rolling 2-week window</li>
