@@ -64,9 +64,9 @@ try {
     
   } else {
     console.log('\n📁 SQLite Configuration:');
-    console.log(`  └─ Path: ${config.sqlite?.path || '/data/ai-chief-of-staff.db'}`);
+    console.log(`  └─ Path: ${config.sqlite?.path || '/app/data/ai-chief-of-staff.db'}`);
     
-    const dbPath = config.sqlite?.path || '/data/ai-chief-of-staff.db';
+    const dbPath = config.sqlite?.path || '/app/data/ai-chief-of-staff.db';
     console.log(`\n🔍 SQLite Database File:`);
     console.log(`  ├─ Location: ${dbPath}`);
     console.log(`  └─ Exists:   ${fs.existsSync(dbPath) ? '✓ YES' : '✗ NO (will be created on first run)'}`);

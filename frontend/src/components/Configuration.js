@@ -102,7 +102,7 @@ function Configuration() {
       appUpdates.plaudApiUrl = config.plaudApiUrl;
       appUpdates.icalCalendarUrl = config.icalCalendarUrl;
       
-      // System configuration (stored in /data/config.json)
+      // System configuration (stored in /app/data/config.json)
       if (config.dbType === 'postgres') {
         sysUpdates.postgres = {};
         if (config.postgresHost) sysUpdates.postgres.host = config.postgresHost;
@@ -335,7 +335,7 @@ function Configuration() {
         </button>
         
         <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '1rem' }}>
-          💾 All settings are saved to <code>/data/config.json</code> and the database, and persist across container restarts.
+          💾 All settings are saved to <code>/app/data/config.json</code> and the database, and persist across container restarts.
         </p>
       </div>
 

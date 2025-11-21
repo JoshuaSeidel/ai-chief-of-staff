@@ -7,7 +7,7 @@ const { createModuleLogger } = require('../utils/logger');
 const logger = createModuleLogger('CONFIG');
 
 /**
- * Get system configuration from /data/config.json
+ * Get system configuration from /app/data/config.json
  */
 router.get('/system', (req, res) => {
   try {

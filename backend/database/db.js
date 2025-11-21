@@ -21,7 +21,7 @@ const dbLogger = {
  */
 async function initializeDatabase() {
   try {
-    // Load config from /data/config.json
+    // Load config from /app/data/config.json
     config = configManager.loadConfig();
     dbType = config.dbType || 'sqlite';
     
@@ -42,7 +42,7 @@ async function initializeDatabase() {
       await initPostgres();
     } else {
       dbLogger.info('SQLite configuration detected');
-      dbLogger.info(`  Path: ${config.sqlite?.path || '/data/ai-chief-of-staff.db'}`);
+      dbLogger.info(`  Path: ${config.sqlite?.path || '/app/data/ai-chief-of-staff.db'}`);
       await initSQLite();
     }
     

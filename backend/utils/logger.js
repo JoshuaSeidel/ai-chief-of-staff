@@ -2,8 +2,8 @@ const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
 
-// Determine log directory - use /data in production (Docker), ./data in development
-const LOG_DIR = process.env.LOG_DIR || process.env.CONFIG_DIR || (process.env.NODE_ENV === 'production' ? '/data' : './data');
+// Determine log directory - use /app/data in production (Docker), ./data in development
+const LOG_DIR = process.env.LOG_DIR || process.env.CONFIG_DIR || (process.env.NODE_ENV === 'production' ? '/app/data' : './data');
 
 // Ensure log directory exists
 try {

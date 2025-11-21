@@ -309,7 +309,7 @@ docker inspect ai-chief-of-staff | grep -A 10 Mounts
 - **PostgreSQL won't connect**: 
   - Verify PostgreSQL server is accessible from the container
   - Check host uses the correct hostname (use `host.docker.internal` for localhost on Mac/Windows)
-  - Verify credentials in `/data/config.json`
+  - Verify credentials in `/app/data/config.json`
   - Check logs for specific connection errors
 - **Falls back to SQLite**: If PostgreSQL connection fails, the app automatically falls back to SQLite. Check logs for the error message.
 

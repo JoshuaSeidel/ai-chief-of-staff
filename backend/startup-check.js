@@ -35,7 +35,7 @@ function checkConfigFile() {
       console.log(`     User: ${config.postgres?.user || 'NOT SET'}`);
       console.log(`     Password: ${config.postgres?.password ? '***SET***' : 'NOT SET'}`);
     } else {
-      console.log(`  ℹ️  SQLite path: ${config.sqlite?.path || '/data/ai-chief-of-staff.db'}`);
+      console.log(`  ℹ️  SQLite path: ${config.sqlite?.path || '/app/data/ai-chief-of-staff.db'}`);
     }
     
     return config;
@@ -110,7 +110,7 @@ async function testPostgresConnection(config) {
 function checkDataDirectory() {
   console.log('\n[3/3] Checking data directory...');
   
-  const dataDir = process.env.CONFIG_DIR || '/data';
+  const dataDir = process.env.CONFIG_DIR || '/app/data';
   
   if (!fs.existsSync(dataDir)) {
     console.log(`  ⚠️  Data directory ${dataDir} does not exist, creating...`);
