@@ -55,11 +55,28 @@ An intelligent executive assistant that automates personal productivity by inges
 4. Click **Apply** to start the container
 5. Access at `http://YOUR-UNRAID-IP:3001`
 
-### Method 2: Unraid Template (Coming Soon)
+### Method 2: SWAG Reverse Proxy (Recommended for External Access)
+
+For secure external access with SSL (e.g., `https://aicos.yourdomain.com`):
+
+1. Install **SWAG** (Secure Web Application Gateway) from Community Applications
+2. Copy the SWAG config file:
+   ```bash
+   cp swag-config/aicos.subdomain.conf /mnt/user/appdata/swag/nginx/proxy-confs/
+   ```
+3. Update DNS: Create CNAME `aicos.yourdomain.com` → Your server IP
+4. Add both containers to the same Docker network (or use bridge)
+5. Restart SWAG container
+
+**Result:** Access your app at `https://aicos.yourdomain.com` with automatic SSL!
+
+📖 See detailed setup guide: [swag-config/README.md](swag-config/README.md)
+
+### Method 3: Unraid Template (Coming Soon)
 
 A Community Applications template will be available for one-click installation.
 
-### Method 3: Docker Run Command
+### Method 4: Docker Run Command
 
 SSH into your Unraid server and run:
 
