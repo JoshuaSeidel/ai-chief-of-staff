@@ -13,7 +13,15 @@ async function getOAuthClient() {
   // Get Google OAuth credentials from config
   const clientIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientId']);
   const clientSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientSecret']);
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3001/api/calendar/google/callback';
+  
+  // Get redirect URI from config or environment variable
+  let redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  if (!redirectUri) {
+    const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleRedirectUri']);
+    redirectUri = redirectUriRow?.value || 'http://localhost:3001/api/calendar/google/callback';
+  }
+  
+  logger.info(`Using Google OAuth redirect URI: ${redirectUri}`);
   
   if (!clientIdRow || !clientSecretRow) {
     throw new Error('Google OAuth credentials not configured');

@@ -10,6 +10,7 @@ function Configuration() {
     icalCalendarUrl: '',
     googleClientId: '',
     googleClientSecret: '',
+    googleRedirectUri: '',
     dbType: 'sqlite',
     postgresHost: '',
     postgresPort: '5432',
@@ -58,6 +59,7 @@ function Configuration() {
         icalCalendarUrl: appData.icalCalendarUrl || '',
         googleClientId: appData.googleClientId || '',
         googleClientSecret: appData.googleClientSecret ? '••••••••' : '',
+        googleRedirectUri: appData.googleRedirectUri || '',
         dbType: sysData.dbType || 'sqlite',
         postgresHost: sysData.postgres?.host || '',
         postgresPort: sysData.postgres?.port || '5432',
@@ -156,6 +158,9 @@ function Configuration() {
         appUpdates.googleClientSecret = config.googleClientSecret;
       } else if (!config.googleClientSecret && loadedFields.googleClientSecret) {
         appUpdates.googleClientSecret = '';
+      }
+      if (config.googleRedirectUri) {
+        appUpdates.googleRedirectUri = config.googleRedirectUri;
       }
       
       // System configuration (stored in /app/data/config.json)
@@ -379,12 +384,26 @@ function Configuration() {
                       value={config.googleClientSecret}
                       onChange={(e) => handleChange('googleClientSecret', e.target.value)}
                       placeholder="GOCSPX-xxxxxxxx"
+                      style={{ marginBottom: '1rem' }}
                     />
                     {config.googleClientSecret.includes('•') && (
-                      <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '0.5rem' }}>
+                      <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem', marginBottom: '1rem' }}>
                         ✓ Client secret is configured
                       </p>
                     )}
+                    
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                      Redirect URI (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.googleRedirectUri}
+                      onChange={(e) => handleChange('googleRedirectUri', e.target.value)}
+                      placeholder="https://aicos.yourdomain.com/api/calendar/google/callback"
+                    />
+                    <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.5rem' }}>
+                      Only needed if using SWAG/reverse proxy. Leave blank for local use.
+                    </p>
                     
                     <details style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#a1a1aa' }}>
                       <summary style={{ cursor: 'pointer', marginBottom: '0.5rem' }}>
@@ -395,8 +414,14 @@ function Configuration() {
                         <li>Create a new project or select existing</li>
                         <li>Enable Google Calendar API</li>
                         <li>Create OAuth 2.0 Client ID (Web application)</li>
-                        <li>Add authorized redirect URI: <code>http://localhost:3001/api/calendar/google/callback</code></li>
+                        <li>Add authorized redirect URI:
+                          <ul style={{ marginTop: '0.25rem', listStyleType: 'circle' }}>
+                            <li>Local: <code style={{ fontSize: '0.8rem' }}>http://localhost:3001/api/calendar/google/callback</code></li>
+                            <li>SWAG: <code style={{ fontSize: '0.8rem' }}>https://aicos.yourdomain.com/api/calendar/google/callback</code></li>
+                          </ul>
+                        </li>
                         <li>Copy Client ID and Client Secret here</li>
+                        <li>If using SWAG, also paste your full redirect URI in the field above</li>
                       </ol>
                     </details>
                   </div>

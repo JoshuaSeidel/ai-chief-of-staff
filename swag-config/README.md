@@ -50,19 +50,30 @@ Or manually copy via Unraid file browser:
 - Source: `/mnt/user/appdata/ai-chief-of-staff/swag-config/aicos.subdomain.conf`
 - Destination: `/mnt/user/appdata/swag/nginx/proxy-confs/aicos.subdomain.conf`
 
-### 4. Update Google Calendar OAuth (if using)
+### 4. Configure Google Calendar OAuth (if using)
 
-If you've configured Google Calendar integration, you need to update the OAuth redirect URI:
+If you're using Google Calendar integration with SWAG:
 
-1. Go to [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials)
-2. Edit your OAuth 2.0 Client ID
-3. Update **Authorized redirect URIs** to:
-   ```
-   https://aicos.yourdomain.com/api/calendar/google/callback
-   ```
-4. Save changes
+1. **In Google Cloud Console:**
+   - Go to [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials)
+   - Edit your OAuth 2.0 Client ID
+   - Add to **Authorized redirect URIs**:
+     ```
+     https://aicos.yourdomain.com/api/calendar/google/callback
+     ```
+   - Keep the localhost URI if you also want local access
+   - Save changes
 
-Then in AI Chief of Staff Configuration, you may need to reconnect Google Calendar.
+2. **In AI Chief of Staff Configuration:**
+   - Go to Configuration → Google Calendar section
+   - Fill in the **Redirect URI** field:
+     ```
+     https://aicos.yourdomain.com/api/calendar/google/callback
+     ```
+   - Save Configuration
+   - Click "Connect Google Calendar"
+
+**Important:** The redirect URI must match exactly (including https/http and trailing path).
 
 ### 5. Restart SWAG
 
