@@ -18,23 +18,29 @@ docker network create proxynet
 
 ### 2. Update AI Chief of Staff Container
 
-Add the container to the proxy network:
+Add the container to the proxy network and set the redirect URI:
 
 **Via Unraid Docker UI:**
 - Edit the AI Chief of Staff container
 - Under "Network Type", add `proxynet` as an additional network
-- Or change Network Type to `proxynet` if you want it only on that network
+- Add Environment Variable:
+  - **Variable**: `GOOGLE_REDIRECT_URI`
+  - **Value**: `https://aicos.yourdomain.com/api/calendar/google/callback`
+- Apply changes
 
 **Via Docker Run:**
 ```bash
 docker run -d \
   --name=ai-chief-of-staff \
   --network=proxynet \
+  -e GOOGLE_REDIRECT_URI=https://aicos.yourdomain.com/api/calendar/google/callback \
   -v /mnt/user/appdata/ai-chief-of-staff/data:/app/data \
   -v /mnt/user/appdata/ai-chief-of-staff/uploads:/app/uploads \
   --restart=unless-stopped \
   ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest
 ```
+
+**Important:** Replace `aicos.yourdomain.com` with your actual domain!
 
 Note: Remove the `-p 3001:3001` port mapping since SWAG will handle external access.
 
@@ -52,28 +58,48 @@ Or manually copy via Unraid file browser:
 
 ### 4. Configure Google Calendar OAuth (if using)
 
-If you're using Google Calendar integration with SWAG:
+If you're using Google Calendar integration with SWAG, you have **TWO options**:
 
+#### Option A: Environment Variable (Recommended - Easiest)
+
+Set the `GOOGLE_REDIRECT_URI` environment variable when creating the container (see step 2 above).
+
+Then:
 1. **In Google Cloud Console:**
    - Go to [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials)
    - Edit your OAuth 2.0 Client ID
    - Add to **Authorized redirect URIs**:
      ```
-     https://aicos.yourdomain.com/api/calendar/google/callback
+     https://aicos.s1m0n.app/api/calendar/google/callback
      ```
-   - Keep the localhost URI if you also want local access
    - Save changes
 
 2. **In AI Chief of Staff Configuration:**
-   - Go to Configuration → Google Calendar section
-   - Fill in the **Redirect URI** field:
-     ```
-     https://aicos.yourdomain.com/api/calendar/google/callback
-     ```
-   - Save Configuration
+   - Enter your Google Client ID and Secret
+   - Leave Redirect URI field blank (uses environment variable)
    - Click "Connect Google Calendar"
 
-**Important:** The redirect URI must match exactly (including https/http and trailing path).
+#### Option B: Database Configuration
+
+If you didn't set the environment variable:
+
+1. **In Google Cloud Console:** (same as above)
+   - Add the redirect URI to authorized list
+
+2. **In AI Chief of Staff Configuration:**
+   - Go to Configuration → Google Calendar section
+   - Enter Client ID, Client Secret, **AND Redirect URI**:
+     ```
+     https://aicos.s1m0n.app/api/calendar/google/callback
+     ```
+   - Click Save Configuration
+   - **Restart the container**
+   - Click "Connect Google Calendar"
+
+**Important:** 
+- The redirect URI must match exactly (https, domain, path)
+- Replace `aicos.s1m0n.app` with YOUR actual domain
+- Environment variable takes precedence over database config
 
 ### 5. Restart SWAG
 

@@ -16,6 +16,8 @@ services:
       - PORT=3001
       - CONFIG_DIR=/app/data
       - LOG_DIR=/app/data
+      # Uncomment and set for SWAG/reverse proxy:
+      # - GOOGLE_REDIRECT_URI=https://aicos.yourdomain.com/api/calendar/google/callback
     volumes:
       # Mount local dev-data to /app/data for persistence
       - ./dev-data:/app/data
