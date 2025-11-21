@@ -167,9 +167,9 @@ router.post('/upload-text', async (req, res) => {
     } catch (extractError) {
       logger.error('Error extracting commitments:', extractError);
       res.json({
-        message: 'Transcript saved but extraction failed',
+        message: 'Transcript saved but commitment extraction failed. Please configure your Anthropic API key in Settings.',
         transcriptId,
-        warning: 'Could not extract commitments automatically',
+        warning: 'AI features require an Anthropic API key',
         error: extractError.message
       });
     }
