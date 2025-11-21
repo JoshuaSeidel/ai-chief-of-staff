@@ -8,31 +8,52 @@ const logger = createModuleLogger('CLAUDE');
  * Get Anthropic client with API key from database config
  */
 async function getAnthropicClient() {
-  logger.info('Retrieving Anthropic API key from configuration');
-  const db = getDb();
-  
-  // Use the unified DatabaseWrapper method - it handles both SQLite and PostgreSQL
-  const row = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
-  
-  if (!row) {
-    logger.error('Anthropic API key not found in configuration');
-    throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
+  try {
+    logger.info('Retrieving Anthropic API key from configuration');
+    const db = getDb();
+    
+    if (!db) {
+      logger.error('Database connection is not available');
+      throw new Error('Database not initialized');
+    }
+    
+    logger.info('Querying database for anthropicApiKey...');
+    
+    // Use the unified DatabaseWrapper method - it handles both SQLite and PostgreSQL
+    const row = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
+    
+    logger.info(`Database query returned: ${row ? 'row found' : 'no row'}`);
+    
+    if (!row) {
+      logger.error('Anthropic API key not found in configuration database');
+      throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
+    }
+    
+    // API key is stored as a plain string
+    let apiKey = row.value;
+    logger.info(`Retrieved API key from database (type: ${typeof apiKey}, length: ${apiKey ? apiKey.length : 0}, starts with: ${apiKey ? apiKey.substring(0, 10) : 'null'})`);
+    
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
+      logger.error(`API key validation failed: empty=${!apiKey}, type=${typeof apiKey}, trimmed=${apiKey ? apiKey.trim() === '' : 'n/a'}`);
+      throw new Error('Anthropic API key is empty. Please set it in the Configuration page.');
+    }
+    
+    // Trim whitespace and use the key directly
+    apiKey = apiKey.trim();
+    
+    logger.info(`Creating Anthropic client with API key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
+    
+    const client = new Anthropic({ apiKey });
+    logger.info('Anthropic client created successfully');
+    return client;
+  } catch (error) {
+    logger.error('Fatal error in getAnthropicClient:', { 
+      message: error.message, 
+      stack: error.stack,
+      name: error.name 
+    });
+    throw error;
   }
-  
-  // API key is stored as a plain string
-  let apiKey = row.value;
-  logger.info(`Retrieved API key from database (length: ${apiKey ? apiKey.length : 0}, starts with: ${apiKey ? apiKey.substring(0, 10) : 'null'})`);
-  
-  if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
-    logger.error('API key is empty, null, or whitespace');
-    throw new Error('Anthropic API key is empty. Please set it in the Configuration page.');
-  }
-  
-  // Trim whitespace and use the key directly
-  apiKey = apiKey.trim();
-  
-  logger.info(`Creating Anthropic client with API key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
-  return new Anthropic({ apiKey });
 }
 
 /**
