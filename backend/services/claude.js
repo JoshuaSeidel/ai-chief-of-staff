@@ -1,8 +1,47 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const db = require('../database/db');
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+/**
+ * Get Anthropic client with API key from database config
+ */
+async function getAnthropicClient() {
+  return new Promise((resolve, reject) => {
+    db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey'], (err, row) => {
+      if (err) {
+        reject(err);
+      } else if (!row) {
+        reject(new Error('Anthropic API key not configured. Please set it in the Configuration page.'));
+      } else {
+        try {
+          const apiKey = JSON.parse(row.value);
+          const anthropic = new Anthropic({ apiKey });
+          resolve(anthropic);
+        } catch (e) {
+          reject(new Error('Invalid API key format'));
+        }
+      }
+    });
+  });
+}
+
+/**
+ * Get Claude model from database config
+ */
+async function getClaudeModel() {
+  return new Promise((resolve) => {
+    db.get('SELECT value FROM config WHERE key = ?', ['claudeModel'], (err, row) => {
+      if (err || !row) {
+        resolve('claude-sonnet-4-5-20250929'); // Default model
+      } else {
+        try {
+          resolve(JSON.parse(row.value));
+        } catch (e) {
+          resolve('claude-sonnet-4-5-20250929');
+        }
+      }
+    });
+  });
+}
 
 /**
  * Generate a daily brief from context
@@ -27,8 +66,11 @@ ${JSON.stringify(contextData, null, 2)}
 Generate a clear, actionable brief in markdown format.`;
 
   try {
+    const anthropic = await getAnthropicClient();
+    const model = await getClaudeModel();
+    
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: model,
       max_tokens: 2000,
       messages: [
         {
@@ -67,8 +109,11 @@ Return the results as JSON with this structure:
 }`;
 
   try {
+    const anthropic = await getAnthropicClient();
+    const model = await getClaudeModel();
+    
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: model,
       max_tokens: 1500,
       messages: [
         {
@@ -107,8 +152,11 @@ Format the report with:
 Keep it executive-level: clear, concise, outcome-focused.`;
 
   try {
+    const anthropic = await getAnthropicClient();
+    const model = await getClaudeModel();
+    
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: model,
       max_tokens: 1500,
       messages: [
         {
