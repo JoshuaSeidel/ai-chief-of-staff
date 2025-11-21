@@ -25,17 +25,37 @@ async function initializeDatabase() {
     config = configManager.loadConfig();
     dbType = config.dbType || 'sqlite';
     
-    dbLogger.info(`Initializing ${dbType} database...`);
+    dbLogger.info('='.repeat(60));
+    dbLogger.info(`DATABASE INITIALIZATION`);
+    dbLogger.info(`Config file: ${configManager.CONFIG_FILE}`);
+    dbLogger.info(`Database type from config: ${dbType}`);
+    dbLogger.info('='.repeat(60));
     
-    if (dbType === 'postgres') {
+    if (dbType === 'postgres' || dbType === 'postgresql') {
+      dbLogger.info('PostgreSQL configuration detected:');
+      dbLogger.info(`  Host: ${config.postgres?.host || 'localhost'}`);
+      dbLogger.info(`  Port: ${config.postgres?.port || 5432}`);
+      dbLogger.info(`  Database: ${config.postgres?.database || 'ai_chief_of_staff'}`);
+      dbLogger.info(`  User: ${config.postgres?.user || 'postgres'}`);
+      dbLogger.info(`  Password: ${config.postgres?.password ? '***configured***' : '***NOT SET***'}`);
+      
       await initPostgres();
     } else {
+      dbLogger.info('SQLite configuration detected');
+      dbLogger.info(`  Path: ${config.sqlite?.path || '/data/ai-chief-of-staff.db'}`);
       await initSQLite();
     }
     
-    dbLogger.info(`Database initialized successfully`);
+    dbLogger.info('='.repeat(60));
+    dbLogger.info(`✓ Database initialized successfully: ${dbType}`);
+    dbLogger.info('='.repeat(60));
   } catch (err) {
-    dbLogger.error('Failed to initialize database:', err);
+    dbLogger.error('='.repeat(60));
+    dbLogger.error('✗ FAILED TO INITIALIZE DATABASE');
+    dbLogger.error(`  Database type: ${dbType}`);
+    dbLogger.error(`  Error: ${err.message}`);
+    dbLogger.error(`  Stack: ${err.stack}`);
+    dbLogger.error('='.repeat(60));
     throw err;
   }
 }
@@ -59,7 +79,7 @@ function initSQLite() {
         dbLogger.error('Error opening SQLite database:', err);
         reject(err);
       } else {
-        dbLogger.info(`Connected to SQLite database at ${dbPath}`);
+        dbLogger.info(`✓ Connected to SQLite database at ${dbPath}`);
         try {
           await initDatabaseTables();
           resolve();
@@ -77,55 +97,104 @@ function initSQLite() {
 async function initPostgres() {
   try {
     const pgConfig = config.postgres || {};
+    
+    // Validate required PostgreSQL config
+    if (!pgConfig.host) {
+      throw new Error('PostgreSQL host not configured');
+    }
+    if (!pgConfig.user) {
+      throw new Error('PostgreSQL user not configured');
+    }
+    if (!pgConfig.password) {
+      dbLogger.warn('PostgreSQL password not set - this may cause connection failures');
+    }
+    
     const dbName = pgConfig.database || 'ai_chief_of_staff';
+    
+    dbLogger.info(`Attempting to connect to PostgreSQL...`);
+    dbLogger.info(`  Connection string: postgresql://${pgConfig.user}@${pgConfig.host}:${pgConfig.port || 5432}/${dbName}`);
     
     // First connect to 'postgres' database to check if target DB exists
     const adminClient = new Client({
-      host: pgConfig.host || 'localhost',
+      host: pgConfig.host,
       port: pgConfig.port || 5432,
       database: 'postgres',
-      user: pgConfig.user || 'postgres',
+      user: pgConfig.user,
       password: pgConfig.password || '',
+      connectionTimeoutMillis: 5000, // 5 second timeout
     });
     
-    dbLogger.info(`Connecting to PostgreSQL at ${pgConfig.host}:${pgConfig.port}...`);
-    await adminClient.connect();
-    
-    // Check if database exists
-    const result = await adminClient.query(
-      `SELECT 1 FROM pg_database WHERE datname = $1`,
-      [dbName]
-    );
-    
-    if (result.rows.length === 0) {
-      dbLogger.info(`Database '${dbName}' does not exist, creating...`);
-      await adminClient.query(`CREATE DATABASE ${dbName}`);
-      dbLogger.info(`Database '${dbName}' created successfully`);
-    } else {
-      dbLogger.info(`Database '${dbName}' already exists`);
+    try {
+      await adminClient.connect();
+      dbLogger.info('✓ Connected to PostgreSQL server');
+      
+      // Check if database exists
+      const result = await adminClient.query(
+        `SELECT 1 FROM pg_database WHERE datname = $1`,
+        [dbName]
+      );
+      
+      if (result.rows.length === 0) {
+        dbLogger.info(`Database '${dbName}' does not exist, creating...`);
+        await adminClient.query(`CREATE DATABASE ${dbName}`);
+        dbLogger.info(`✓ Database '${dbName}' created successfully`);
+      } else {
+        dbLogger.info(`✓ Database '${dbName}' already exists`);
+      }
+      
+      await adminClient.end();
+    } catch (adminErr) {
+      dbLogger.error('Failed to connect to PostgreSQL server:', adminErr.message);
+      dbLogger.error('This usually means:');
+      dbLogger.error('  1. PostgreSQL server is not running');
+      dbLogger.error('  2. Wrong host/port configuration');
+      dbLogger.error('  3. Wrong credentials');
+      dbLogger.error('  4. PostgreSQL is not accessible from this container');
+      throw adminErr;
     }
-    
-    await adminClient.end();
     
     // Now connect to the target database
     pool = new Pool({
-      host: pgConfig.host || 'localhost',
+      host: pgConfig.host,
       port: pgConfig.port || 5432,
       database: dbName,
-      user: pgConfig.user || 'postgres',
+      user: pgConfig.user,
       password: pgConfig.password || '',
+      connectionTimeoutMillis: 5000,
+      max: 20, // Maximum pool size
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
     });
     
     pool.on('error', (err) => {
       dbLogger.error('PostgreSQL pool error:', err);
     });
     
-    dbLogger.info(`Connected to PostgreSQL database '${dbName}'`);
+    // Test the connection
+    try {
+      const client = await pool.connect();
+      dbLogger.info(`✓ Connected to PostgreSQL database '${dbName}'`);
+      client.release();
+    } catch (poolErr) {
+      dbLogger.error('Failed to connect to target database:', poolErr.message);
+      throw poolErr;
+    }
+    
+    // Initialize tables
     await initDatabaseTablesPostgres();
+    dbLogger.info('✓ PostgreSQL tables initialized');
     
   } catch (err) {
-    dbLogger.error('Error initializing PostgreSQL:', err);
-    throw err;
+    dbLogger.error('='.repeat(60));
+    dbLogger.error('PostgreSQL initialization failed!');
+    dbLogger.error(`Error: ${err.message}`);
+    dbLogger.error('='.repeat(60));
+    dbLogger.error('FALLING BACK TO SQLITE');
+    dbLogger.error('='.repeat(60));
+    
+    // Fall back to SQLite
+    dbType = 'sqlite';
+    await initSQLite();
   }
 }
 
@@ -200,7 +269,7 @@ function initDatabaseTables() {
           dbLogger.error('Error creating tables:', err);
           reject(err);
         } else {
-          dbLogger.info('SQLite tables initialized');
+          dbLogger.info('✓ SQLite tables initialized');
           resolve();
         }
       });
@@ -273,7 +342,6 @@ async function initDatabaseTablesPostgres() {
       )
     `);
 
-    dbLogger.info('PostgreSQL tables initialized');
   } catch (err) {
     dbLogger.error('Error initializing PostgreSQL tables:', err);
     throw err;
@@ -403,7 +471,7 @@ class DatabaseWrapper {
    */
   async all(query, params = []) {
     try {
-      if (dbType === 'postgres') {
+      if (dbType === 'postgres' || dbType === 'postgresql') {
         // Convert ? placeholders to $1, $2, etc. for PostgreSQL
         let pgQuery = query;
         let paramIndex = 1;
@@ -441,7 +509,7 @@ class DatabaseWrapper {
    */
   async get(query, params = []) {
     try {
-      if (dbType === 'postgres') {
+      if (dbType === 'postgres' || dbType === 'postgresql') {
         // Convert ? placeholders to $1, $2, etc. for PostgreSQL
         let pgQuery = query;
         let paramIndex = 1;
@@ -480,7 +548,7 @@ class DatabaseWrapper {
    */
   async run(query, params = []) {
     try {
-      if (dbType === 'postgres') {
+      if (dbType === 'postgres' || dbType === 'postgresql') {
         // Convert ? placeholders to $1, $2, etc. for PostgreSQL
         let pgQuery = query;
         let paramIndex = 1;
@@ -561,7 +629,7 @@ class DatabaseWrapper {
    * @returns {object} - Statement object with run and finalize methods
    */
   prepare(query) {
-    if (dbType === 'postgres') {
+    if (dbType === 'postgres' || dbType === 'postgresql') {
       // For PostgreSQL, we'll batch the operations and execute them all in finalize()
       const operations = [];
       let pgQuery = query;
@@ -595,7 +663,7 @@ class DatabaseWrapper {
    * Get the raw database connection (for advanced use cases)
    */
   getRawConnection() {
-    return dbType === 'postgres' ? pool : db;
+    return (dbType === 'postgres' || dbType === 'postgresql') ? pool : db;
   }
 }
 

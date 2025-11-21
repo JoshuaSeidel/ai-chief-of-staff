@@ -285,14 +285,72 @@ docker logs ai-chief-of-staff
 - Configure in the Configuration tab, not as environment variable
 - If brief generation fails, verify API key is correctly entered
 
+### Database Not Connecting / Configuration Not Persisting
+
+If your database configuration keeps resetting or PostgreSQL won't connect:
+
+```bash
+# 1. Check current database configuration
+docker exec ai-chief-of-staff node /app/check-db-config.js
+
+# 2. View the startup logs to see what database is being used
+docker logs ai-chief-of-staff | grep -A 20 "DATABASE INITIALIZATION"
+
+# 3. Verify the config file exists and is correct
+docker exec ai-chief-of-staff cat /data/config.json
+
+# 4. If config is being lost, check volume mounting
+docker inspect ai-chief-of-staff | grep -A 10 Mounts
+# Should show: /data mounted to host path
+```
+
+**Common Issues:**
+- **Config keeps resetting**: Volume mount may not be properly configured. Ensure `/data` is mounted to a persistent host path.
+- **PostgreSQL won't connect**: 
+  - Verify PostgreSQL server is accessible from the container
+  - Check host uses the correct hostname (use `host.docker.internal` for localhost on Mac/Windows)
+  - Verify credentials in `/data/config.json`
+  - Check logs for specific connection errors
+- **Falls back to SQLite**: If PostgreSQL connection fails, the app automatically falls back to SQLite. Check logs for the error message.
+
+**To manually set PostgreSQL configuration:**
+```bash
+# Edit the config file directly
+docker exec -it ai-chief-of-staff vi /data/config.json
+
+# Or replace it entirely (stop container first)
+docker stop ai-chief-of-staff
+# Edit /mnt/user/appdata/ai-chief-of-staff/config.json on host
+docker start ai-chief-of-staff
+```
+
+**Example config.json for PostgreSQL:**
+```json
+{
+  "dbType": "postgres",
+  "postgres": {
+    "host": "192.168.1.100",
+    "port": 5432,
+    "database": "ai_chief_of_staff",
+    "user": "postgres",
+    "password": "your_password"
+  },
+  "anthropicApiKey": "sk-ant-...",
+  "claudeModel": "claude-sonnet-4.5"
+}
+```
+
 ### Reset Database
 
 ```bash
 # Stop container
 docker stop ai-chief-of-staff
 
-# Remove database file
-rm /mnt/user/appdata/ai-chief-of-staff/data/ai-chief-of-staff.db
+# Remove database file (SQLite)
+rm /mnt/user/appdata/ai-chief-of-staff/ai-chief-of-staff.db
+
+# Remove entire config (starts fresh)
+rm /mnt/user/appdata/ai-chief-of-staff/config.json
 
 # Restart container
 docker start ai-chief-of-staff
@@ -300,11 +358,14 @@ docker start ai-chief-of-staff
 
 ## Roadmap
 
-- [ ] Email forwarding webhook for automatic email ingestion
-- [ ] Commitment tracking with overdue notifications
-- [ ] Weekly report generator
-- [ ] Pattern detection across meetings
-- [ ] Risk flagging for unaddressed items
+- [x] Email forwarding webhook for automatic email ingestion
+- [x] Commitment tracking with overdue notifications
+- [x] Weekly report generator
+- [x] Pattern detection across meetings
+- [x] Risk flagging for unaddressed items
+- [ ] Mobile app
+- [ ] Slack integration
+- [ ] Teams integration for automatic transcript pulling
 
 ## Contributing
 

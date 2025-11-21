@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const logger = require('./utils/logger');
 const { createModuleLogger } = require('./utils/logger');
+const { runStartupChecks } = require('./startup-check');
 
 // Load environment variables
 dotenv.config();
@@ -94,6 +95,10 @@ app.get('/api/health', (req, res) => {
 // Initialize and start server
 async function startServer() {
   try {
+    // Run pre-flight checks
+    serverLogger.info('Running startup checks...');
+    await runStartupChecks();
+    
     // Initialize database first
     serverLogger.info('Initializing database...');
     await initializeDatabase();
