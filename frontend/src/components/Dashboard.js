@@ -244,9 +244,23 @@ function Dashboard({ setActiveTab }) {
         {brief && !loading && (
           <div className="brief-content" style={{ 
             lineHeight: '1.6',
-            color: '#1d1d1f'
+            color: '#e5e5e7'
           }}>
-            <ReactMarkdown>{brief}</ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
+                h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
+                em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
+                ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
+                li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
+                p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />
+              }}
+            >
+              {brief}
+            </ReactMarkdown>
           </div>
         )}
 
