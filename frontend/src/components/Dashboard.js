@@ -284,9 +284,9 @@ function Dashboard({ setActiveTab }) {
           </button>
           <button 
             className="secondary"
-            onClick={() => setActiveTab && setActiveTab('commitments')}
+            onClick={() => setActiveTab && setActiveTab('tasks')}
           >
-            📋 View Commitments
+            📋 View All Tasks
           </button>
         </div>
         

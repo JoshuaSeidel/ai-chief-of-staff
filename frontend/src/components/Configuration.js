@@ -628,6 +628,144 @@ function Configuration() {
         </p>
       </div>
 
+      {/* Notifications Card */}
+      <div className="card">
+        <h2>🔔 Push Notifications</h2>
+        <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
+          Enable push notifications to receive task reminders, overdue alerts, and sync notifications on this device.
+        </p>
+        
+        <button 
+          onClick={() => {
+            if ('Notification' in window) {
+              if (Notification.permission === 'granted') {
+                alert('Notifications are already enabled for this device!');
+              } else {
+                Notification.requestPermission().then(async (permission) => {
+                  if (permission === 'granted') {
+                    try {
+                      const registration = await navigator.serviceWorker.ready;
+                      const response = await fetch('/api/notifications/vapid-public-key');
+                      if (response.ok) {
+                        const { publicKey } = await response.json();
+                        const urlBase64ToUint8Array = (base64String) => {
+                          const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                          const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                          const rawData = window.atob(base64);
+                          const outputArray = new Uint8Array(rawData.length);
+                          for (let i = 0; i < rawData.length; ++i) {
+                            outputArray[i] = rawData.charCodeAt(i);
+                          }
+                          return outputArray;
+                        };
+                        const subscription = await registration.pushManager.subscribe({
+                          userVisibleOnly: true,
+                          applicationServerKey: urlBase64ToUint8Array(publicKey)
+                        });
+                        await fetch('/api/notifications/subscribe', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ subscription })
+                        });
+                        alert('✅ Notifications enabled successfully!');
+                      } else {
+                        alert('⚠️ Notifications enabled, but server needs VAPID keys configured.');
+                      }
+                    } catch (error) {
+                      console.error('Error:', error);
+                      alert('⚠️ Notifications enabled, but push subscription failed.');
+                    }
+                  }
+                });
+              }
+            } else {
+              alert('❌ This browser does not support notifications');
+            }
+          }}
+          style={{ marginBottom: '1rem' }}
+        >
+          {typeof Notification !== 'undefined' && Notification.permission === 'granted' ? '✅ Notifications Enabled' : '🔔 Enable Notifications'}
+        </button>
+
+        <button 
+          onClick={async () => {
+            try {
+              await fetch('/api/notifications/test', { method: 'POST' });
+              alert('Test notification sent! Check your notifications.');
+            } catch (error) {
+              alert('Failed to send test notification. Server may need VAPID keys configured.');
+            }
+          }}
+          className="secondary"
+        >
+          🧪 Send Test Notification
+        </button>
+
+        <div style={{ 
+          marginTop: '1.5rem', 
+          padding: '1rem', 
+          backgroundColor: '#1e3a5f', 
+          borderRadius: '8px',
+          border: '1px solid #2563eb' 
+        }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#60a5fa' }}>📋 Notification Types</h3>
+          <ul style={{ color: '#bfdbfe', fontSize: '0.9rem', lineHeight: '1.8', paddingLeft: '1.5rem' }}>
+            <li>Task reminders 24 hours before deadline</li>
+            <li>Daily overdue task alerts</li>
+            <li>Sync success notifications</li>
+          </ul>
+          <p style={{ fontSize: '0.85rem', color: '#bfdbfe', marginTop: '1rem' }}>
+            <strong>Server setup:</strong> VAPID keys required. See README for instructions.
+          </p>
+        </div>
+      </div>
+
+      {/* AI Prompts Card */}
+      <div className="card">
+        <h2>🤖 AI Prompts</h2>
+        <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
+          Customize how AI extracts tasks, generates descriptions, and creates reports.
+        </p>
+        
+        <a 
+          href="#config"
+          onClick={(e) => {
+            e.preventDefault();
+            window.open('/api/prompts', '_blank');
+          }}
+          style={{ 
+            display: 'inline-block',
+            padding: '0.75rem 1.5rem',
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '8px',
+            marginBottom: '1rem'
+          }}
+        >
+          📝 View & Edit Prompts API
+        </a>
+
+        <div style={{ 
+          marginTop: '1rem', 
+          padding: '1rem', 
+          backgroundColor: '#18181b', 
+          borderRadius: '8px',
+          border: '1px solid #3f3f46' 
+        }}>
+          <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Available Prompts</h3>
+          <ul style={{ color: '#a1a1aa', fontSize: '0.9rem', lineHeight: '1.8', paddingLeft: '1.5rem' }}>
+            <li><strong>Task Extraction:</strong> Extracts commitments, actions, follow-ups, risks</li>
+            <li><strong>Calendar Event Description:</strong> Generates detailed event descriptions</li>
+            <li><strong>Weekly Report:</strong> Creates executive summaries</li>
+          </ul>
+          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '1rem' }}>
+            Use <code style={{ backgroundColor: '#3f3f46', padding: '0.2rem 0.4rem', borderRadius: '3px' }}>GET/PUT /api/prompts/:key</code> to view and edit.
+            Changes take effect immediately (no restart needed).
+          </p>
+        </div>
+      </div>
+
       <div className="card">
         <h2>About</h2>
         <p>
