@@ -3,14 +3,13 @@ import Dashboard from './components/Dashboard';
 import Configuration from './components/Configuration';
 import Transcripts from './components/Transcripts';
 import Calendar from './components/Calendar';
-import Commitments from './components/Commitments';
-import PromptsEditor from './components/PromptsEditor';
+import Tasks from './components/Tasks';
 
 function App() {
   // Get initial tab from URL hash or default to dashboard
   const getInitialTab = () => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs = ['dashboard', 'transcripts', 'commitments', 'calendar', 'config', 'prompts'];
+    const validTabs = ['dashboard', 'transcripts', 'tasks', 'calendar', 'config'];
     return validTabs.includes(hash) ? hash : 'dashboard';
   };
 
@@ -25,7 +24,7 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      const validTabs = ['dashboard', 'transcripts', 'commitments', 'calendar', 'config', 'prompts'];
+      const validTabs = ['dashboard', 'transcripts', 'tasks', 'calendar', 'config'];
       if (validTabs.includes(hash)) {
         setActiveTab(hash);
       }
@@ -55,9 +54,9 @@ function App() {
             Transcripts
           </button>
           <button 
-            className={activeTab === 'commitments' ? 'active' : ''}
-            onClick={() => setActiveTab('commitments')}
-            data-tab="commitments"
+            className={activeTab === 'tasks' ? 'active' : ''}
+            onClick={() => setActiveTab('tasks')}
+            data-tab="tasks"
           >
             Tasks
           </button>
@@ -73,14 +72,7 @@ function App() {
             onClick={() => setActiveTab('config')}
             data-tab="config"
           >
-            Configuration
-          </button>
-          <button 
-            className={activeTab === 'prompts' ? 'active' : ''}
-            onClick={() => setActiveTab('prompts')}
-            data-tab="prompts"
-          >
-            🤖 AI Prompts
+            Settings
           </button>
         </nav>
       </header>
@@ -88,10 +80,9 @@ function App() {
       <main className="container">
         {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
         {activeTab === 'transcripts' && <Transcripts />}
-        {activeTab === 'commitments' && <Commitments />}
+        {activeTab === 'tasks' && <Tasks />}
         {activeTab === 'calendar' && <Calendar />}
         {activeTab === 'config' && <Configuration />}
-        {activeTab === 'prompts' && <PromptsEditor />}
       </main>
     </div>
   );
