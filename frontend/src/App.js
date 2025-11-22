@@ -58,7 +58,7 @@ function App() {
             onClick={() => setActiveTab('commitments')}
             data-tab="commitments"
           >
-            Commitments
+            Tasks
           </button>
           <button 
             className={activeTab === 'calendar' ? 'active' : ''}

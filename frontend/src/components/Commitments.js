@@ -6,6 +6,7 @@ function Commitments() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // all, pending, completed, overdue
+  const [typeFilter, setTypeFilter] = useState('all'); // all, commitment, action, follow-up, risk
 
   useEffect(() => {
     loadCommitments();
@@ -64,7 +65,7 @@ function Commitments() {
     <div className="commitments">
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2>📋 Commitments Tracker</h2>
+          <h2>📋 Tasks</h2>
           <button onClick={loadCommitments} disabled={loading} className="secondary">
             {loading ? 'Loading...' : '🔄 Refresh'}
           </button>
