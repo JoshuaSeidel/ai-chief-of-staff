@@ -13,8 +13,8 @@
     "productivity",
     "assistant"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "Joshua Seidel <me@joshuaseidel.com>",
+  "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
     "cors": "^2.8.5",

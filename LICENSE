@@ -1,21 +1,552 @@
-MIT License
+AI CHIEF OF STAFF SOFTWARE LICENSE
+Version 1.0, November 2025
 
 Copyright (c) 2025 Joshua Seidel
+Email: me@joshuaseidel.com
+All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+================================================================================
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+================================================================================
+
+1. DEFINITIONS
+
+   "License" shall mean the terms and conditions for use, reproduction, and 
+   distribution as defined by Sections 1 through 17 of this document.
+
+   "Licensor" shall mean Joshua Seidel, the copyright owner or entity authorized 
+   by the copyright owner that is granting the License.
+
+   "Legal Entity" shall mean the union of the acting entity and all other entities 
+   that control, are controlled by, or are under common control with that entity. 
+   For the purposes of this definition, "control" means (i) the power, direct or 
+   indirect, to cause the direction or management of such entity, whether by 
+   contract or otherwise, or (ii) ownership of fifty percent (50%) or more of the 
+   outstanding shares, or (iii) beneficial ownership of such entity.
+
+   "You" (or "Your") shall mean an individual or Legal Entity exercising 
+   permissions granted by this License.
+
+   "Source" form shall mean the preferred form for making modifications, including 
+   but not limited to software source code, documentation source, and configuration 
+   files.
+
+   "Object" form shall mean any form resulting from mechanical transformation or 
+   translation of a Source form, including but not limited to compiled object code, 
+   generated documentation, and conversions to other media types.
+
+   "Work" shall mean the work of authorship, whether in Source or Object form, made 
+   available under the License, as indicated by a copyright notice that is included 
+   in or attached to the work. This includes, but is not limited to:
+      (a) AI Chief of Staff software application
+      (b) All source code files
+      (c) Configuration files
+      (d) Documentation
+      (e) Database schemas
+      (f) User interface elements
+      (g) API endpoints
+      (h) Docker configurations
+      (i) Build scripts
+
+   "Derivative Works" shall mean any work, whether in Source or Object form, that 
+   is based on (or derived from) the Work and for which the editorial revisions, 
+   annotations, elaborations, or other modifications represent, as a whole, an 
+   original work of authorship. For the purposes of this License, Derivative Works 
+   shall NOT include works that remain separable from, or merely link (or bind by 
+   name) to the interfaces of, the Work and Derivative Works thereof.
+
+   "Contribution" shall mean any work of authorship, including the original version 
+   of the Work and any modifications or additions to that Work or Derivative Works 
+   thereof, that is intentionally submitted to Licensor for inclusion in the Work 
+   by the copyright owner or by an individual or Legal Entity authorized to submit 
+   on behalf of the copyright owner. For the purposes of this definition, 
+   "submitted" means any form of electronic, verbal, or written communication sent 
+   to the Licensor or its representatives, including but not limited to communication 
+   on electronic mailing lists, source code control systems, and issue tracking 
+   systems that are managed by, or on behalf of, the Licensor for the purpose of 
+   discussing and improving the Work, but excluding communication that is 
+   conspicuously marked or otherwise designated in writing by the copyright owner 
+   as "Not a Contribution."
+
+   "Contributor" shall mean Licensor and any individual or Legal Entity on behalf 
+   of whom a Contribution has been received by Licensor and subsequently 
+   incorporated within the Work.
+
+   "Deployment" shall mean the act of installing, configuring, and running the 
+   Work on computing infrastructure for the purpose of utilizing its functionality.
+
+   "Commercial Use" shall mean use of the Work for any purpose that is intended for 
+   or directed toward commercial advantage or monetary compensation, including but 
+   not limited to:
+      (a) Use in a business or commercial environment
+      (b) Use to provide services to third parties
+      (c) Integration into commercial products or services
+      (d) Use by for-profit organizations
+
+   "Modification" shall mean any addition to, deletion from, or change to the 
+   Source code, configuration files, or any other part of the Work.
+
+================================================================================
+
+2. GRANT OF COPYRIGHT LICENSE
+
+   Subject to the terms and conditions of this License, Licensor hereby grants to 
+   You a perpetual, worldwide, non-exclusive, non-transferable, revocable, limited 
+   license to use the Work, with the following specific permissions:
+
+   (a) USE: You may use the Work for personal, educational, non-profit, or 
+       Commercial Use purposes.
+
+   (b) DEPLOYMENT: You may deploy the Work on Your own infrastructure, including 
+       but not limited to:
+       (i)   Personal computers and servers
+       (ii)  Cloud computing platforms
+       (iii) Virtual private servers
+       (iv)  Container orchestration systems
+       (v)   Internal corporate networks
+
+   (c) EXECUTION: You may execute the Work and observe its functionality.
+
+   (d) STUDY: You may study how the Work functions, including examination of its 
+       Source code.
+
+   (e) REPRODUCTION: You may reproduce unmodified copies of the Work solely for 
+       backup purposes or for purposes of Deployment as described in subsection (b).
+
+   (f) DISPLAY: You may display the Work through a web browser or other user 
+       interface.
+
+   (g) PERFORMANCE: You may perform the Work publicly when such performance is 
+       incidental to the permitted uses described above.
+
+================================================================================
+
+3. RESTRICTIONS ON MODIFICATION AND DISTRIBUTION
+
+   Notwithstanding the rights granted in Section 2, You are expressly PROHIBITED 
+   from the following activities without prior written permission from Licensor:
+
+   (a) MODIFICATIONS: You may NOT:
+       (i)   Modify, alter, adapt, or translate the Work
+       (ii)  Create Derivative Works based upon the Work
+       (iii) Make additions to or deletions from the Work
+       (iv)  Merge the Work with other software
+       (v)   Change any functional or aesthetic aspects of the Work
+       (vi)  Modify configuration files in ways that change core functionality
+       (vii) Patch, update, or otherwise alter the Source code
+
+   (b) DISTRIBUTION: You may NOT:
+       (i)   Distribute copies of the Work to third parties
+       (ii)  Make the Work available for download by others
+       (iii) Publish the Work on package repositories or software marketplaces
+       (iv)  Sublicense the Work
+       (v)   Sell, rent, lease, or lend the Work
+       (vi)  Distribute modified versions of the Work
+       (vii) Include the Work in other software distributions
+
+   (c) DERIVATIVE PRODUCTS: You may NOT:
+       (i)   Create competing products based on the Work
+       (ii)  Fork the repository for purposes of creating alternative versions
+       (iii) Use the Work as a foundation for Your own products
+       (iv)  Extract portions of the Work for use in other projects
+       (v)   Reverse engineer the Work's algorithms or methodologies for use 
+             elsewhere
+
+   (d) INTELLECTUAL PROPERTY: You may NOT:
+       (i)   Remove or alter any copyright, trademark, patent, or other proprietary 
+             notices contained in the Work
+       (ii)  Use the name "AI Chief of Staff", Licensor's name, or any trademarks 
+             associated with the Work without permission
+       (iii) Claim ownership of the Work or any portion thereof
+       (iv)  Register the Work or any portion thereof under Your own copyright
+
+   (e) REVERSE ENGINEERING: You may NOT:
+       (i)   Reverse engineer, decompile, or disassemble the Work, except and only 
+             to the extent that such activity is expressly permitted by applicable 
+             law notwithstanding this limitation
+       (ii)  Attempt to derive the Source code from Object code
+       (iii) Bypass or circumvent any access control or security features
+
+   (f) REBRANDING: You may NOT:
+       (i)   Remove or modify any branding elements
+       (ii)  Replace branding with Your own
+       (iii) Present the Work as Your own product
+
+================================================================================
+
+4. PERMITTED CONTRIBUTIONS
+
+   While You may not independently modify the Work, You may submit Contributions to 
+   Licensor for potential inclusion in the Work:
+
+   (a) SUBMISSION: You may submit bug reports, feature requests, documentation 
+       improvements, or code patches to Licensor through the official channels 
+       (e.g., GitHub issues, pull requests).
+
+   (b) GRANT OF COPYRIGHT: By submitting a Contribution, You grant to Licensor a 
+       perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable 
+       copyright license to use, reproduce, prepare Derivative Works of, publicly 
+       display, publicly perform, sublicense, and distribute Your Contributions and 
+       such Derivative Works.
+
+   (c) GRANT OF PATENT: By submitting a Contribution, You grant to Licensor a 
+       perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable 
+       patent license to make, have made, use, offer to sell, sell, import, and 
+       otherwise transfer the Work, where such license applies only to those patent 
+       claims licensable by You that are necessarily infringed by Your 
+       Contribution(s) alone or by combination of Your Contribution(s) with the 
+       Work to which such Contribution(s) was submitted.
+
+   (d) OWNERSHIP: All accepted Contributions become the property of Licensor and 
+       are subject to this License.
+
+   (e) REPRESENTATIONS: By submitting a Contribution, You represent that:
+       (i)   You have the right to submit the Contribution
+       (ii)  Your Contribution does not infringe any third-party rights
+       (iii) You have not granted any rights in the Contribution that would 
+             conflict with this License
+       (iv)  Your Contribution is Your original work
+
+================================================================================
+
+5. PERMISSION REQUESTS
+
+   (a) REQUEST PROCESS: To request permission for activities prohibited under 
+       Section 3, You must:
+       (i)   Submit a written request to: me@joshuaseidel.com
+       (ii)  Include a detailed description of the intended use
+       (iii) Describe the scope and purpose of modifications (if applicable)
+       (iv)  Explain the business or personal need for the exception
+       (v)   Provide information about Your organization (if applicable)
+
+   (b) RESPONSE TIME: Licensor will respond to permission requests within thirty 
+       (30) calendar days of receipt.
+
+   (c) DISCRETION: Licensor has sole and absolute discretion to grant or deny 
+       permission requests.
+
+   (d) CONDITIONS: If permission is granted, it may be subject to additional terms 
+       and conditions, including but not limited to:
+       (i)   Licensing fees
+       (ii)  Attribution requirements
+       (iii) Usage restrictions
+       (iv)  Time limitations
+       (v)   Audit rights
+
+   (e) WRITTEN AGREEMENT: All granted permissions must be confirmed in a written 
+       agreement signed by Licensor.
+
+================================================================================
+
+6. ATTRIBUTION AND NOTICES
+
+   (a) COPYRIGHT NOTICES: You must retain all copyright, patent, trademark, and 
+       attribution notices from the Source form of the Work in any copies You make 
+       for backup or Deployment purposes.
+
+   (b) ATTRIBUTION: When discussing or referencing the Work publicly, You must:
+       (i)   Clearly identify the Work as "AI Chief of Staff"
+       (ii)  Credit Joshua Seidel as the author and copyright owner
+       (iii) Provide a link to the official repository when feasible
+       (iv)  Not imply endorsement by Licensor without permission
+
+   (c) LICENSE FILE: You must include a complete copy of this License with any 
+       permitted copies of the Work.
+
+   (d) MODIFICATIONS NOTICE: If You receive written permission to make 
+       Modifications, You must include a prominent notice stating that You have 
+       modified the Work and the date of modification.
+
+================================================================================
+
+7. TRADEMARKS
+
+   This License does not grant permission to use the trade names, trademarks, 
+   service marks, or product names of the Licensor, except as required for 
+   reasonable and customary use in describing the origin of the Work and 
+   reproducing the content of the NOTICE file.
+
+   "AI Chief of Staff" is a trademark of Joshua Seidel. Use of this trademark is 
+   subject to separate trademark usage guidelines.
+
+================================================================================
+
+8. DISCLAIMER OF WARRANTY
+
+   UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING, LICENSOR PROVIDES 
+   THE WORK (AND EACH CONTRIBUTOR PROVIDES ITS CONTRIBUTIONS) ON AN "AS IS" BASIS, 
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, 
+   INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OR CONDITIONS OF:
+
+   (a) TITLE
+   (b) NON-INFRINGEMENT
+   (c) MERCHANTABILITY
+   (d) FITNESS FOR A PARTICULAR PURPOSE
+   (e) ACCURACY OR COMPLETENESS OF RESULTS
+   (f) RELIABILITY
+   (g) WORKMANLIKE EFFORT
+   (h) QUIET ENJOYMENT
+   (i) LACK OF VIRUSES, BUGS, OR ERRORS
+   (j) SECURITY
+   (k) COMPATIBILITY WITH YOUR SYSTEMS
+   (l) UNINTERRUPTED OPERATION
+   (m) MEETING YOUR REQUIREMENTS
+
+   You are solely responsible for determining the appropriateness of using or 
+   Deploying the Work and assume any risks associated with Your exercise of 
+   permissions under this License.
+
+   NO ADVICE OR INFORMATION, WHETHER ORAL OR WRITTEN, OBTAINED FROM LICENSOR OR 
+   THROUGH THE WORK SHALL CREATE ANY WARRANTY NOT EXPRESSLY STATED IN THIS LICENSE.
+
+================================================================================
+
+9. LIMITATION OF LIABILITY
+
+   IN NO EVENT AND UNDER NO LEGAL THEORY, WHETHER IN TORT (INCLUDING NEGLIGENCE), 
+   CONTRACT, OR OTHERWISE, UNLESS REQUIRED BY APPLICABLE LAW (SUCH AS DELIBERATE 
+   AND GROSSLY NEGLIGENT ACTS) OR AGREED TO IN WRITING, SHALL LICENSOR BE LIABLE 
+   TO YOU FOR DAMAGES, INCLUDING ANY DIRECT, INDIRECT, SPECIAL, INCIDENTAL, 
+   CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES OF ANY CHARACTER ARISING AS A 
+   RESULT OF THIS LICENSE OR OUT OF THE USE OR INABILITY TO USE THE WORK 
+   (INCLUDING BUT NOT LIMITED TO):
+
+   (a) DAMAGES FOR LOSS OF GOODWILL
+   (b) WORK STOPPAGE
+   (c) COMPUTER FAILURE OR MALFUNCTION
+   (d) LOSS OF DATA OR DATA CORRUPTION
+   (e) LOSS OF PROFITS OR REVENUE
+   (f) LOSS OF BUSINESS OPPORTUNITIES
+   (g) BUSINESS INTERRUPTION
+   (h) LOSS OF USE
+   (i) LOSS OF SAVINGS
+   (j) LOSS OF ANTICIPATED BENEFITS
+   (k) CLAIMS BY THIRD PARTIES
+   (l) DAMAGE TO REPUTATION
+   (m) LEGAL FEES AND COSTS
+   (n) ANY AND ALL OTHER COMMERCIAL DAMAGES OR LOSSES
+
+   THIS LIMITATION SHALL APPLY EVEN IF LICENSOR HAS BEEN ADVISED OF THE 
+   POSSIBILITY OF SUCH DAMAGES.
+
+   SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OR LIMITATION OF INCIDENTAL OR 
+   CONSEQUENTIAL DAMAGES, SO THE ABOVE LIMITATION MAY NOT APPLY TO YOU.
+
+   IN NO EVENT SHALL LICENSOR'S TOTAL LIABILITY TO YOU FOR ALL DAMAGES EXCEED ONE 
+   HUNDRED UNITED STATES DOLLARS ($100.00 USD).
+
+================================================================================
+
+10. INDEMNIFICATION
+
+    You agree to indemnify, defend, and hold harmless Licensor and its officers, 
+    directors, employees, agents, and affiliates from and against any and all 
+    claims, damages, obligations, losses, liabilities, costs, debt, and expenses 
+    (including but not limited to attorney's fees) arising from:
+
+    (a) Your use of or inability to use the Work
+    (b) Your violation of any term of this License
+    (c) Your violation of any third-party right, including without limitation any 
+        copyright, property, or privacy right
+    (d) Any claim that Your use of the Work caused damage to a third party
+    (e) Any Contributions You submit
+
+    This defense and indemnification obligation will survive this License and Your 
+    use of the Work.
+
+================================================================================
+
+11. ACCEPTING WARRANTY OR ADDITIONAL LIABILITY
+
+    While Deploying the Work, You may choose to offer, and charge a fee for, 
+    acceptance of support, warranty, indemnity, or other liability obligations 
+    and/or rights consistent with this License. However, in accepting such 
+    obligations, You may act only on Your own behalf and on Your sole 
+    responsibility, not on behalf of Licensor, and only if You agree to indemnify, 
+    defend, and hold Licensor harmless for any liability incurred by, or claims 
+    asserted against, Licensor by reason of Your accepting any such warranty or 
+    additional liability.
+
+================================================================================
+
+12. TERMINATION
+
+    (a) AUTOMATIC TERMINATION: The rights granted under this License will terminate 
+        automatically without notice from Licensor if You fail to comply with any 
+        of its terms and conditions.
+
+    (b) TERMINATION FOR BREACH: Licensor may terminate this License immediately if:
+        (i)   You breach any term of this License
+        (ii)  You challenge the validity of Licensor's intellectual property rights
+        (iii) You bring legal action against Licensor related to the Work
+        (iv)  You engage in activities that damage Licensor's reputation
+
+    (c) TERMINATION AT WILL: Licensor reserves the right to terminate this License 
+        at any time, for any reason, with thirty (30) days written notice to You.
+
+    (d) EFFECT OF TERMINATION: Upon termination, You must:
+        (i)   Immediately cease all use of the Work
+        (ii)  Destroy all copies of the Work in Your possession or control
+        (iii) Cease all Deployment of the Work
+        (iv)  Provide written certification of compliance with these obligations 
+              within ten (10) days if requested by Licensor
+
+    (e) SURVIVAL: Sections 8 (Disclaimer of Warranty), 9 (Limitation of Liability), 
+        10 (Indemnification), and 14 (Governing Law) shall survive any termination 
+        of this License.
+
+    (f) NO REFUND: Termination of this License does not entitle You to any refund, 
+        credit, or other compensation.
+
+================================================================================
+
+13. EXPORT COMPLIANCE
+
+    You acknowledge that the Work may be subject to export control laws and 
+    regulations of the United States and other countries. You agree to comply with 
+    all applicable export and re-export restrictions and regulations, and You 
+    warrant that You will not:
+
+    (a) Export or re-export the Work to any embargoed countries
+    (b) Allow the Work to be used by any parties on U.S. export exclusion lists
+    (c) Use the Work for any prohibited end-use, including but not limited to 
+        nuclear, chemical, biological weapons, or missile technology applications
+
+    You are solely responsible for compliance with the laws and regulations of Your 
+    local jurisdiction regarding the import, export, or use of the Work.
+
+================================================================================
+
+14. GOVERNING LAW AND JURISDICTION
+
+    (a) GOVERNING LAW: This License and any dispute arising out of or related to 
+        this License or the Work shall be governed by and construed in accordance 
+        with the laws of the United States and the State of [YOUR STATE], without 
+        regard to its conflict of law provisions.
+
+    (b) JURISDICTION: You agree that any legal action or proceeding between You and 
+        Licensor for any purpose concerning this License or the parties' 
+        obligations hereunder shall be brought exclusively in the federal or state 
+        courts located in [YOUR COUNTY/STATE], and You consent to the exclusive 
+        jurisdiction and venue of such courts.
+
+    (c) WAIVER OF JURY TRIAL: TO THE EXTENT PERMITTED BY LAW, YOU AND LICENSOR 
+        WAIVE ANY RIGHT TO A JURY TRIAL IN ANY PROCEEDING ARISING OUT OF OR 
+        RELATED TO THIS LICENSE.
+
+    (d) CLASS ACTION WAIVER: YOU AND LICENSOR AGREE THAT EACH MAY BRING CLAIMS 
+        AGAINST THE OTHER ONLY IN AN INDIVIDUAL CAPACITY AND NOT AS A CLASS MEMBER 
+        IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING.
+
+================================================================================
+
+15. ENTIRE AGREEMENT AND MODIFICATIONS
+
+    (a) ENTIRE AGREEMENT: This License constitutes the entire agreement between You 
+        and Licensor regarding the Work and supersedes all prior or contemporaneous 
+        understandings regarding such subject matter.
+
+    (b) AMENDMENTS: Licensor reserves the right to modify this License at any time. 
+        Changes will be effective immediately upon posting of the modified License. 
+        Your continued use of the Work following the posting of changes constitutes 
+        Your acceptance of such changes.
+
+    (c) NO WAIVER: No waiver of any term of this License shall be deemed a further 
+        or continuing waiver of such term or any other term, and Licensor's failure 
+        to assert any right or provision under this License shall not constitute a 
+        waiver of such right or provision.
+
+    (d) NO ORAL MODIFICATIONS: This License may not be modified orally. Any 
+        purported modification must be in writing and signed by Licensor.
+
+================================================================================
+
+16. SEVERABILITY
+
+    If any provision of this License is held to be invalid, illegal, or 
+    unenforceable under any applicable law:
+
+    (a) Such provision shall be deemed modified to the minimum extent necessary to 
+        make it valid, legal, and enforceable
+    (b) If such modification is not possible, the provision shall be severed from 
+        this License
+    (c) The validity, legality, and enforceability of the remaining provisions 
+        shall not be affected or impaired thereby
+    (d) The parties agree to replace any invalid, illegal, or unenforceable 
+        provision with a valid provision that most closely approximates the intent 
+        and economic effect of the invalid provision
+
+================================================================================
+
+17. MISCELLANEOUS
+
+    (a) ASSIGNMENT: You may not assign or transfer this License or any rights 
+        granted hereunder, by operation of law or otherwise, without Licensor's 
+        prior written consent. Any attempt to do so shall be void. Licensor may 
+        assign this License without restriction.
+
+    (b) NOTICES: All notices under this License must be in writing and shall be 
+        deemed given when delivered personally, sent by confirmed facsimile, email 
+        (to me@joshuaseidel.com), or sent by certified or registered mail, return 
+        receipt requested.
+
+    (c) FORCE MAJEURE: Licensor shall not be liable for any failure or delay in 
+        performance under this License due to causes beyond its reasonable control.
+
+    (d) INDEPENDENT CONTRACTORS: The parties are independent contractors. This 
+        License does not create a partnership, franchise, joint venture, agency, 
+        fiduciary, or employment relationship.
+
+    (e) INTERPRETATION: The headings in this License are for convenience only and 
+        shall not affect its interpretation. Any ambiguity shall not be construed 
+        against the drafter.
+
+    (f) LANGUAGE: This License is written in English. Any translation is provided 
+        for convenience only. In the event of conflict, the English version shall 
+        prevail.
+
+    (g) COUNTERPARTS: This License may be executed in counterparts, each of which 
+        shall be deemed an original and all of which together shall constitute one 
+        and the same instrument.
+
+    (h) THIRD-PARTY BENEFICIARIES: There are no third-party beneficiaries to this 
+        License.
+
+================================================================================
+
+18. CONTACT INFORMATION
+
+    For questions about this License, permission requests, reporting violations, or 
+    other inquiries, contact:
+
+    Joshua Seidel
+    Email: me@joshuaseidel.com
+    GitHub: https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff
+
+    Response time: Within thirty (30) calendar days for permission requests;
+                   within seven (7) business days for other inquiries.
+
+================================================================================
+
+19. ACKNOWLEDGMENT
+
+    BY USING, COPYING, DEPLOYING, OR DISTRIBUTING THE WORK (OR ANY PORTION 
+    THEREOF), YOU ACKNOWLEDGE THAT YOU HAVE READ THIS LICENSE, UNDERSTAND IT, AND 
+    AGREE TO BE BOUND BY ITS TERMS AND CONDITIONS.
+
+    IF YOU DO NOT AGREE TO THE TERMS OF THIS LICENSE, YOU ARE NOT AUTHORIZED TO 
+    USE, COPY, DEPLOY, OR DISTRIBUTE THE WORK, AND YOU MUST IMMEDIATELY CEASE ALL 
+    SUCH ACTIVITIES AND DESTROY ANY COPIES IN YOUR POSSESSION.
+
+================================================================================
+
+END OF TERMS AND CONDITIONS
+
+================================================================================
+
+Last Updated: November 22, 2025
+Version: 1.0
+
+© 2025 Joshua Seidel. All Rights Reserved.

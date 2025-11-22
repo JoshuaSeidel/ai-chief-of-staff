@@ -659,11 +659,35 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 ## License
 
-MIT License
+**AI Chief of Staff - Custom Proprietary License**
+
+Copyright © 2025 Joshua Seidel. All Rights Reserved.
+
+**Permitted:**
+- ✅ Use for personal, educational, or commercial purposes
+- ✅ Deploy on your own infrastructure
+- ✅ View and study the source code
+- ✅ Submit bug reports and feature requests
+
+**Not Permitted Without Permission:**
+- ❌ Modify or create derivative works
+- ❌ Distribute modified versions
+- ❌ Fork for competing products
+- ❌ Remove copyright notices
+
+**To Request Permission:**
+- Email: me@joshuaseidel.com
+- Include detailed description of intended use
+- Response within 30 days
+
+See [LICENSE](LICENSE) file for complete terms and conditions.
 
 ## Support
 
 For issues or questions, please open an issue on [GitHub](https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff).
+
+**Author:** Joshua Seidel  
+**Email:** me@joshuaseidel.com
 
 ---
 

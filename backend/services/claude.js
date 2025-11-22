@@ -126,15 +126,18 @@ Context includes:
 - Ongoing projects and their status
 
 Format the brief with these sections:
-1. TODAY'S TOP 3 PRIORITIES (with specific actions and urgency levels)
-2. DELIVERABLES THIS WEEK (with status: on track/at risk/behind, and blockers)
-3. CHECK-INS NEEDED (who, why, and when)
-4. COMMITMENTS I MADE (things said I'd do, with deadlines)
+1. **TODAY'S TOP 3 PRIORITIES** (with specific actions and urgency levels)
+2. **DELIVERABLES THIS WEEK** - Format as a table with columns:
+   | Deliverable | Owner | Status | Deadline | Blockers/Notes |
+   | ----------- | ----- | ------ | -------- | -------------- |
+   - Use status: 🟢 ON TRACK | ⚠️ AT RISK | 🔴 BEHIND
+3. **CHECK-INS NEEDED** (who, why, and when)
+4. **COMMITMENTS I MADE** (things said I'd do, with deadlines)
 
 Context Data:
 ${JSON.stringify(contextData, null, 2)}
 
-Generate a clear, actionable brief in markdown format.`;
+Generate a clear, actionable brief in markdown format with proper table formatting for deliverables.`;
 
   try {
     const anthropic = await getAnthropicClient();
