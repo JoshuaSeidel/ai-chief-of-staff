@@ -131,12 +131,122 @@ self.addEventListener('sync', (event) => {
   console.log('[Service Worker] Background sync:', event.tag);
   
   if (event.tag === 'sync-tasks') {
-    event.waitUntil(
-      // Implement background sync logic here
-      Promise.resolve()
-    );
+    event.waitUntil(syncOfflineTasks());
   }
 });
+
+/**
+ * Sync offline tasks when connection is restored
+ */
+async function syncOfflineTasks() {
+  try {
+    // Get offline tasks from IndexedDB
+    const db = await openIndexedDB();
+    const offlineTasks = await getOfflineTasks(db);
+    
+    if (offlineTasks.length === 0) {
+      console.log('[Service Worker] No offline tasks to sync');
+      return;
+    }
+    
+    console.log(`[Service Worker] Syncing ${offlineTasks.length} offline tasks`);
+    
+    // Send each task to the server
+    const results = await Promise.allSettled(
+      offlineTasks.map(task => syncTask(task))
+    );
+    
+    // Remove successfully synced tasks
+    const successfulIds = results
+      .filter((result, index) => result.status === 'fulfilled')
+      .map((_, index) => offlineTasks[index].id);
+    
+    await removeOfflineTasks(db, successfulIds);
+    
+    console.log(`[Service Worker] Synced ${successfulIds.length} tasks, ${results.length - successfulIds.length} failed`);
+    
+    // Show notification if tasks were synced
+    if (successfulIds.length > 0) {
+      self.registration.showNotification('Tasks Synced', {
+        body: `${successfulIds.length} offline task(s) synced successfully`,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'sync-success'
+      });
+    }
+  } catch (error) {
+    console.error('[Service Worker] Sync failed:', error);
+  }
+}
+
+/**
+ * Sync a single task to the server
+ */
+async function syncTask(task) {
+  const response = await fetch('/api/commitments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(task.data)
+  });
+  
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  
+  return response.json();
+}
+
+/**
+ * Open IndexedDB for offline storage
+ */
+function openIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('ai-chief-of-staff', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      
+      // Create object store for offline tasks
+      if (!db.objectStoreNames.contains('offlineTasks')) {
+        db.createObjectStore('offlineTasks', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+  });
+}
+
+/**
+ * Get all offline tasks from IndexedDB
+ */
+function getOfflineTasks(db) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(['offlineTasks'], 'readonly');
+    const store = transaction.objectStore('offlineTasks');
+    const request = store.getAll();
+    
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Remove offline tasks from IndexedDB
+ */
+function removeOfflineTasks(db, ids) {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(['offlineTasks'], 'readwrite');
+    const store = transaction.objectStore('offlineTasks');
+    
+    ids.forEach(id => store.delete(id));
+    
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
 
 console.log('[Service Worker] Loaded');
 

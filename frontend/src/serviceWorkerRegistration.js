@@ -57,16 +57,80 @@ function registerValidSW(swUrl, config) {
         };
       };
       
-      // Request notification permission
+      // Request notification permission and subscribe to push
       if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().then(permission => {
+        Notification.requestPermission().then(async (permission) => {
           console.log('Notification permission:', permission);
+          
+          if (permission === 'granted') {
+            // Subscribe to push notifications
+            try {
+              await subscribeToPush(registration);
+            } catch (error) {
+              console.error('Failed to subscribe to push:', error);
+            }
+          }
         });
+      } else if ('Notification' in window && Notification.permission === 'granted') {
+        // Already have permission, subscribe
+        subscribeToPush(registration);
       }
     })
     .catch((error) => {
       console.error('Error during service worker registration:', error);
     });
+}
+
+async function subscribeToPush(registration) {
+  try {
+    // Get VAPID public key from server
+    const API_BASE_URL = process.env.REACT_APP_API_URL || 
+                         (window.location.hostname === 'localhost' && window.location.port === '3000' 
+                           ? 'http://localhost:3001/api' 
+                           : '/api');
+    
+    const response = await fetch(`${API_BASE_URL}/notifications/vapid-public-key`);
+    if (!response.ok) {
+      console.log('Push notifications not configured on server');
+      return;
+    }
+    
+    const { publicKey } = await response.json();
+    
+    // Subscribe to push notifications
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+    
+    // Send subscription to server
+    await fetch(`${API_BASE_URL}/notifications/subscribe`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ subscription })
+    });
+    
+    console.log('Successfully subscribed to push notifications');
+  } catch (error) {
+    console.error('Failed to subscribe to push:', error);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
 }
 
 function checkValidServiceWorker(swUrl, config) {

@@ -280,6 +280,17 @@ function initDatabaseTables() {
           created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_date DATETIME DEFAULT CURRENT_TIMESTAMP
         )
+      `);
+      
+      // Push subscriptions table for web push notifications
+      db.run(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT DEFAULT 'default',
+          endpoint TEXT UNIQUE NOT NULL,
+          keys TEXT NOT NULL,
+          created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
       `, (err) => {
         if (err) {
           dbLogger.error('Error creating tables:', err);
@@ -367,6 +378,17 @@ async function initDatabaseTablesPostgres() {
         prompt TEXT NOT NULL,
         created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Push subscriptions table for web push notifications
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS push_subscriptions (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT DEFAULT 'default',
+        endpoint TEXT UNIQUE NOT NULL,
+        keys TEXT NOT NULL,
+        created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
 

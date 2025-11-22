@@ -26,6 +26,7 @@
     "node-ical": "^0.16.1",
     "pg": "^8.11.3",
     "sqlite3": "^5.1.6",
+    "web-push": "^3.6.6",
     "winston": "^3.18.3"
   },
   "devDependencies": {

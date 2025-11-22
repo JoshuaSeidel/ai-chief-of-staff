@@ -118,6 +118,7 @@ async function startServer() {
     app.use('/api/calendar', calendarRoutes);
     app.use('/api/commitments', commitmentsRoutes);
     app.use('/api/prompts', require('./routes/prompts'));
+    app.use('/api/notifications', require('./routes/notifications'));
     app.use('/api/webhook', webhookRoutes);
     
     serverLogger.info('API routes initialized');
@@ -174,6 +175,10 @@ async function startServer() {
         ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
       });
     });
+    
+    // Start task scheduler for push notifications
+    const taskScheduler = require('./services/task-scheduler');
+    taskScheduler.startScheduler();
     
     // Start server
     app.listen(PORT, () => {
