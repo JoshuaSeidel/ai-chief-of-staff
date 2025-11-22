@@ -106,6 +106,7 @@ async function initializeDefaultPrompts() {
   
   for (const [key, config] of Object.entries(DEFAULT_PROMPTS)) {
     try {
+      // Use DatabaseWrapper which handles INSERT OR REPLACE for both SQLite and PostgreSQL
       await db.run(
         'INSERT OR REPLACE INTO prompts (key, name, description, prompt, created_date, updated_date) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
         [key, config.name, config.description, config.prompt]
@@ -113,6 +114,16 @@ async function initializeDefaultPrompts() {
       logger.info(`Initialized prompt: ${key}`);
     } catch (error) {
       logger.error(`Error initializing prompt ${key}:`, error);
+      // Try updating if insert failed
+      try {
+        await db.run(
+          'UPDATE prompts SET name = ?, description = ?, prompt = ?, updated_date = CURRENT_TIMESTAMP WHERE key = ?',
+          [config.name, config.description, config.prompt, key]
+        );
+        logger.info(`Updated existing prompt: ${key}`);
+      } catch (updateError) {
+        logger.error(`Failed to update prompt ${key}:`, updateError);
+      }
     }
   }
 }

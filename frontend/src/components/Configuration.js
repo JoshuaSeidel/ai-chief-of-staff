@@ -50,7 +50,10 @@ function Configuration() {
       const response = await fetch('/api/prompts');
       if (response.ok) {
         const data = await response.json();
+        console.log('Loaded prompts:', data);
         setPrompts(data);
+      } else {
+        console.error('Failed to load prompts:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error loading prompts:', error);
@@ -798,6 +801,36 @@ function Configuration() {
         
         {loadingPrompts ? (
           <p style={{ color: '#a1a1aa' }}>Loading prompts...</p>
+        ) : prompts.length === 0 ? (
+          <div style={{ 
+            padding: '2rem', 
+            backgroundColor: '#18181b', 
+            borderRadius: '8px',
+            border: '1px solid #3f3f46',
+            textAlign: 'center'
+          }}>
+            <p style={{ color: '#fbbf24', fontSize: '1.2rem', marginBottom: '1rem' }}>⚠️ No prompts found</p>
+            <p style={{ color: '#a1a1aa', marginBottom: '1rem' }}>
+              The prompts table may be empty. Restart the container to initialize default prompts.
+            </p>
+            <button 
+              onClick={() => {
+                setLoadingPrompts(true);
+                loadPrompts();
+              }}
+              style={{ 
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              🔄 Retry Loading
+            </button>
+          </div>
         ) : (
           prompts.map((prompt) => (
             <details 
