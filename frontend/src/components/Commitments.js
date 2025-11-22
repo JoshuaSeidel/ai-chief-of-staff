@@ -45,6 +45,34 @@ function Commitments() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const renderTaskTypeBadge = (taskType) => {
+    const type = taskType || 'commitment';
+    const emoji = typeEmojis[type];
+    const label = typeLabels[type] || 'Task';
+    
+    const colors = {
+      'commitment': '#3b82f6',
+      'action': '#10b981',
+      'follow-up': '#f59e0b',
+      'risk': '#ef4444'
+    };
+    
+    return (
+      <span style={{
+        display: 'inline-block',
+        padding: '0.25rem 0.5rem',
+        borderRadius: '4px',
+        fontSize: '0.75rem',
+        fontWeight: '600',
+        backgroundColor: colors[type] + '20',
+        color: colors[type],
+        marginRight: '0.5rem'
+      }}>
+        {emoji} {label}
+      </span>
+    );
+  };
+
   const getStatusColor = (commitment) => {
     if (commitment.status === 'completed') return '#34c759';
     if (isOverdue(commitment)) return '#ff3b30';
@@ -59,7 +87,36 @@ function Commitments() {
     return { overdue, pending, completed };
   };
 
+  const groupByType = () => {
+    const filtered = typeFilter === 'all' 
+      ? commitments 
+      : commitments.filter(c => (c.task_type || 'commitment') === typeFilter);
+    
+    return {
+      commitments: filtered.filter(c => (c.task_type || 'commitment') === 'commitment'),
+      actions: filtered.filter(c => c.task_type === 'action'),
+      followUps: filtered.filter(c => c.task_type === 'follow-up'),
+      risks: filtered.filter(c => c.task_type === 'risk')
+    };
+  };
+
   const grouped = groupByStatus();
+  const byType = groupByType();
+  
+  const typeEmojis = {
+    'all': '📋',
+    'commitment': '📋',
+    'action': '⚡',
+    'follow-up': '🔄',
+    'risk': '⚠️'
+  };
+  
+  const typeLabels = {
+    'commitment': 'Commitments',
+    'action': 'Action Items',
+    'follow-up': 'Follow-ups',
+    'risk': 'Risks'
+  };
 
   return (
     <div className="commitments">
@@ -86,7 +143,7 @@ function Commitments() {
         {/* Stats */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
           gap: '1rem', 
           marginBottom: '2rem' 
         }}>
@@ -125,18 +182,99 @@ function Commitments() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          {['all', 'overdue', 'pending', 'completed'].map(status => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={filter === status ? '' : 'secondary'}
-              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
+        {/* Task Type Stats */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
+          gap: '0.75rem', 
+          marginBottom: '1.5rem' 
+        }}>
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            padding: '0.75rem', 
+            borderRadius: '8px',
+            border: '1px solid #3f3f46',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '1.5rem' }}>📋</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>
+              {byType.commitments.length}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Commitments</div>
+          </div>
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            padding: '0.75rem', 
+            borderRadius: '8px',
+            border: '1px solid #3f3f46',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '1.5rem' }}>⚡</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>
+              {byType.actions.length}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Actions</div>
+          </div>
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            padding: '0.75rem', 
+            borderRadius: '8px',
+            border: '1px solid #3f3f46',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '1.5rem' }}>🔄</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>
+              {byType.followUps.length}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Follow-ups</div>
+          </div>
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            padding: '0.75rem', 
+            borderRadius: '8px',
+            border: '1px solid #3f3f46',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '1.5rem' }}>⚠️</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#fff' }}>
+              {byType.risks.length}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#a1a1aa' }}>Risks</div>
+          </div>
+        </div>
+
+        {/* Status Filters */}
+        <div style={{ marginBottom: '1rem' }}>
+          <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.5rem' }}>Filter by Status:</div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {['all', 'overdue', 'pending', 'completed'].map(status => (
+              <button
+                key={status}
+                onClick={() => setFilter(status)}
+                className={filter === status ? '' : 'secondary'}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Task Type Filters */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.5rem' }}>Filter by Type:</div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {['all', 'commitment', 'action', 'follow-up', 'risk'].map(type => (
+              <button
+                key={type}
+                onClick={() => setTypeFilter(type)}
+                className={typeFilter === type ? '' : 'secondary'}
+                style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              >
+                {typeEmojis[type]} {type === 'all' ? 'All Types' : typeLabels[type]}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -157,6 +295,9 @@ function Commitments() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div style={{ flex: 1 }}>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    {renderTaskTypeBadge(commitment.task_type)}
+                  </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fca5a5' }}>
                     {commitment.description}
                   </p>
@@ -198,6 +339,9 @@ function Commitments() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div style={{ flex: 1 }}>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    {renderTaskTypeBadge(commitment.task_type)}
+                  </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
                     {commitment.description}
                   </p>
@@ -241,6 +385,9 @@ function Commitments() {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div style={{ flex: 1 }}>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    {renderTaskTypeBadge(commitment.task_type)}
+                  </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem', textDecoration: 'line-through' }}>
                     {commitment.description}
                   </p>
