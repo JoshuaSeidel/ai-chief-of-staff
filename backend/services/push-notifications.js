@@ -30,13 +30,28 @@ async function subscribe(subscription, userId = 'default') {
   try {
     const db = getDb();
     
-    // Store subscription in database
-    await db.run(
-      'INSERT OR REPLACE INTO push_subscriptions (user_id, endpoint, keys, created_date) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
-      [userId, subscription.endpoint, JSON.stringify(subscription.keys)]
+    // Check if subscription already exists
+    const existing = await db.get(
+      'SELECT id FROM push_subscriptions WHERE endpoint = ?',
+      [subscription.endpoint]
     );
     
-    logger.info(`Push subscription saved for user: ${userId}`);
+    if (existing) {
+      // Update existing subscription
+      await db.run(
+        'UPDATE push_subscriptions SET user_id = ?, keys = ?, created_date = CURRENT_TIMESTAMP WHERE endpoint = ?',
+        [userId, JSON.stringify(subscription.keys), subscription.endpoint]
+      );
+      logger.info(`Push subscription updated for user: ${userId}`);
+    } else {
+      // Insert new subscription
+      await db.run(
+        'INSERT INTO push_subscriptions (user_id, endpoint, keys, created_date) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+        [userId, subscription.endpoint, JSON.stringify(subscription.keys)]
+      );
+      logger.info(`Push subscription saved for user: ${userId}`);
+    }
+    
     return true;
   } catch (error) {
     logger.error('Error saving push subscription:', error);
@@ -116,21 +131,27 @@ async function sendToAll(payload) {
  * Send push notification for task reminder
  */
 async function sendTaskReminder(task) {
+  // iOS limits: title 40 chars, body 4 lines (~120 chars), total payload 4KB
+  const taskTypeEmoji = {
+    'commitment': '📋',
+    'action': '⚡',
+    'follow-up': '🔄',
+    'risk': '⚠️'
+  }[task.task_type] || '📋';
+  
+  const title = `${taskTypeEmoji} Task Due Soon`.substring(0, 40);
+  const body = task.description.substring(0, 110); // Keep under 4 lines
+  
   const payload = {
-    title: `📋 Task Reminder: ${task.task_type || 'Task'}`,
-    body: task.description.substring(0, 100),
+    title,
+    body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: `task-${task.id}`,
     data: {
       taskId: task.id,
-      deadline: task.deadline,
-      url: '/#commitments'
-    },
-    actions: [
-      { action: 'view', title: 'View Task' },
-      { action: 'complete', title: 'Mark Complete' }
-    ]
+      url: '/#tasks'
+    }
   };
   
   return await sendToAll(payload);
@@ -141,17 +162,14 @@ async function sendTaskReminder(task) {
  */
 async function sendOverdueNotification(count) {
   const payload = {
-    title: '⚠️ Overdue Tasks',
-    body: `You have ${count} overdue task${count > 1 ? 's' : ''}`,
+    title: `⚠️ ${count} Overdue`,
+    body: `You have ${count} overdue task${count > 1 ? 's' : ''}. Tap to review.`,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: 'overdue-tasks',
     data: {
-      url: '/#commitments'
-    },
-    actions: [
-      { action: 'view', title: 'View Tasks' }
-    ]
+      url: '/#tasks'
+    }
   };
   
   return await sendToAll(payload);
@@ -161,20 +179,19 @@ async function sendOverdueNotification(count) {
  * Send push notification for upcoming calendar events
  */
 async function sendEventReminder(event) {
+  const title = `📅 ${event.summary}`.substring(0, 40);
+  const body = (event.description || 'Event starting soon').substring(0, 110);
+  
   const payload = {
-    title: `📅 Upcoming: ${event.summary}`,
-    body: event.description || 'Event starting soon',
+    title,
+    body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: `event-${event.id}`,
     data: {
       eventId: event.id,
-      startTime: event.start,
       url: '/#calendar'
-    },
-    actions: [
-      { action: 'view', title: 'View Calendar' }
-    ]
+    }
   };
   
   return await sendToAll(payload);

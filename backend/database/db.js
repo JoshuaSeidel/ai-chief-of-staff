@@ -849,6 +849,20 @@ async function runMigrations() {
           dbLogger.warn('Migration warning:', err.message);
         }
       }
+      
+      // Migration 4: Add processing tracking to transcripts
+      try {
+        await pool.query(`
+          ALTER TABLE transcripts 
+          ADD COLUMN IF NOT EXISTS processing_status TEXT DEFAULT 'completed',
+          ADD COLUMN IF NOT EXISTS processing_progress INTEGER DEFAULT 100
+        `);
+        dbLogger.info('✓ Added processing tracking columns to transcripts');
+      } catch (err) {
+        if (!err.message.includes('already exists')) {
+          dbLogger.warn('Migration warning:', err.message);
+        }
+      }
     } else {
       // SQLite migrations
       // Check if columns exist
@@ -872,14 +886,29 @@ async function runMigrations() {
       if (!hasPriority) columnsToAdd.push({ name: 'priority', type: 'TEXT', default: "'medium'" });
       if (!hasCalendarEventId) columnsToAdd.push({ name: 'calendar_event_id', type: 'TEXT' });
       
+      // Check transcripts table for processing tracking columns
+      const transcriptsTableInfo = await new Promise((resolve, reject) => {
+        db.all('PRAGMA table_info(transcripts)', (err, rows) => {
+          if (err) reject(err);
+          else resolve(rows);
+        });
+      });
+      
+      const hasProcessingStatus = transcriptsTableInfo.some(col => col.name === 'processing_status');
+      const hasProcessingProgress = transcriptsTableInfo.some(col => col.name === 'processing_progress');
+      
+      if (!hasProcessingStatus) columnsToAdd.push({ name: 'processing_status', type: 'TEXT', default: "'completed'", table: 'transcripts' });
+      if (!hasProcessingProgress) columnsToAdd.push({ name: 'processing_progress', type: 'INTEGER', default: '100', table: 'transcripts' });
+      
       if (columnsToAdd.length > 0) {
-        dbLogger.info('Adding missing columns to commitments table...');
+        dbLogger.info('Adding missing columns...');
         
         // SQLite doesn't support ADD COLUMN IF NOT EXISTS or multiple columns at once
         for (const col of columnsToAdd) {
+          const tableName = col.table || 'commitments';
           const alterQuery = col.default 
-            ? `ALTER TABLE commitments ADD COLUMN ${col.name} ${col.type} DEFAULT ${col.default}`
-            : `ALTER TABLE commitments ADD COLUMN ${col.name} ${col.type}`;
+            ? `ALTER TABLE ${tableName} ADD COLUMN ${col.name} ${col.type} DEFAULT ${col.default}`
+            : `ALTER TABLE ${tableName} ADD COLUMN ${col.name} ${col.type}`;
             
           await new Promise((resolve, reject) => {
             db.run(alterQuery, (err) => {
@@ -887,7 +916,7 @@ async function runMigrations() {
               else resolve();
             });
           });
-          dbLogger.info(`✓ Added ${col.name} column`);
+          dbLogger.info(`✓ Added ${col.name} column to ${tableName}`);
         }
       }
     }
