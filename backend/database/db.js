@@ -639,14 +639,14 @@ class DatabaseWrapper {
         }
         
         // Add RETURNING clause to INSERT queries to get the lastID (if not already present)
-        // For config table, return key instead of id
+        // For tables with non-id primary keys (config, prompts), return key instead of id
         if (pgQuery.trim().toUpperCase().startsWith('INSERT') && !pgQuery.toUpperCase().includes('RETURNING')) {
           // Determine which table we're inserting into
           const tableMatch = pgQuery.match(/INSERT INTO\s+(\w+)/i);
           const tableName = tableMatch ? tableMatch[1] : null;
           
-          if (tableName === 'config') {
-            // Config table uses 'key' as primary key
+          if (tableName === 'config' || tableName === 'prompts') {
+            // These tables use 'key' as primary key
             pgQuery += ' RETURNING key';
           } else {
             // Other tables use 'id' as primary key
@@ -657,8 +657,21 @@ class DatabaseWrapper {
         dbLogger.info(`Executing query: ${pgQuery.substring(0, 150)}...`);
         const result = await pool.query(pgQuery, params);
         
+        // Get lastID based on table's primary key column
+        let lastID = null;
+        if (result.rows.length > 0) {
+          const tableMatch = pgQuery.match(/INSERT INTO\s+(\w+)/i);
+          const tableName = tableMatch ? tableMatch[1] : null;
+          
+          if (tableName === 'config' || tableName === 'prompts') {
+            lastID = result.rows[0].key;
+          } else {
+            lastID = result.rows[0].id;
+          }
+        }
+        
         return {
-          lastID: result.rows.length > 0 ? result.rows[0].id : null,
+          lastID,
           changes: result.rowCount || 0
         };
       } else {
@@ -742,7 +755,8 @@ class DatabaseWrapper {
             const tableMatch = execQuery.match(/INSERT INTO\s+(\w+)/i);
             const tableName = tableMatch ? tableMatch[1] : null;
             
-            if (tableName === 'config') {
+            // Tables with non-id primary keys
+            if (tableName === 'config' || tableName === 'prompts') {
               execQuery += ' RETURNING key';
             } else {
               execQuery += ' RETURNING id';
@@ -753,8 +767,21 @@ class DatabaseWrapper {
           operations.push({ params, result });
           
           // Return in a format compatible with both SQLite and the calling code
+          // Handle tables with different primary key columns
+          let lastID = null;
+          if (result.rows && result.rows.length > 0) {
+            const tableMatch = execQuery.match(/INSERT INTO\s+(\w+)/i);
+            const tableName = tableMatch ? tableMatch[1] : null;
+            
+            if (tableName === 'config' || tableName === 'prompts') {
+              lastID = result.rows[0].key;
+            } else {
+              lastID = result.rows[0].id;
+            }
+          }
+          
           return {
-            lastID: result.rows && result.rows.length > 0 ? result.rows[0].id : null,
+            lastID,
             changes: result.rowCount || 0,
             rows: result.rows
           };
