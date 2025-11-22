@@ -613,8 +613,8 @@ class DatabaseWrapper {
             const tableName = insertOrReplaceMatch[1];
             const columns = insertOrReplaceMatch[2].split(',').map(c => c.trim());
             
-            // For config table, the primary key is 'key', for others it's 'id'
-            const primaryKey = tableName === 'config' ? 'key' : 'id';
+            // For config and prompts tables, the primary key is 'key', for others it's 'id'
+            const primaryKey = (tableName === 'config' || tableName === 'prompts') ? 'key' : 'id';
             
             // Build the UPDATE SET clause (all columns except the primary key)
             const updateColumns = columns.filter(col => col !== primaryKey);
