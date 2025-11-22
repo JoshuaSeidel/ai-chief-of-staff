@@ -50,6 +50,11 @@ self.addEventListener('fetch', (event) => {
   if (event.request.url.includes('/api/')) {
     return;
   }
+  
+  // Skip chrome-extension and other non-http(s) URLs
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request)

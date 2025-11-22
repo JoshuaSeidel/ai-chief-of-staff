@@ -8,6 +8,11 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm install
 COPY frontend/ ./
+
+# Generate app icons
+RUN npm run generate-icons || echo "Icon generation failed, using placeholders"
+
+# Build React app
 RUN npm run build
 
 # Final stage - Backend with built frontend
