@@ -261,10 +261,23 @@ function initDatabaseTables() {
       `);
 
       // Configuration table - stores app configuration
+      // Config table
       db.run(`
         CREATE TABLE IF NOT EXISTS config (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL,
+          updated_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      // Prompts table for customizable AI prompts
+      db.run(`
+        CREATE TABLE IF NOT EXISTS prompts (
+          key TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          prompt TEXT NOT NULL,
+          created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_date DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `, (err) => {
@@ -341,6 +354,18 @@ async function initDatabaseTablesPostgres() {
       CREATE TABLE IF NOT EXISTS config (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL,
+        updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Prompts table for customizable AI prompts
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS prompts (
+        key TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        prompt TEXT NOT NULL,
+        created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);

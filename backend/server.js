@@ -117,6 +117,7 @@ async function startServer() {
     app.use('/api/config', configRoutes);
     app.use('/api/calendar', calendarRoutes);
     app.use('/api/commitments', commitmentsRoutes);
+    app.use('/api/prompts', require('./routes/prompts'));
     app.use('/api/webhook', webhookRoutes);
     
     serverLogger.info('API routes initialized');
