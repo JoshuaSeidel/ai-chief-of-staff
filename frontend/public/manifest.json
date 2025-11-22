@@ -1,0 +1,50 @@
+{
+  "name": "AI Chief of Staff",
+  "short_name": "AI CoS",
+  "description": "Your intelligent meeting assistant for tracking commitments, actions, and insights",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Upload Transcript",
+      "short_name": "Upload",
+      "description": "Upload a new meeting transcript",
+      "url": "/#transcripts",
+      "icons": []
+    },
+    {
+      "name": "View Tasks",
+      "short_name": "Tasks",
+      "description": "View all tasks and commitments",
+      "url": "/#commitments",
+      "icons": []
+    },
+    {
+      "name": "Calendar",
+      "short_name": "Calendar",
+      "description": "View calendar events",
+      "url": "/#calendar",
+      "icons": []
+    }
+  ]
+}
+
