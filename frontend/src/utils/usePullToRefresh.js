@@ -44,10 +44,12 @@ export function usePullToRefresh(onRefresh, options = {}) {
       if (isRefreshingRef.current) return;
       
       touchStartY = e.touches[0].clientY;
+      const atTop = checkScrollTop();
       
       // Only start if we're at the top
-      if (checkScrollTop()) {
+      if (atTop) {
         isPulling = true;
+        console.log('[PullToRefresh] Touch start at top, enabled');
       }
     };
 
@@ -56,14 +58,18 @@ export function usePullToRefresh(onRefresh, options = {}) {
       
       const touchY = e.touches[0].clientY;
       const deltaY = touchY - touchStartY;
+      const atTop = checkScrollTop();
 
       // Only allow pull-to-refresh if at the top and pulling down
-      if (deltaY > 0 && checkScrollTop()) {
+      if (deltaY > 0 && atTop) {
         e.preventDefault();
         e.stopPropagation();
         const distance = Math.min(deltaY / resistance, threshold * 1.5);
         setPullDistance(distance);
-      } else if (deltaY <= 0 || !checkScrollTop()) {
+        if (distance > 10 && distance % 20 < 5) {
+          console.log('[PullToRefresh] Pulling:', Math.round(distance), 'px');
+        }
+      } else if (deltaY <= 0 || !atTop) {
         setPullDistance(0);
         isPulling = false;
       }
@@ -77,20 +83,24 @@ export function usePullToRefresh(onRefresh, options = {}) {
       }
 
       const currentDistance = pullDistanceRef.current;
+      console.log('[PullToRefresh] Touch end, distance:', Math.round(currentDistance), 'threshold:', threshold);
       
       if (currentDistance >= threshold && !isRefreshingRef.current) {
+        console.log('[PullToRefresh] Triggering refresh');
         setIsRefreshing(true);
         setPullDistance(threshold);
         
         try {
           await onRefresh();
+          console.log('[PullToRefresh] Refresh complete');
         } catch (error) {
-          console.error('Refresh error:', error);
+          console.error('[PullToRefresh] Refresh error:', error);
         } finally {
           setIsRefreshing(false);
           setPullDistance(0);
         }
       } else {
+        console.log('[PullToRefresh] Not enough distance, canceling');
         setPullDistance(0);
       }
       
