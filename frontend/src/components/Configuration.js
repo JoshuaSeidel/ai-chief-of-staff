@@ -450,12 +450,13 @@ function Configuration() {
             style={{ 
               width: '100%',
               padding: '0.75rem',
-              border: '1px solid #d2d2d7',
+              border: '1px solid #3f3f46',
               borderRadius: '8px',
               fontSize: '1rem',
               fontFamily: 'inherit',
               marginBottom: '1.5rem',
-              backgroundColor: '#fff'
+              backgroundColor: '#18181b',
+              color: '#e5e5e7'
             }}
           >
             <option value="anthropic">Anthropic (Claude)</option>
@@ -493,11 +494,13 @@ function Configuration() {
                 style={{ 
                   width: '100%',
                   padding: '0.75rem',
-                  border: '1px solid #d2d2d7',
+                  border: '1px solid #3f3f46',
                   borderRadius: '8px',
                   fontSize: '1rem',
                   fontFamily: 'inherit',
-                  marginBottom: '1rem'
+                  marginBottom: '1rem',
+                  backgroundColor: '#18181b',
+                  color: '#e5e5e7'
                 }}
               >
                 <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest - Recommended)</option>
@@ -538,11 +541,13 @@ function Configuration() {
                 style={{ 
                   width: '100%',
                   padding: '0.75rem',
-                  border: '1px solid #d2d2d7',
+                  border: '1px solid #3f3f46',
                   borderRadius: '8px',
                   fontSize: '1rem',
                   fontFamily: 'inherit',
-                  marginBottom: '1rem'
+                  marginBottom: '1rem',
+                  backgroundColor: '#18181b',
+                  color: '#e5e5e7'
                 }}
               >
                 <option value="gpt-4o">GPT-4o (Latest - Recommended)</option>
@@ -594,11 +599,13 @@ function Configuration() {
             style={{ 
               width: '100%',
               padding: '0.75rem',
-              border: '1px solid #d2d2d7',
+              border: '1px solid #3f3f46',
               borderRadius: '8px',
               fontSize: '1rem',
               fontFamily: 'inherit',
-              marginBottom: '1rem'
+              marginBottom: '1rem',
+              backgroundColor: '#18181b',
+              color: '#e5e5e7'
             }}
           >
             <option value="2048">2048 - Short meetings (cheaper)</option>
