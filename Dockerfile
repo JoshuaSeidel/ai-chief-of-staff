@@ -4,7 +4,7 @@
 FROM node:20-alpine AS frontend-build
 
 # Update Alpine packages for security patches
-RUN apk update && apk upgrade && apk add --no-cache
+RUN apk update && apk upgrade --no-cache
 
 # Build frontend
 WORKDIR /app/frontend
@@ -33,7 +33,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Update Alpine packages and install Python3 and build tools needed for native modules (sqlite3)
-RUN apk update && apk upgrade && apk add --no-cache \
+RUN apk update && apk upgrade --no-cache && \
+    apk add --no-cache \
     python3 \
     make \
     g++ \
