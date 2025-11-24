@@ -1,111 +1,23 @@
-const Anthropic = require('@anthropic-ai/sdk');
-const { getDb, getDbType } = require('../database/db');
+const { callAI, generateResponse, getModel, getMaxTokens } = require('./ai-service');
+const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('CLAUDE');
 
-/**
- * Get Anthropic client with API key from database config
- */
+// Legacy functions for backwards compatibility - now use unified AI service
 async function getAnthropicClient() {
-  try {
-    logger.info('Retrieving Anthropic API key from configuration');
-    const dbType = getDbType();
-    const db = getDb();
-    
-    logger.info(`Database type: ${dbType}`);
-    
-    if (!db) {
-      logger.error('Database connection is not available');
-      throw new Error('Database not initialized');
-    }
-    
-    logger.info('Querying database for anthropicApiKey...');
-    
-    // First, let's see what keys exist in the config table
-    const allKeys = await db.all('SELECT key FROM config');
-    logger.info(`All keys in config table: ${JSON.stringify(allKeys.map(r => r.key))}`);
-    
-    // Use the unified DatabaseWrapper method - it handles both SQLite and PostgreSQL
-    const row = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
-    
-    logger.info(`Database query returned: ${row ? JSON.stringify({found: true, hasValue: !!row.value, valueLength: row.value?.length}) : 'NO ROW FOUND'}`);
-    
-    if (!row) {
-      logger.error('Anthropic API key not found in configuration database');
-      logger.error('This means the config table exists but has no row with key=anthropicApiKey');
-      throw new Error('Anthropic API key not configured. Please set it in the Configuration page.');
-    }
-    
-    // API key is stored as a plain string
-    let apiKey = row.value;
-    logger.info(`Retrieved API key from database (type: ${typeof apiKey}, length: ${apiKey ? apiKey.length : 0}, starts with: ${apiKey ? apiKey.substring(0, 10) : 'null'})`);
-    
-    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim() === '') {
-      logger.error(`API key validation failed: empty=${!apiKey}, type=${typeof apiKey}, trimmed=${apiKey ? apiKey.trim() === '' : 'n/a'}`);
-      throw new Error('Anthropic API key is empty. Please set it in the Configuration page.');
-    }
-    
-    // Trim whitespace and use the key directly
-    apiKey = apiKey.trim();
-    
-    logger.info(`Creating Anthropic client with API key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
-    
-    const client = new Anthropic({ apiKey });
-    logger.info(`Anthropic client created successfully. Type: ${typeof client}, has messages: ${!!client?.messages}, has create: ${!!client?.messages?.create}`);
-    
-    if (!client || !client.messages || !client.messages.create) {
-      logger.error('Anthropic client is invalid!', {
-        hasClient: !!client,
-        hasMessages: !!client?.messages,
-        hasCreate: !!client?.messages?.create,
-        clientType: typeof client,
-        clientKeys: client ? Object.keys(client) : []
-      });
-      throw new Error('Failed to create valid Anthropic client');
-    }
-    
-    return client;
-  } catch (error) {
-    logger.error('Fatal error in getAnthropicClient:', { 
-      message: error.message, 
-      stack: error.stack,
-      name: error.name 
-    });
-    throw error;
-  }
+  const { getAnthropicClient: getClient } = require('./ai-service');
+  return await getClient();
 }
 
-/**
- * Get Claude model from database config
- */
 async function getClaudeModel() {
-  const db = getDb();
-  
-  // Use the unified DatabaseWrapper method - it handles both SQLite and PostgreSQL
-  const row = await db.get('SELECT value FROM config WHERE key = ?', ['claudeModel']);
-  
-  if (!row) {
-    logger.info('Claude model not configured, using default: claude-sonnet-4-5-20250929');
-    return 'claude-sonnet-4-5-20250929'; // Default model
+  const { getAIProvider, getModel, PROVIDERS } = require('./ai-service');
+  const provider = await getAIProvider();
+  if (provider === PROVIDERS.ANTHROPIC) {
+    return await getModel(provider);
   }
-  
-  // Model is stored as a plain string
-  const model = row.value?.trim() || 'claude-sonnet-4-5-20250929';
-  logger.info(`Using Claude model: ${model}`);
-  return model;
-}
-
-/**
- * Get configured max tokens or default
- */
-async function getMaxTokens() {
-  const db = getDb();
-  const row = await db.get('SELECT value FROM config WHERE key = ?', ['claudeMaxTokens']);
-  const maxTokens = row?.value ? parseInt(row.value) : 4096;
-  const clamped = isNaN(maxTokens) ? 4096 : Math.min(Math.max(maxTokens, 1000), 8192); // Clamp between 1000-8192
-  logger.info(`Max tokens configured: ${clamped}`);
-  return clamped;
+  // Fallback for legacy code
+  return 'claude-sonnet-4-5-20250929';
 }
 
 /**
@@ -169,30 +81,24 @@ IMPORTANT:
 - Put longer notes in Blockers/Notes column`;
 
   try {
-    const anthropic = await getAnthropicClient();
-    const model = await getClaudeModel();
+    const maxTokens = await getMaxTokens();
     
-    logger.info(`Calling Claude API with model: ${model}`);
+    logger.info(`Calling AI service for daily brief`);
     const startTime = Date.now();
     
-    const message = await anthropic.messages.create({
-      model: model,
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    });
+    const result = await callAI(
+      [{ role: 'user', content: prompt }],
+      null,
+      Math.min(maxTokens, 4096)
+    );
 
     const duration = Date.now() - startTime;
     logger.info(`Brief generated successfully in ${duration}ms`, {
-      tokens: message.usage?.total_tokens,
-      model: message.model
+      tokens: result.usage?.total_tokens,
+      model: result.model
     });
 
-    return message.content[0].text;
+    return result.text;
   } catch (error) {
     logger.error('Error generating brief', error);
     throw error;
@@ -289,31 +195,19 @@ Return ONLY valid JSON (no markdown, no explanations):
 }`;
 
   try {
-    const anthropic = await getAnthropicClient();
-    
-    if (!anthropic) {
-      throw new Error('Failed to initialize Anthropic client. Please check your API key configuration.');
-    }
-    
-    const model = await getClaudeModel();
     const maxTokens = await getMaxTokens();
     
-    logger.info(`Calling Claude API for extraction with model: ${model}, max_tokens: ${maxTokens}`);
+    logger.info(`Calling AI service for extraction with max_tokens: ${maxTokens}`);
     const startTime = Date.now();
     
-    const message = await anthropic.messages.create({
-      model: model,
-      max_tokens: maxTokens,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    });
+    const result = await callAI(
+      [{ role: 'user', content: prompt }],
+      null,
+      maxTokens
+    );
 
     const duration = Date.now() - startTime;
-    const responseText = message.content[0].text;
+    const responseText = result.text;
     
     logger.info(`Raw AI response length: ${responseText.length} characters`);
     
@@ -377,7 +271,7 @@ Return ONLY valid JSON (no markdown, no explanations):
       actionItems: extracted.actionItems?.length || 0,
       followUps: extracted.followUps?.length || 0,
       risks: extracted.risks?.length || 0,
-      tokens: message.usage?.total_tokens
+      tokens: result.usage?.total_tokens
     });
     
     return extracted;
@@ -414,29 +308,21 @@ Include task counts by type in your summary.
 Keep it executive-level: clear, concise, outcome-focused.`;
 
   try {
-    const anthropic = await getAnthropicClient();
-    const model = await getClaudeModel();
-    
-    logger.info(`Calling Claude API for weekly report with model: ${model}`);
+    logger.info(`Calling AI service for weekly report`);
     const startTime = Date.now();
     
-    const message = await anthropic.messages.create({
-      model: model,
-      max_tokens: 1500,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    });
+    const result = await callAI(
+      [{ role: 'user', content: prompt }],
+      null,
+      1500
+    );
 
     const duration = Date.now() - startTime;
     logger.info(`Weekly report generated successfully in ${duration}ms`, {
-      tokens: message.usage?.total_tokens
+      tokens: result.usage?.total_tokens
     });
 
-    return message.content[0].text;
+    return result.text;
   } catch (error) {
     logger.error('Error generating weekly report', error);
     throw error;
@@ -475,22 +361,14 @@ Return results as JSON:
 }`;
 
   try {
-    const anthropic = await getAnthropicClient();
-    const model = await getClaudeModel();
-    
-    logger.info(`Calling Claude API for pattern detection with model: ${model}`);
+    logger.info(`Calling AI service for pattern detection`);
     const startTime = Date.now();
     
-    const message = await anthropic.messages.create({
-      model: model,
-      max_tokens: 4096,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    });
+    const result = await callAI(
+      [{ role: 'user', content: prompt }],
+      null,
+      4096
+    );
 
     const duration = Date.now() - startTime;
     const responseText = message.content[0].text;
@@ -508,7 +386,7 @@ Return results as JSON:
     logger.info(`Pattern detection completed in ${duration}ms`, {
       themes: patterns.themes?.length || 0,
       constraints: patterns.resourceConstraints?.length || 0,
-      tokens: message.usage?.total_tokens
+      tokens: result.usage?.total_tokens
     });
     
     return patterns;
@@ -552,25 +430,17 @@ Return results as JSON:
 }`;
 
   try {
-    const anthropic = await getAnthropicClient();
-    const model = await getClaudeModel();
-    
-    logger.info(`Calling Claude API for risk flagging with model: ${model}`);
+    logger.info(`Calling AI service for risk flagging`);
     const startTime = Date.now();
     
-    const message = await anthropic.messages.create({
-      model: model,
-      max_tokens: 1500,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    });
+    const result = await callAI(
+      [{ role: 'user', content: prompt }],
+      null,
+      1500
+    );
 
     const duration = Date.now() - startTime;
-    const responseText = message.content[0].text;
+    const responseText = result.text;
     
     // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -585,7 +455,7 @@ Return results as JSON:
     logger.info(`Risk flagging completed in ${duration}ms`, {
       overdue: risks.overdueItems?.length || 0,
       atRisk: risks.atRiskItems?.length || 0,
-      tokens: message.usage?.total_tokens
+      tokens: result.usage?.total_tokens
     });
     
     return risks;
@@ -619,17 +489,15 @@ Generate a calendar event description (3-5 paragraphs) that includes:
 Make it actionable and specific. Use markdown formatting.`;
 
   try {
-    const anthropic = await getAnthropicClient();
-    const model = await getClaudeModel();
     const maxTokens = await getMaxTokens();
     
-    const message = await anthropic.messages.create({
-      model: model,
-      max_tokens: Math.min(maxTokens, 1500),
-      messages: [{ role: 'user', content: prompt }]
-    });
+    const result = await callAI(
+      [{ role: 'user', content: prompt }],
+      null,
+      Math.min(maxTokens, 1500)
+    );
 
-    return message.content[0].text;
+    return result.text;
   } catch (error) {
     logger.error('Error generating event description', error);
     // Fallback to basic description

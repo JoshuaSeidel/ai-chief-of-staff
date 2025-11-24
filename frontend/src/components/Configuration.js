@@ -82,9 +82,14 @@ function VersionInfo() {
 
 function Configuration() {
   const [config, setConfig] = useState({
+    aiProvider: 'anthropic',
     anthropicApiKey: '',
     claudeModel: 'claude-sonnet-4-5-20250929',
-    claudeMaxTokens: '4096',
+    openaiApiKey: '',
+    openaiModel: 'gpt-4o',
+    ollamaBaseUrl: 'http://localhost:11434',
+    ollamaModel: 'llama3.1',
+    aiMaxTokens: '4096',
     plaudApiKey: '',
     plaudApiUrl: 'https://api.plaud.ai',
     icalCalendarUrl: '',
@@ -206,6 +211,7 @@ function Configuration() {
       // Track which fields were actually loaded (have values)
       const loaded = {
         anthropicApiKey: !!appData.anthropicApiKey,
+        openaiApiKey: !!appData.openaiApiKey,
         plaudApiKey: !!appData.plaudApiKey,
         googleClientSecret: !!appData.googleClientSecret,
         postgresPassword: !!(sysData.postgres?.password && sysData.postgres.password !== '********')
@@ -217,9 +223,14 @@ function Configuration() {
       const actualDbType = sysData._runtime?.actualDbType || sysData.dbType || 'sqlite';
       
       setConfig({
+        aiProvider: appData.aiProvider || 'anthropic',
         anthropicApiKey: appData.anthropicApiKey ? '••••••••' : '',
         claudeModel: appData.claudeModel || 'claude-sonnet-4-5-20250929',
-        claudeMaxTokens: appData.claudeMaxTokens || '4096',
+        openaiApiKey: appData.openaiApiKey ? '••••••••' : '',
+        openaiModel: appData.openaiModel || 'gpt-4o',
+        ollamaBaseUrl: appData.ollamaBaseUrl || 'http://localhost:11434',
+        ollamaModel: appData.ollamaModel || 'llama3.1',
+        aiMaxTokens: appData.aiMaxTokens || appData.claudeMaxTokens || '4096',
         plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
         plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
         icalCalendarUrl: appData.icalCalendarUrl || '',
@@ -325,10 +336,21 @@ function Configuration() {
       }
       
       // Always save these fields (they're not masked)
+      appUpdates.aiProvider = config.aiProvider;
       appUpdates.claudeModel = config.claudeModel;
-      appUpdates.claudeMaxTokens = config.claudeMaxTokens;
+      appUpdates.openaiModel = config.openaiModel;
+      appUpdates.ollamaBaseUrl = config.ollamaBaseUrl;
+      appUpdates.ollamaModel = config.ollamaModel;
+      appUpdates.aiMaxTokens = config.aiMaxTokens;
       appUpdates.plaudApiUrl = config.plaudApiUrl;
       appUpdates.icalCalendarUrl = config.icalCalendarUrl;
+      
+      // Save API keys only if they've been changed (not masked anymore)
+      if (config.openaiApiKey && !config.openaiApiKey.includes('•')) {
+        appUpdates.openaiApiKey = config.openaiApiKey;
+      } else if (!config.openaiApiKey && loadedFields.openaiApiKey) {
+        appUpdates.openaiApiKey = '';
+      }
       
       // Google OAuth credentials
       if (config.googleClientId) {
@@ -417,31 +439,14 @@ function Configuration() {
         )}
 
         <div style={{ marginBottom: '2rem' }}>
-          <h3>Anthropic Claude API</h3>
+          <h3>AI Provider Configuration</h3>
+          
           <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            API Key (Required)
-          </label>
-          <input
-            type="password"
-            value={config.anthropicApiKey}
-            onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
-            placeholder="sk-ant-..."
-          />
-          {config.anthropicApiKey.includes('•') && (
-            <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
-              ✓ API key is configured (change to update)
-            </p>
-          )}
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.anthropicApiKey.includes('•') ? '0' : '-0.5rem' }}>
-            Get your API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>
-          </p>
-
-          <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-            Claude Model
+            AI Provider
           </label>
           <select
-            value={config.claudeModel}
-            onChange={(e) => handleChange('claudeModel', e.target.value)}
+            value={config.aiProvider}
+            onChange={(e) => handleChange('aiProvider', e.target.value)}
             style={{ 
               width: '100%',
               padding: '0.75rem',
@@ -449,21 +454,143 @@ function Configuration() {
               borderRadius: '8px',
               fontSize: '1rem',
               fontFamily: 'inherit',
-              marginBottom: '1rem'
+              marginBottom: '1.5rem',
+              backgroundColor: '#fff'
             }}
           >
-            <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest - Recommended)</option>
-            <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-            <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="openai">OpenAI (GPT)</option>
+            <option value="ollama">Ollama (Local/Private)</option>
           </select>
 
+          {/* Anthropic Configuration */}
+          {config.aiProvider === 'anthropic' && (
+            <>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                Anthropic API Key (Required)
+              </label>
+              <input
+                type="password"
+                value={config.anthropicApiKey}
+                onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
+                placeholder="sk-ant-..."
+              />
+              {config.anthropicApiKey.includes('•') && (
+                <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
+                  ✓ API key is configured (change to update)
+                </p>
+              )}
+              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.anthropicApiKey.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
+                Get your API key from <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>
+              </p>
+
+              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                Claude Model
+              </label>
+              <select
+                value={config.claudeModel}
+                onChange={(e) => handleChange('claudeModel', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #d2d2d7',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  marginBottom: '1rem'
+                }}
+              >
+                <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest - Recommended)</option>
+                <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+              </select>
+            </>
+          )}
+
+          {/* OpenAI Configuration */}
+          {config.aiProvider === 'openai' && (
+            <>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                OpenAI API Key (Required)
+              </label>
+              <input
+                type="password"
+                value={config.openaiApiKey}
+                onChange={(e) => handleChange('openaiApiKey', e.target.value)}
+                placeholder="sk-..."
+              />
+              {config.openaiApiKey.includes('•') && (
+                <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
+                  ✓ API key is configured (change to update)
+                </p>
+              )}
+              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.openaiApiKey.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
+                Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">platform.openai.com</a>
+              </p>
+
+              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                OpenAI Model
+              </label>
+              <select
+                value={config.openaiModel}
+                onChange={(e) => handleChange('openaiModel', e.target.value)}
+                style={{ 
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #d2d2d7',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontFamily: 'inherit',
+                  marginBottom: '1rem'
+                }}
+              >
+                <option value="gpt-4o">GPT-4o (Latest - Recommended)</option>
+                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                <option value="gpt-4">GPT-4</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              </select>
+            </>
+          )}
+
+          {/* Ollama Configuration */}
+          {config.aiProvider === 'ollama' && (
+            <>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                Ollama Base URL
+              </label>
+              <input
+                type="url"
+                value={config.ollamaBaseUrl}
+                onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
+                placeholder="http://localhost:11434"
+              />
+              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                URL where your Ollama instance is running. Default: http://localhost:11434
+              </p>
+
+              <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                Ollama Model
+              </label>
+              <input
+                type="text"
+                value={config.ollamaModel}
+                onChange={(e) => handleChange('ollamaModel', e.target.value)}
+                placeholder="llama3.1"
+              />
+              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                Model name as it appears in Ollama. Common: llama3.1, mistral, codellama, etc.
+              </p>
+            </>
+          )}
+
+          {/* Shared Max Tokens */}
           <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             Max Tokens (Response Length)
           </label>
           <select
-            value={config.claudeMaxTokens}
-            onChange={(e) => handleChange('claudeMaxTokens', e.target.value)}
+            value={config.aiMaxTokens}
+            onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
             style={{ 
               width: '100%',
               padding: '0.75rem',
@@ -479,6 +606,9 @@ function Configuration() {
             <option value="6144">6144 - Long meetings</option>
             <option value="8192">8192 - Very long meetings (max)</option>
           </select>
+          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+            Maximum tokens for AI responses. Higher = longer/complete responses but more cost.
+          </p>
           
           <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
             Your Name(s) (Comma-separated)
@@ -498,11 +628,8 @@ function Configuration() {
               marginBottom: '1rem'
             }}
           />
-          <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-            Enter your name(s) as they appear in meeting transcripts. Tasks assigned to you will be automatically added. Others will require confirmation.
-          </p>
           <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
-            Maximum tokens for AI responses. Higher = longer/complete responses but more cost.
+            Enter your name(s) as they appear in meeting transcripts. Tasks assigned to you will be automatically added. Others will require confirmation.
           </p>
         </div>
 
