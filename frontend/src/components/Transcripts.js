@@ -20,7 +20,7 @@ function Transcripts() {
 
   useEffect(() => {
     loadTranscripts();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadTranscripts = async () => {
     try {
@@ -526,8 +526,6 @@ function Transcripts() {
                 {transcripts.map((transcript) => {
                   const isProcessing = transcript.processing_status === 'processing';
                   const isFailed = transcript.processing_status === 'failed';
-                  const isCompleted = transcript.processing_status === 'completed' || !transcript.processing_status;
-                  
                   return (
                     <tr key={transcript.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
                       <td style={{ padding: '0.75rem' }}>{transcript.filename}</td>

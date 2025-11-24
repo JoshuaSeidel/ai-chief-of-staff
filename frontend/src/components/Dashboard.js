@@ -47,12 +47,7 @@ function Dashboard({ setActiveTab }) {
     }
   };
 
-  const handleViewTranscripts = () => {
-    // Navigate to transcripts tab
-    if (setActiveTab) {
-      setActiveTab('transcripts');
-    }
-  };
+  // Removed unused handlers - Quick Actions section was removed
 
   const handleGenerateWeeklyReport = async () => {
     setLoading(true);
@@ -155,12 +150,7 @@ function Dashboard({ setActiveTab }) {
     }
   };
 
-  const handleViewCalendar = () => {
-    // Navigate to calendar tab
-    if (setActiveTab) {
-      setActiveTab('calendar');
-    }
-  };
+  // Removed unused handler
 
   // Parse deliverables table from brief - robust parser for markdown tables
   const parseDeliverablesTable = (briefText) => {
@@ -374,9 +364,9 @@ function Dashboard({ setActiveTab }) {
                     return (
                       <ReactMarkdown key={index}
                         components={{
-                          h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
-                          h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
-                          h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                          h1: ({node, children, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h1>,
+                          h2: ({node, children, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h2>,
+                          h3: ({node, children, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h3>,
                           strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
                           em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
                           ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,

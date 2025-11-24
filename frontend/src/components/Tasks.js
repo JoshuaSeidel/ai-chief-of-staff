@@ -11,7 +11,7 @@ function Commitments() {
 
   useEffect(() => {
     loadCommitments();
-  }, [filter]);
+  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCommitments = async () => {
     setLoading(true);
@@ -85,12 +85,6 @@ function Commitments() {
         {emoji} {label}
       </span>
     );
-  };
-
-  const getStatusColor = (commitment) => {
-    if (commitment.status === 'completed') return '#34c759';
-    if (isOverdue(commitment)) return '#ff3b30';
-    return '#ff9500';
   };
 
   const groupByStatus = () => {
