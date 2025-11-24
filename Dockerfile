@@ -1,7 +1,10 @@
 # All-in-One Dockerfile for Unraid
 # This builds both frontend and backend in a single container
 
-FROM node:20-alpine as frontend-build
+FROM node:20-alpine AS frontend-build
+
+# Update Alpine packages for security patches
+RUN apk update && apk upgrade && apk add --no-cache
 
 # Build frontend
 WORKDIR /app/frontend
@@ -29,8 +32,8 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install Python3 and build tools needed for native modules (sqlite3)
-RUN apk add --no-cache \
+# Update Alpine packages and install Python3 and build tools needed for native modules (sqlite3)
+RUN apk update && apk upgrade && apk add --no-cache \
     python3 \
     make \
     g++ \
