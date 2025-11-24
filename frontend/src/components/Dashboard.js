@@ -471,9 +471,9 @@ function Dashboard({ setActiveTab }) {
                         {brief.split(/##\s*2\.?\s*DELIVERABLES THIS WEEK[\s\S]*?(?=##\s*\d|$)/i)[1] && (
                           <ReactMarkdown
                             components={{
-                              h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
-                              h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
-                              h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                              h1: ({node, children, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h1>,
+                              h2: ({node, children, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h2>,
+                              h3: ({node, children, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h3>,
                               strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
                               em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
                               ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
@@ -531,9 +531,9 @@ function Dashboard({ setActiveTab }) {
               // Fallback: Render entire brief with markdown (if table parsing failed)
               <ReactMarkdown
                 components={{
-                  h1: ({node, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
-                  h2: ({node, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props} />,
-                  h3: ({node, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props} />,
+                  h1: ({node, children, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h1>,
+                  h2: ({node, children, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h2>,
+                  h3: ({node, children, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h3>,
                   strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
                   em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
                   ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
