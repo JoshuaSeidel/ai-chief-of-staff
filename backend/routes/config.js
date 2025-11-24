@@ -196,34 +196,8 @@ router.put('/', async (req, res) => {
 });
 
 /**
- * Get specific config value from database
- */
-router.get('/:key', async (req, res) => {
-  try {
-    const key = req.params.key;
-    logger.info(`Fetching config key: ${key}`);
-    
-    const db = getDb();
-    
-    // Use unified interface - works for both SQLite and PostgreSQL
-    const row = await db.get('SELECT value FROM config WHERE key = ?', [key]);
-    
-    if (!row) {
-      logger.warn(`Config key not found: ${key}`);
-      return res.status(404).json({ error: 'Configuration key not found' });
-    }
-    
-    // Return value as-is (it's stored as a plain string)
-    logger.info(`Returning config value for ${key} (length: ${row.value?.length || 0})`);
-    res.json({ key, value: row.value });
-  } catch (err) {
-    logger.error(`Error fetching config key: ${req.params.key}`, err);
-    res.status(500).json({ error: 'Error fetching configuration', message: err.message });
-  }
-});
-
-/**
  * Get version information (commit hash, build date, etc.)
+ * MUST be before /:key route to avoid route conflict
  */
 router.get('/version', (req, res) => {
   try {
@@ -278,6 +252,33 @@ router.get('/version', (req, res) => {
       error: 'Error fetching version information',
       message: err.message 
     });
+  }
+});
+
+/**
+ * Get specific config value from database
+ */
+router.get('/:key', async (req, res) => {
+  try {
+    const key = req.params.key;
+    logger.info(`Fetching config key: ${key}`);
+    
+    const db = getDb();
+    
+    // Use unified interface - works for both SQLite and PostgreSQL
+    const row = await db.get('SELECT value FROM config WHERE key = ?', [key]);
+    
+    if (!row) {
+      logger.warn(`Config key not found: ${key}`);
+      return res.status(404).json({ error: 'Configuration key not found' });
+    }
+    
+    // Return value as-is (it's stored as a plain string)
+    logger.info(`Returning config value for ${key} (length: ${row.value?.length || 0})`);
+    res.json({ key, value: row.value });
+  } catch (err) {
+    logger.error(`Error fetching config key: ${req.params.key}`, err);
+    res.status(500).json({ error: 'Error fetching configuration', message: err.message });
   }
 });
 
