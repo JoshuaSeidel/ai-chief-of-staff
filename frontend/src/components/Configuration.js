@@ -870,6 +870,17 @@ function Configuration() {
           <select
             value={config.dbType}
             onChange={(e) => handleChange('dbType', e.target.value)}
+            style={{ 
+              width: '100%',
+              padding: '0.75rem',
+              border: '1px solid #3f3f46',
+              borderRadius: '8px',
+              fontSize: '1rem',
+              fontFamily: 'inherit',
+              marginBottom: '1rem',
+              backgroundColor: '#18181b',
+              color: '#e5e5e7'
+            }}
           >
             <option value="sqlite">SQLite (Default)</option>
             <option value="postgres">PostgreSQL</option>
