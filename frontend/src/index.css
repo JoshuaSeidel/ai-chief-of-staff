@@ -98,6 +98,7 @@ code {
   display: flex;
   gap: 1rem;
   margin-top: 1rem;
+  transition: all 0.3s ease;
 }
 
 .nav button {
@@ -409,13 +410,18 @@ table {
   }
 
   .mobile-menu-toggle {
-    display: flex;
+    display: flex !important;
   }
 
   .nav {
+    display: none; /* Hide nav by default on mobile */
+  }
+
+  .nav.mobile-open {
+    display: flex; /* Show nav when menu is open */
     position: fixed;
     top: 0;
-    right: -100%;
+    right: 0;
     width: 280px;
     max-width: 85vw;
     height: 100vh;
@@ -426,13 +432,8 @@ table {
     margin-top: 0;
     padding: 4rem 0 1rem 0;
     box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
-    transition: right 0.3s ease;
     z-index: 999;
     overflow-y: auto;
-  }
-
-  .nav.mobile-open {
-    right: 0;
   }
 
   .nav button {

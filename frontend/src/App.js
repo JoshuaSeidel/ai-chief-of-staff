@@ -104,12 +104,10 @@ function App() {
         </nav>
       </header>
 
-      {mobileMenuOpen && (
-        <div 
-          className="mobile-menu-overlay"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
+      <div 
+        className={`mobile-menu-overlay ${mobileMenuOpen ? 'visible' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      />
 
       <main className="container">
         {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
