@@ -6,6 +6,8 @@ function Commitments() {
   const [commitments, setCommitments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [syncingMicrosoft, setSyncingMicrosoft] = useState(false);
+  const [microsoftConnected, setMicrosoftConnected] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, completed, overdue
   const [typeFilter, setTypeFilter] = useState('all'); // all, commitment, action, follow-up, risk
 
@@ -152,11 +154,33 @@ function Commitments() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="commitments">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>📋 Tasks</h2>
-          <button onClick={loadCommitments} disabled={loading} className="secondary">
-            {loading ? 'Loading...' : '🔄 Refresh'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            {microsoftConnected && (
+              <button 
+                onClick={handleSyncToMicrosoft} 
+                disabled={syncingMicrosoft || loading}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: syncingMicrosoft ? '#6e6e73' : '#0078d4',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: syncingMicrosoft ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                {syncingMicrosoft ? '⏳ Syncing...' : '📋 Sync to Microsoft Planner'}
+              </button>
+            )}
+            <button onClick={loadCommitments} disabled={loading} className="secondary">
+              {loading ? 'Loading...' : '🔄 Refresh'}
+            </button>
+          </div>
         </div>
 
         {error && (

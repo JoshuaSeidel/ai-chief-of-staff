@@ -17,6 +17,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",

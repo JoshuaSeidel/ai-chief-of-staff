@@ -97,6 +97,10 @@ function Configuration() {
     googleClientSecret: '',
     googleRedirectUri: '',
     googleCalendarId: '',
+    microsoftTenantId: '',
+    microsoftClientId: '',
+    microsoftClientSecret: '',
+    microsoftRedirectUri: '',
     userNames: '',
     dbType: 'sqlite',
     postgresHost: '',
@@ -113,10 +117,13 @@ function Configuration() {
   const [message, setMessage] = useState(null);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [checkingGoogle, setCheckingGoogle] = useState(true);
+  const [microsoftConnected, setMicrosoftConnected] = useState(false);
+  const [checkingMicrosoft, setCheckingMicrosoft] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [prompts, setPrompts] = useState([]);
   const [loadingPrompts, setLoadingPrompts] = useState(true);
   const [editingPrompt, setEditingPrompt] = useState(null);
+    checkMicrosoftPlannerStatus();
 
   useEffect(() => {
     loadConfig();
@@ -212,6 +219,7 @@ function Configuration() {
       const loaded = {
         anthropicApiKey: !!appData.anthropicApiKey,
         openaiApiKey: !!appData.openaiApiKey,
+        microsoftClientSecret: !!appData.microsoftClientSecret,
         plaudApiKey: !!appData.plaudApiKey,
         googleClientSecret: !!appData.googleClientSecret,
         postgresPassword: !!(sysData.postgres?.password && sysData.postgres.password !== '********')
@@ -239,6 +247,10 @@ function Configuration() {
         googleRedirectUri: appData.googleRedirectUri || '',
         googleCalendarId: appData.googleCalendarId || '',
         userNames: appData.userNames || '',
+        microsoftTenantId: appData.microsoftTenantId || '',
+        microsoftClientId: appData.microsoftClientId || '',
+        microsoftClientSecret: appData.microsoftClientSecret ? '••••••••' : '',
+        microsoftRedirectUri: appData.microsoftRedirectUri || '',
         dbType: actualDbType,
         postgresHost: sysData.postgres?.host || '',
         postgresPort: sysData.postgres?.port || '5432',
@@ -272,6 +284,18 @@ function Configuration() {
     }
   };
 
+  const checkMicrosoftPlannerStatus = async () => {
+    try {
+      const response = await fetch('/api/planner/microsoft/status');
+      const data = await response.json();
+      setMicrosoftConnected(data.connected);
+    } catch (err) {
+      console.error('Failed to check Microsoft Planner status:', err);
+    } finally {
+      setCheckingMicrosoft(false);
+    }
+  };
+
   const handleGoogleConnect = async () => {
     try {
       const response = await fetch('/api/calendar/google/auth');
@@ -295,6 +319,32 @@ function Configuration() {
       setMessage({ type: 'success', text: 'Google Calendar disconnected successfully' });
     } catch (err) {
       setMessage({ type: 'error', text: 'Failed to disconnect Google Calendar' });
+    }
+  };
+
+  const handleMicrosoftConnect = async () => {
+    try {
+      const response = await fetch('/api/planner/microsoft/auth');
+      const data = await response.json();
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to initiate Microsoft Planner connection' });
+    }
+  };
+
+  const handleMicrosoftDisconnect = async () => {
+    if (!window.confirm('Are you sure you want to disconnect Microsoft Planner?')) {
+      return;
+    }
+    
+    try {
+      await fetch('/api/planner/microsoft/disconnect', { method: 'POST' });
+      setMicrosoftConnected(false);
+      setMessage({ type: 'success', text: 'Microsoft Planner disconnected successfully' });
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Failed to disconnect Microsoft Planner' });
     }
   };
 
@@ -363,7 +413,23 @@ function Configuration() {
       }
       if (config.googleRedirectUri) {
         appUpdates.googleRedirectUri = config.googleRedirectUri;
+      
+      // Microsoft Planner OAuth credentials
+      if (config.microsoftTenantId) {
+        appUpdates.microsoftTenantId = config.microsoftTenantId;
       }
+      if (config.microsoftClientId) {
+        appUpdates.microsoftClientId = config.microsoftClientId;
+      }
+      if (config.microsoftClientSecret && !config.microsoftClientSecret.includes('•')) {
+        appUpdates.microsoftClientSecret = config.microsoftClientSecret;
+      } else if (!config.microsoftClientSecret && loadedFields.microsoftClientSecret) {
+        appUpdates.microsoftClientSecret = '';
+      }
+      if (config.microsoftRedirectUri) {
+        appUpdates.microsoftRedirectUri = config.microsoftRedirectUri;
+      }
+            }
       if (config.googleCalendarId) {
         appUpdates.googleCalendarId = config.googleCalendarId;
       }
@@ -863,6 +929,177 @@ function Configuration() {
               </p>
             </div>
           </details>
+        </div>
+
+        <div style={{ marginBottom: '2rem' }}>
+          <h3>📋 Microsoft Planner/To Do Integration</h3>
+          
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            border: '2px solid #3f3f46', 
+            borderRadius: '12px', 
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>📋</span>
+              Microsoft Planner (Recommended)
+            </h4>
+            
+            {checkingMicrosoft ? (
+              <p style={{ color: '#a1a1aa' }}>Checking connection status...</p>
+            ) : microsoftConnected ? (
+              <div>
+                <div style={{ 
+                  backgroundColor: '#e5ffe5', 
+                  color: '#00a000',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span>
+                    <strong>✓ Connected</strong> - Tasks will be created automatically in Microsoft To Do
+                  </span>
+                  <button 
+                    onClick={handleMicrosoftDisconnect}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#ff4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                  Tasks with deadlines will automatically create Microsoft To Do tasks. Tasks sync across all your devices.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
+                  Connect your Microsoft Planner/To Do to automatically create tasks for commitments with deadlines.
+                  One-click setup with OAuth.
+                </p>
+                
+                {!config.microsoftClientId || !config.microsoftClientSecret || !config.microsoftTenantId ? (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <p style={{ fontSize: '0.9rem', color: '#fbbf24', marginBottom: '1rem' }}>
+                      ⚠️ Setup required: Add your Azure app registration details below, then click Connect
+                    </p>
+                    
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                      Azure Tenant ID
+                    </label>
+                    <input
+                      type="text"
+                      value={config.microsoftTenantId}
+                      onChange={(e) => handleChange('microsoftTenantId', e.target.value)}
+                      placeholder="12345678-1234-1234-1234-123456789abc"
+                      style={{ marginBottom: '1rem' }}
+                    />
+                    
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                      Azure Client ID (Application ID)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.microsoftClientId}
+                      onChange={(e) => handleChange('microsoftClientId', e.target.value)}
+                      placeholder="87654321-4321-4321-4321-cba987654321"
+                      style={{ marginBottom: '1rem' }}
+                    />
+                    
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                      Azure Client Secret
+                    </label>
+                    <input
+                      type="password"
+                      value={config.microsoftClientSecret}
+                      onChange={(e) => handleChange('microsoftClientSecret', e.target.value)}
+                      placeholder="Your client secret value"
+                      style={{ marginBottom: '1rem' }}
+                    />
+                    {config.microsoftClientSecret.includes('•') && (
+                      <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                        ✓ Client secret is configured
+                      </p>
+                    )}
+                    
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                      Redirect URI (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.microsoftRedirectUri}
+                      onChange={(e) => handleChange('microsoftRedirectUri', e.target.value)}
+                      placeholder="https://aicos.yourdomain.com/api/planner/microsoft/callback"
+                    />
+                    <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.5rem' }}>
+                      Only needed if using SWAG/reverse proxy. Leave blank for local use.
+                    </p>
+                    
+                    <details style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#a1a1aa' }}>
+                      <summary style={{ cursor: 'pointer', marginBottom: '0.5rem' }}>
+                        How to get Azure app registration details
+                      </summary>
+                      <ol style={{ marginLeft: '1.5rem', lineHeight: '1.8' }}>
+                        <li>Go to <a href="https://portal.azure.com" target="_blank" rel="noopener noreferrer">Azure Portal</a></li>
+                        <li>Navigate to <strong>Azure Active Directory</strong> → <strong>App registrations</strong></li>
+                        <li>Click <strong>+ New registration</strong></li>
+                        <li>Fill in:
+                          <ul style={{ marginTop: '0.25rem', listStyleType: 'circle' }}>
+                            <li>Name: <code style={{ fontSize: '0.8rem' }}>AI Chief of Staff</code></li>
+                            <li>Supported account types: <strong>Personal Microsoft accounts</strong></li>
+                            <li>Redirect URI: <code style={{ fontSize: '0.8rem' }}>http://localhost:3001/api/planner/microsoft/callback</code></li>
+                          </ul>
+                        </li>
+                        <li>Go to <strong>API permissions</strong> → Add:
+                          <ul style={{ marginTop: '0.25rem', listStyleType: 'circle' }}>
+                            <li><code style={{ fontSize: '0.8rem' }}>Tasks.ReadWrite</code></li>
+                            <li><code style={{ fontSize: '0.8rem' }}>Planner.ReadWrite.All</code></li>
+                            <li><code style={{ fontSize: '0.8rem' }}>User.Read</code></li>
+                          </ul>
+                        </li>
+                        <li>Go to <strong>Certificates & secrets</strong> → Create new client secret</li>
+                        <li>Copy <strong>Tenant ID</strong> from Azure AD Overview</li>
+                        <li>Copy <strong>Application (Client) ID</strong> from App Registration Overview</li>
+                        <li>Copy <strong>Client Secret Value</strong> (save immediately, you won't see it again)</li>
+                        <li>See <code style={{ fontSize: '0.8rem' }}>MICROSOFT-PLANNER-SETUP.md</code> for detailed instructions</li>
+                      </ol>
+                    </details>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleMicrosoftConnect}
+                    style={{
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#0078d4',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.2rem' }}>🔗</span>
+                    Connect Microsoft Planner
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ marginBottom: '2rem' }}>

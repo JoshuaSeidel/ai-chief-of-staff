@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDb, getDbType } = require('../database/db');
 const { extractCommitments } = require('../services/claude');
 const googleCalendar = require('../services/google-calendar');
+const microsoftPlanner = require('../services/microsoft-planner');
 const fs = require('fs');
 const { createModuleLogger } = require('../utils/logger');
 
@@ -13,7 +14,8 @@ const logger = createModuleLogger('TRANSCRIPTS');
  */
 async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
   const isGoogleConnected = await googleCalendar.isConnected();
-  logger.info(`Google Calendar connected: ${isGoogleConnected}`);
+  const isMicrosoftConnected = await microsoftPlanner.isConnected();
+  logger.info(`Google Calendar connected: ${isGoogleConnected}, Microsoft Planner connected: ${isMicrosoftConnected}`);
 
   // Get user names from config
   let userNames = [];
@@ -78,15 +80,28 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      // Only create calendar events for tasks clearly assigned to the user
-      if (item.deadline && isGoogleConnected && isUserTask && !requiresConfirmation) {
-        try {
-          const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
-          // Store the calendar event ID
-          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
-          calendarEventsCreated++;
-        } catch (calError) {
-          logger.warn(`Failed to create calendar event: ${calError.message}`);
+      // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
+      if (item.deadline && isUserTask && !requiresConfirmation) {
+        // Create Google Calendar event
+        if (isGoogleConnected) {
+          try {
+            const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
+            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
+            calendarEventsCreated++;
+          } catch (calError) {
+            logger.warn(`Failed to create calendar event: ${calError.message}`);
+          }
+        }
+        
+        // Create Microsoft Planner task
+        if (isMicrosoftConnected) {
+          try {
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
+            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ?', [microsoftTask.id, insertedId]);
+            logger.info(`Created Microsoft task ${microsoftTask.id} for commitment ${insertedId}`);
+          } catch (msError) {
+            logger.warn(`Failed to create Microsoft task: ${msError.message}`);
+          }
         }
       }
     }
@@ -116,14 +131,28 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      // Only create calendar events for tasks clearly assigned to the user
-      if (item.deadline && isGoogleConnected && isUserTask && !requiresConfirmation) {
-        try {
-          const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' });
-          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
-          calendarEventsCreated++;
-        } catch (calError) {
-          logger.warn(`Failed to create calendar event: ${calError.message}`);
+      // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
+      if (item.deadline && isUserTask && !requiresConfirmation) {
+        // Create Google Calendar event
+        if (isGoogleConnected) {
+          try {
+            const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' });
+            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
+            calendarEventsCreated++;
+          } catch (calError) {
+            logger.warn(`Failed to create calendar event: ${calError.message}`);
+          }
+        }
+        
+        // Create Microsoft Planner task
+        if (isMicrosoftConnected) {
+          try {
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'action' });
+            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ?', [microsoftTask.id, insertedId]);
+            logger.info(`Created Microsoft task ${microsoftTask.id} for action ${insertedId}`);
+          } catch (msError) {
+            logger.warn(`Failed to create Microsoft task: ${msError.message}`);
+          }
         }
       }
     }
@@ -154,14 +183,28 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      // Only create calendar events for tasks clearly assigned to the user
-      if (item.deadline && isGoogleConnected && isUserTask && !requiresConfirmation) {
-        try {
-          const event = await googleCalendar.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
-          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
-          calendarEventsCreated++;
-        } catch (calError) {
-          logger.warn(`Failed to create calendar event: ${calError.message}`);
+      // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
+      if (item.deadline && isUserTask && !requiresConfirmation) {
+        // Create Google Calendar event
+        if (isGoogleConnected) {
+          try {
+            const event = await googleCalendar.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
+            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
+            calendarEventsCreated++;
+          } catch (calError) {
+            logger.warn(`Failed to create calendar event: ${calError.message}`);
+          }
+        }
+        
+        // Create Microsoft Planner task
+        if (isMicrosoftConnected) {
+          try {
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
+            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ?', [microsoftTask.id, insertedId]);
+            logger.info(`Created Microsoft task ${microsoftTask.id} for follow-up ${insertedId}`);
+          } catch (msError) {
+            logger.warn(`Failed to create Microsoft task: ${msError.message}`);
+          }
         }
       }
     }

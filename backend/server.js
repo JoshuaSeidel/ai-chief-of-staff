@@ -116,6 +116,7 @@ async function startServer() {
     app.use('/api/transcripts', transcriptRoutes);
     app.use('/api/config', configRoutes);
     app.use('/api/calendar', calendarRoutes);
+    app.use('/api/planner', require('./routes/planner'));
     app.use('/api/commitments', commitmentsRoutes);
     app.use('/api/prompts', require('./routes/prompts'));
     app.use('/api/notifications', require('./routes/notifications'));
