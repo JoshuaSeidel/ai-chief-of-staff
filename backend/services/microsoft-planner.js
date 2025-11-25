@@ -187,9 +187,11 @@ async function getGraphClient() {
  * Refresh access token using refresh token
  */
 async function refreshToken(refreshTokenValue) {
-  const { clientId, clientSecret, tenantId } = await getOAuthClient();
+  const { clientId, clientSecret } = await getOAuthClient();
   
-  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+  // Use /common for multi-tenant token refresh
+  // The tenant is determined by the refresh token itself
+  const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -208,7 +210,9 @@ async function refreshToken(refreshTokenValue) {
   });
   
   if (!response.ok) {
-    throw new Error('Failed to refresh token');
+    const errorText = await response.text();
+    logger.error('Token refresh failed', { status: response.status, error: errorText });
+    throw new Error(`Failed to refresh token: ${response.status}`);
   }
   
   const tokens = await response.json();
@@ -225,6 +229,7 @@ async function refreshToken(refreshTokenValue) {
     ['microsoftPlannerToken', JSON.stringify(tokens)]
   );
   
+  logger.info('Microsoft Planner tokens refreshed successfully');
   return tokens;
 }
 
