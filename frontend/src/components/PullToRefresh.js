@@ -36,7 +36,17 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
   };
 
   return (
-    <div ref={elementRef} style={{ ...style, minHeight: '100%' }}>
+    <div 
+      ref={elementRef} 
+      style={{ 
+        ...style, 
+        minHeight: '100%',
+        // Prevent browser pull-to-refresh in PWA
+        overscrollBehavior: 'none',
+        overscrollBehaviorY: 'none',
+        touchAction: 'pan-y'
+      }}
+    >
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }

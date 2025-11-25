@@ -49,7 +49,15 @@ export function usePullToRefresh(onRefresh, options = {}) {
       // Only start if we're at the top
       if (atTop) {
         isPulling = true;
-        console.log('[PullToRefresh] Touch start at top, enabled');
+        // In PWA mode, prevent default immediately to block browser pull-to-refresh
+        if (window.matchMedia('(display-mode: standalone)').matches || 
+            window.navigator.standalone === true ||
+            document.referrer.includes('android-app://')) {
+          // This is a PWA - be more aggressive
+          console.log('[PullToRefresh] PWA mode detected, touch start at top');
+        } else {
+          console.log('[PullToRefresh] Touch start at top, enabled');
+        }
       }
     };
 
@@ -62,12 +70,18 @@ export function usePullToRefresh(onRefresh, options = {}) {
 
       // Only allow pull-to-refresh if at the top and pulling down
       if (deltaY > 0 && atTop) {
+        // In PWA mode, we need to be more aggressive with preventDefault
         e.preventDefault();
         e.stopPropagation();
-        const distance = Math.min(deltaY / resistance, threshold * 1.5);
-        setPullDistance(distance);
-        if (distance > 10 && distance % 20 < 5) {
-          console.log('[PullToRefresh] Pulling:', Math.round(distance), 'px');
+        e.stopImmediatePropagation();
+        
+        // Prevent default browser pull-to-refresh
+        if (window.scrollY === 0) {
+          const distance = Math.min(deltaY / resistance, threshold * 1.5);
+          setPullDistance(distance);
+          if (distance > 10 && distance % 20 < 5) {
+            console.log('[PullToRefresh] Pulling:', Math.round(distance), 'px');
+          }
         }
       } else if (deltaY <= 0 || !atTop) {
         setPullDistance(0);
@@ -108,14 +122,15 @@ export function usePullToRefresh(onRefresh, options = {}) {
     };
 
     // Attach to document for better capture
-    document.addEventListener('touchstart', handleTouchStart, { passive: false });
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+    // Use capture phase to intercept before other handlers
+    document.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
 
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchstart', handleTouchStart, { capture: true });
+      document.removeEventListener('touchmove', handleTouchMove, { capture: true });
+      document.removeEventListener('touchend', handleTouchEnd, { capture: true });
     };
   }, [threshold, resistance, onRefresh, disabled, checkScrollTop]);
 

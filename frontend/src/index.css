@@ -12,9 +12,11 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #1a1a1a;
   color: #e4e4e7;
-  /* Enable pull-to-refresh gestures */
+  /* Enable pull-to-refresh gestures - critical for PWA */
   touch-action: pan-y;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: none; /* Prevent browser pull-to-refresh in PWA */
+  overscroll-behavior: none; /* Prevent browser pull-to-refresh */
+  -webkit-overflow-scrolling: touch;
 }
 
 code {
