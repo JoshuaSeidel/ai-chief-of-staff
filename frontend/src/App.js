@@ -14,10 +14,13 @@ function App() {
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Update URL when tab changes
   useEffect(() => {
     window.location.hash = activeTab;
+    // Close mobile menu when tab changes
+    setMobileMenuOpen(false);
   }, [activeTab]);
 
   // Listen for hash changes (back/forward browser buttons)
@@ -34,48 +37,79 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (mobileMenuOpen && !e.target.closest('.header') && !e.target.closest('.mobile-menu-overlay')) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    if (mobileMenuOpen) {
+      document.addEventListener('click', handleClickOutside);
+      // Prevent body scroll when menu is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setMobileMenuOpen(false);
+  };
+
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'transcripts', label: 'Transcripts', icon: '📝' },
+    { id: 'tasks', label: 'Tasks', icon: '📋' },
+    { id: 'calendar', label: 'Calendar', icon: '📅' },
+    { id: 'config', label: 'Settings', icon: '⚙️' }
+  ];
+
   return (
     <div className="app">
       <header className="header">
-        <h1>AI Chief of Staff</h1>
-        <nav className="nav">
+        <div className="header-content">
+          <h1>AI Chief of Staff</h1>
           <button 
-            className={activeTab === 'dashboard' ? 'active' : ''}
-            onClick={() => setActiveTab('dashboard')}
-            data-tab="dashboard"
+            className="mobile-menu-toggle"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
           >
-            Dashboard
+            <span className={`hamburger ${mobileMenuOpen ? 'open' : ''}`}>
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
           </button>
-          <button 
-            className={activeTab === 'transcripts' ? 'active' : ''}
-            onClick={() => setActiveTab('transcripts')}
-            data-tab="transcripts"
-          >
-            Transcripts
-          </button>
-          <button 
-            className={activeTab === 'tasks' ? 'active' : ''}
-            onClick={() => setActiveTab('tasks')}
-            data-tab="tasks"
-          >
-            Tasks
-          </button>
-          <button 
-            className={activeTab === 'calendar' ? 'active' : ''}
-            onClick={() => setActiveTab('calendar')}
-            data-tab="calendar"
-          >
-            Calendar
-          </button>
-          <button 
-            className={activeTab === 'config' ? 'active' : ''}
-            onClick={() => setActiveTab('config')}
-            data-tab="config"
-          >
-            Settings
-          </button>
+        </div>
+        <nav className={`nav ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+          {navItems.map(item => (
+            <button 
+              key={item.id}
+              className={activeTab === item.id ? 'active' : ''}
+              onClick={() => handleTabChange(item.id)}
+              data-tab={item.id}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
+            </button>
+          ))}
         </nav>
       </header>
+
+      {mobileMenuOpen && (
+        <div 
+          className="mobile-menu-overlay"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
 
       <main className="container">
         {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}

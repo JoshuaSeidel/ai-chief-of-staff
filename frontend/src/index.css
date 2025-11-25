@@ -35,12 +35,63 @@ code {
   border-bottom: 1px solid #3f3f46;
   padding: 1rem 2rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .header h1 {
   font-size: 1.5rem;
   font-weight: 600;
   color: #e4e4e7;
+  margin: 0;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  flex-direction: column;
+  justify-content: space-around;
+  width: 2rem;
+  height: 2rem;
+  z-index: 1001;
+}
+
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.hamburger span {
+  width: 100%;
+  height: 2px;
+  background-color: #e4e4e7;
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.hamburger.open span:nth-child(1) {
+  transform: rotate(45deg) translate(5px, 5px);
+}
+
+.hamburger.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger.open span:nth-child(3) {
+  transform: rotate(-45deg) translate(7px, -6px);
 }
 
 .nav {
@@ -58,6 +109,18 @@ code {
   color: #a1a1aa;
   border-bottom: 2px solid transparent;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.nav-icon {
+  font-size: 1.1rem;
+}
+
+.nav-label {
+  display: inline;
 }
 
 .nav button:hover {
@@ -67,6 +130,10 @@ code {
 .nav button.active {
   color: #60a5fa;
   border-bottom-color: #60a5fa;
+}
+
+.mobile-menu-overlay {
+  display: none;
 }
 
 .container {
@@ -334,21 +401,78 @@ table {
 /* Tablet and below */
 @media (max-width: 768px) {
   .header {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
   }
 
   .header h1 {
-    font-size: 1.25rem;
+    font-size: 1.125rem;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
   }
 
   .nav {
-    gap: 0.5rem;
-    flex-wrap: wrap;
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 280px;
+    max-width: 85vw;
+    height: 100vh;
+    background-color: #27272a;
+    border-left: 1px solid #3f3f46;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 0;
+    padding: 4rem 0 1rem 0;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
+    transition: right 0.3s ease;
+    z-index: 999;
+    overflow-y: auto;
+  }
+
+  .nav.mobile-open {
+    right: 0;
   }
 
   .nav button {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.875rem;
+    width: 100%;
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+    border-bottom: 1px solid #3f3f46;
+    border-radius: 0;
+    justify-content: flex-start;
+    text-align: left;
+    min-height: 56px; /* Better touch target */
+  }
+
+  .nav button.active {
+    background-color: #18181b;
+    border-bottom-color: #3f3f46;
+    border-left: 3px solid #60a5fa;
+  }
+
+  .nav-icon {
+    font-size: 1.25rem;
+    width: 1.5rem;
+    text-align: center;
+  }
+
+  .mobile-menu-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 998;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .nav.mobile-open ~ .mobile-menu-overlay {
+    opacity: 1;
   }
 
   .container {
@@ -391,18 +515,16 @@ table {
   }
 
   .header h1 {
-    font-size: 1.125rem;
+    font-size: 1rem;
   }
 
   .nav {
-    gap: 0.25rem;
+    width: 260px;
   }
 
   .nav button {
-    padding: 0.5rem;
-    font-size: 0.8125rem;
-    flex: 1 1 auto;
-    text-align: center;
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9375rem;
   }
 
   .container {
@@ -444,11 +566,25 @@ table {
 
 /* Ensure proper viewport on mobile */
 @media (max-width: 768px) {
-  /* Make tables scrollable on mobile */
+    /* Make tables scrollable on mobile */
   table {
     display: block;
     overflow-x: auto;
     white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  /* Table wrapper for better mobile scrolling */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 1rem -0.75rem;
+    padding: 0 0.75rem;
+  }
+
+  .table-wrapper table {
+    min-width: 100%;
   }
 
   /* Stack form elements vertically on mobile */
@@ -471,6 +607,23 @@ table {
   /* Better touch targets for mobile */
   a, button, input, select, textarea {
     min-height: 44px; /* iOS recommended touch target */
+  }
+
+  /* Stack flex containers on mobile */
+  .card > div[style*="display: flex"] {
+    flex-direction: column !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Make sure buttons in flex containers stack on mobile */
+  .card button + button {
+    margin-top: 0.5rem;
+    margin-left: 0 !important;
+  }
+
+  /* Optimize stats displays for mobile */
+  .card > div[style*="display: flex"][style*="gap"] {
+    flex-wrap: wrap;
   }
 
   /* Improve textarea on mobile */

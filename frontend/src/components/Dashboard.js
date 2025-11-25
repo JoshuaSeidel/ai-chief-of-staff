@@ -279,7 +279,7 @@ function Dashboard({ setActiveTab }) {
         )}
 
         {stats && (
-          <div style={{ 
+          <div className="stats-container" style={{ 
             display: 'flex', 
             gap: '1rem', 
             marginBottom: '1rem', 
