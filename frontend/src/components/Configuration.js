@@ -137,6 +137,7 @@ function Configuration() {
     if (typeof Notification !== 'undefined') {
       setNotificationsEnabled(Notification.permission === 'granted');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   
   const loadPrompts = async () => {
@@ -437,6 +438,7 @@ function Configuration() {
       }
       if (config.googleRedirectUri) {
         appUpdates.googleRedirectUri = config.googleRedirectUri;
+      }
       
       // Microsoft Planner OAuth credentials
       if (config.microsoftTenantId) {
@@ -452,13 +454,12 @@ function Configuration() {
       }
       if (config.microsoftTaskListId) {
         appUpdates.microsoftTaskListId = config.microsoftTaskListId;
-      } else if (!config.microsoftTaskListId && appData.microsoftTaskListId) {
+      } else if (!config.microsoftTaskListId && loadedFields.microsoftTaskListId) {
         appUpdates.microsoftTaskListId = '';
       }
-            if (config.microsoftRedirectUri) {
+      if (config.microsoftRedirectUri) {
         appUpdates.microsoftRedirectUri = config.microsoftRedirectUri;
       }
-            }
       if (config.googleCalendarId) {
         appUpdates.googleCalendarId = config.googleCalendarId;
       }
