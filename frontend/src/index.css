@@ -460,7 +460,7 @@ table {
   }
 
   .mobile-menu-overlay {
-    display: block;
+    display: none; /* Hidden by default */
     position: fixed;
     top: 0;
     left: 0;
@@ -472,7 +472,8 @@ table {
     transition: opacity 0.3s ease;
   }
 
-  .nav.mobile-open ~ .mobile-menu-overlay {
+  .mobile-menu-overlay.visible {
+    display: block;
     opacity: 1;
   }
 
