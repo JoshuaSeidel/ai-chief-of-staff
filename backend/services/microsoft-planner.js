@@ -64,9 +64,10 @@ async function getOAuthClient() {
  * Generate OAuth URL for user to authorize
  */
 async function getAuthUrl() {
-  const { clientId, tenantId, redirectUri } = await getOAuthClient();
+  const { clientId, redirectUri } = await getOAuthClient();
   
-  // Microsoft OAuth2 authorization endpoint
+  // Microsoft OAuth2 authorization endpoint - using /common for multi-tenant support
+  // This allows users from any organization or personal accounts to sign in
   // Using Microsoft To Do API, not Planner API
   const scopes = [
     'Tasks.ReadWrite',
@@ -79,12 +80,15 @@ async function getAuthUrl() {
     redirect_uri: redirectUri,
     response_mode: 'query',
     scope: scopes,
-    state: 'microsoft-planner-auth'
+    state: 'microsoft-planner-auth',
+    prompt: 'select_account' // Allow user to choose which account to use
   });
   
-  const url = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?${params.toString()}`;
+  // Use /common for multi-tenant support (works with any org or personal accounts)
+  // Alternative: use /organizations for work/school accounts only
+  const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
   
-  logger.info('Generated Microsoft OAuth URL');
+  logger.info('Generated Microsoft OAuth URL (multi-tenant)');
   return url;
 }
 
@@ -92,9 +96,11 @@ async function getAuthUrl() {
  * Exchange authorization code for tokens
  */
 async function getTokenFromCode(code) {
-  const { clientId, clientSecret, tenantId, redirectUri } = await getOAuthClient();
+  const { clientId, clientSecret, redirectUri } = await getOAuthClient();
   
-  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+  // Use /common for multi-tenant token exchange
+  // The actual tenant will be determined by the authorization code
+  const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -126,7 +132,7 @@ async function getTokenFromCode(code) {
     tokens.expires_at = Math.floor(Date.now() / 1000) + tokens.expires_in;
   }
   
-  // Store tokens in database
+  // Store tokens in database (including tenant info if provided)
   const db = getDb();
   await db.run(
     'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
