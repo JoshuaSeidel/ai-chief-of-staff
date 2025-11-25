@@ -13,7 +13,46 @@ function Commitments() {
 
   useEffect(() => {
     loadCommitments();
+    checkMicrosoftPlannerStatus();
   }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const checkMicrosoftPlannerStatus = async () => {
+    try {
+      const response = await fetch('/api/planner/microsoft/status');
+      const data = await response.json();
+      setMicrosoftConnected(data.connected);
+    } catch (err) {
+      console.error('Failed to check Microsoft Planner status:', err);
+    }
+  };
+
+  const handleSyncToMicrosoft = async () => {
+    if (!microsoftConnected) {
+      alert('Please connect Microsoft Planner in Configuration first');
+      return;
+    }
+    
+    if (!window.confirm('This will create Microsoft To Do tasks for all pending tasks that don\'t already have one. Continue?')) {
+      return;
+    }
+    
+    setSyncingMicrosoft(true);
+    try {
+      const response = await fetch('/api/planner/microsoft/sync', { method: 'POST' });
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✅ Synced ${data.synced} tasks to Microsoft Planner${data.failed > 0 ? `\n⚠️ ${data.failed} failed` : ''}`);
+        loadCommitments(); // Reload to show updated task IDs
+      } else {
+        alert(`❌ Sync failed: ${data.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`❌ Error syncing: ${err.message}`);
+    } finally {
+      setSyncingMicrosoft(false);
+    }
+  };
 
   const loadCommitments = async () => {
     setLoading(true);
