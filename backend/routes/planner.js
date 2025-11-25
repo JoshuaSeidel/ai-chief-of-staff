@@ -14,9 +14,16 @@ router.get('/microsoft/auth', async (req, res) => {
     res.json({ authUrl });
   } catch (error) {
     logger.error('Error generating Microsoft auth URL', error);
+    
+    // Provide more helpful error message for common issues
+    let errorMessage = error.message;
+    if (error.message.includes('not configured')) {
+      errorMessage = `${error.message} Please configure Azure credentials in the Configuration page first.`;
+    }
+    
     res.status(500).json({ 
       error: 'Error generating authorization URL',
-      message: error.message
+      message: errorMessage
     });
   }
 });

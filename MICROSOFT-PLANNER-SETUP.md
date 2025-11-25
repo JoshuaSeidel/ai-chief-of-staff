@@ -9,12 +9,17 @@ This guide will help you set up Microsoft Planner integration using your persona
 
 ## Step 1: Register an App in Azure Portal
 
+**IMPORTANT**: You must be signed into Azure Portal with a **personal Microsoft account** (like @outlook.com, @hotmail.com, or a personal @gmail.com that's linked to Microsoft), NOT a work/school account. If you're signed in with a work account, sign out and sign in with your personal account.
+
 1. Go to [Azure Portal](https://portal.azure.com)
+   - **Make sure you're signed in with your personal Microsoft account**, not your work account
+   - If you see your work email in the top right, click it and select "Sign out", then sign in with your personal account
 2. Navigate to **Azure Active Directory** → **App registrations**
 3. Click **+ New registration**
 4. Fill in the form:
    - **Name**: `AI Chief of Staff` (or any name you prefer)
-   - **Supported account types**: Select **Accounts in any organizational directory and personal Microsoft accounts**
+   - **Supported account types**: Select **Personal Microsoft accounts only** or **Accounts in any organizational directory and personal Microsoft accounts**
+     - **Note**: If you want to use your work account, you must select "Accounts in any organizational directory and personal Microsoft accounts" and your work admin must approve the app
    - **Redirect URI**: 
      - Type: **Web**
      - URI: `http://localhost:3001/api/planner/microsoft/callback` (for local dev)
@@ -90,4 +95,13 @@ When setting up, you'll need these values from Azure:
 - **"Invalid redirect URI"**: Ensure redirect URI in Azure matches the one in configuration
 - **"Insufficient permissions"**: Make sure you've granted all required permissions
 - **"Token expired"**: The app will automatically refresh tokens, but you may need to reconnect if refresh fails
+- **"AADSTS50020: User account does not exist in tenant"**: 
+  - **Problem**: You're trying to sign in with a work/school account but the app is registered for personal accounts only
+  - **Solution 1 (Recommended)**: Sign in with a personal Microsoft account (@outlook.com, @hotmail.com, or personal @gmail.com)
+  - **Solution 2**: Update your app registration to support work accounts:
+    1. Go to Azure Portal → App registrations → Your app
+    2. Click **Authentication** → **Supported account types**
+    3. Select **Accounts in any organizational directory and personal Microsoft accounts**
+    4. Save and try connecting again
+    5. Your work admin may need to approve the app
 
