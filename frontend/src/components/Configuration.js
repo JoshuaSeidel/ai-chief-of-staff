@@ -293,10 +293,30 @@ function Configuration() {
       const response = await fetch('/api/planner/microsoft/status');
       const data = await response.json();
       setMicrosoftConnected(data.connected);
+      
+      // If connected, load available task lists
+      if (data.connected) {
+        loadMicrosoftTaskLists();
+      }
     } catch (err) {
       console.error('Failed to check Microsoft Planner status:', err);
     } finally {
       setCheckingMicrosoft(false);
+    }
+  };
+
+  const loadMicrosoftTaskLists = async () => {
+    if (!microsoftConnected) return;
+    
+    setLoadingTaskLists(true);
+    try {
+      const response = await fetch('/api/planner/microsoft/lists');
+      const data = await response.json();
+      setMicrosoftTaskLists(data.lists || []);
+    } catch (err) {
+      console.error('Failed to load Microsoft task lists:', err);
+    } finally {
+      setLoadingTaskLists(false);
     }
   };
 
