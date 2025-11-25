@@ -102,19 +102,29 @@ export function usePullToRefresh(onRefresh, options = {}) {
       if (currentDistance >= threshold && !isRefreshingRef.current) {
         console.log('[PullToRefresh] Triggering refresh');
         setIsRefreshing(true);
+        // Keep the pull distance visible during refresh
         setPullDistance(threshold);
         
         try {
-          await onRefresh();
-          console.log('[PullToRefresh] Refresh complete');
+          // Call the refresh function
+          if (onRefresh && typeof onRefresh === 'function') {
+            await onRefresh();
+            console.log('[PullToRefresh] Refresh complete');
+          } else {
+            console.warn('[PullToRefresh] onRefresh is not a function:', typeof onRefresh);
+          }
         } catch (error) {
           console.error('[PullToRefresh] Refresh error:', error);
         } finally {
-          setIsRefreshing(false);
-          setPullDistance(0);
+          // Small delay before resetting to show completion
+          setTimeout(() => {
+            setIsRefreshing(false);
+            setPullDistance(0);
+          }, 300);
         }
       } else {
         console.log('[PullToRefresh] Not enough distance, canceling');
+        // Animate back smoothly
         setPullDistance(0);
       }
       
