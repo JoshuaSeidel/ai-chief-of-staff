@@ -42,8 +42,14 @@ async function getOAuthClient() {
   
   logger.info(`Using Microsoft OAuth redirect URI: ${redirectUri}`);
   
-  if (!clientIdRow || !clientSecretRow || !tenantIdRow) {
-    throw new Error('Microsoft OAuth credentials not configured');
+  // Check which credentials are missing and provide helpful error message
+  const missing = [];
+  if (!clientIdRow || !clientIdRow.value) missing.push('Client ID');
+  if (!clientSecretRow || !clientSecretRow.value) missing.push('Client Secret');
+  if (!tenantIdRow || !tenantIdRow.value) missing.push('Tenant ID');
+  
+  if (missing.length > 0) {
+    throw new Error(`Microsoft OAuth credentials not configured. Missing: ${missing.join(', ')}. Please configure in the Configuration page.`);
   }
   
   return {
