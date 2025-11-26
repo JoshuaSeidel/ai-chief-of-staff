@@ -47,7 +47,110 @@ function Dashboard({ setActiveTab }) {
     }
   };
 
-  // Removed unused handlers - Quick Actions section was restored above
+  // Removed unused handlers - Quick Actions section was removed
+
+  const handleGenerateWeeklyReport = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await briefAPI.generateWeeklyReport();
+      // Show the report in a modal or new section
+      const reportWindow = window.open('', '_blank', 'width=800,height=600');
+      reportWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Weekly Report - ${new Date().toLocaleDateString()}</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+              max-width: 800px;
+              margin: 2rem auto;
+              padding: 2rem;
+              background: #1a1a1a;
+              color: #e4e4e7;
+              line-height: 1.6;
+            }
+            h1, h2, h3 { color: #60a5fa; }
+            ul { margin-left: 1.5rem; }
+            strong { color: #fbbf24; }
+            .stats {
+              display: flex;
+              gap: 1rem;
+              margin: 1rem 0;
+              padding: 1rem;
+              background: #27272a;
+              border-radius: 8px;
+            }
+            .stat {
+              flex: 1;
+              text-align: center;
+            }
+            .stat-value {
+              font-size: 2rem;
+              font-weight: bold;
+              color: #60a5fa;
+            }
+            .stat-label {
+              font-size: 0.9rem;
+              color: #a1a1aa;
+            }
+            pre {
+              background: #27272a;
+              padding: 1rem;
+              border-radius: 8px;
+              overflow-x: auto;
+              white-space: pre-wrap;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>📊 Weekly Report</h1>
+          <p><em>Generated: ${new Date(response.data.generatedAt).toLocaleString()}</em></p>
+          
+          ${response.data.stats ? `
+          <div class="stats">
+            <div class="stat">
+              <div class="stat-value">${response.data.stats.totalTranscripts || 0}</div>
+              <div class="stat-label">Transcripts</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value">${response.data.stats.completedCommitments || 0}</div>
+              <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat">
+              <div class="stat-value">${response.data.stats.pendingCommitments || 0}</div>
+              <div class="stat-label">Pending</div>
+            </div>
+          </div>
+          ` : ''}
+          
+          <pre>${response.data.report}</pre>
+          
+          <button onclick="window.print()" style="
+            margin-top: 1rem;
+            padding: 0.75rem 1.5rem;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+          ">🖨️ Print Report</button>
+        </body>
+        </html>
+      `);
+      reportWindow.document.close();
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to generate weekly report';
+      setError(errorMessage);
+      console.error('Weekly report generation error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Removed unused handler
 
   // Parse deliverables table from brief - robust parser for markdown tables
   const parseDeliverablesTable = (briefText) => {
@@ -161,154 +264,44 @@ function Dashboard({ setActiveTab }) {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="dashboard">
-      {/* Quick Actions Section */}
-      <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h2 style={{ marginBottom: '1rem' }}>Quick Actions</h2>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '1rem' 
-        }}>
-          <button 
-            onClick={() => setActiveTab('tasks')}
-            style={{
-              padding: '1rem',
-              backgroundColor: '#3f3f46',
-              color: '#e4e4e7',
-              border: '1px solid #52525b',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              transition: 'all 0.2s',
-              textAlign: 'left'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#52525b';
-              e.currentTarget.style.borderColor = '#60a5fa';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#3f3f46';
-              e.currentTarget.style.borderColor = '#52525b';
-            }}
-          >
-            <span style={{ fontSize: '1.5rem' }}>📋</span>
-            <div>
-              <div style={{ fontWeight: '600' }}>View All Tasks</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Manage commitments & actions</div>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('transcripts')}
-            style={{
-              padding: '1rem',
-              backgroundColor: '#3f3f46',
-              color: '#e4e4e7',
-              border: '1px solid #52525b',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              transition: 'all 0.2s',
-              textAlign: 'left'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#52525b';
-              e.currentTarget.style.borderColor = '#60a5fa';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#3f3f46';
-              e.currentTarget.style.borderColor = '#52525b';
-            }}
-          >
-            <span style={{ fontSize: '1.5rem' }}>📝</span>
-            <div>
-              <div style={{ fontWeight: '600' }}>Upload Transcript</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Add meeting notes</div>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('calendar')}
-            style={{
-              padding: '1rem',
-              backgroundColor: '#3f3f46',
-              color: '#e4e4e7',
-              border: '1px solid #52525b',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              transition: 'all 0.2s',
-              textAlign: 'left'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#52525b';
-              e.currentTarget.style.borderColor = '#60a5fa';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#3f3f46';
-              e.currentTarget.style.borderColor = '#52525b';
-            }}
-          >
-            <span style={{ fontSize: '1.5rem' }}>📅</span>
-            <div>
-              <div style={{ fontWeight: '600' }}>View Calendar</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>See upcoming events</div>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => setActiveTab('config')}
-            style={{
-              padding: '1rem',
-              backgroundColor: '#3f3f46',
-              color: '#e4e4e7',
-              border: '1px solid #52525b',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '1rem',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-              transition: 'all 0.2s',
-              textAlign: 'left'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#52525b';
-              e.currentTarget.style.borderColor = '#60a5fa';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#3f3f46';
-              e.currentTarget.style.borderColor = '#52525b';
-            }}
-          >
-            <span style={{ fontSize: '1.5rem' }}>⚙️</span>
-            <div>
-              <div style={{ fontWeight: '600' }}>Settings</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Configure app</div>
-            </div>
-          </button>
-        </div>
-      </div>
-
       {/* Daily Brief Section */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2>Morning Dashboard</h2>
-          <button onClick={generateBrief} disabled={loading}>
-            {loading ? 'Generating...' : '🔄 Generate Brief'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <h2 style={{ margin: 0 }}>Morning Dashboard</h2>
+          <button 
+            onClick={generateBrief} 
+            disabled={loading}
+            style={{
+              padding: '0.75rem 1.25rem',
+              backgroundColor: '#3f3f46',
+              color: '#e4e4e7',
+              border: '1px solid #52525b',
+              borderRadius: '8px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '0.9375rem',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              transition: 'all 0.2s',
+              whiteSpace: 'nowrap',
+              opacity: loading ? 0.6 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = '#52525b';
+                e.currentTarget.style.borderColor = '#60a5fa';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) {
+                e.currentTarget.style.backgroundColor = '#3f3f46';
+                e.currentTarget.style.borderColor = '#52525b';
+              }
+            }}
+          >
+            <span>{loading ? '⏳' : '🔄'}</span>
+            {loading ? 'Generating...' : 'Generate Brief'}
           </button>
         </div>
 
@@ -623,6 +616,56 @@ function Dashboard({ setActiveTab }) {
             )}
           </div>
         )}
+      </div>
+
+      {/* Quick Actions Section */}
+      <div className="card">
+        <h2 style={{ marginBottom: '1rem' }}>Quick Actions</h2>
+        <div className="quick-actions-grid">
+          <button 
+            onClick={() => setActiveTab('tasks')}
+            className="quick-action-button"
+          >
+            <span style={{ fontSize: '1.5rem' }}>📋</span>
+            <div>
+              <div style={{ fontWeight: '600' }}>View All Tasks</div>
+              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Manage commitments & actions</div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('transcripts')}
+            className="quick-action-button"
+          >
+            <span style={{ fontSize: '1.5rem' }}>📝</span>
+            <div>
+              <div style={{ fontWeight: '600' }}>Upload Transcript</div>
+              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Add meeting notes</div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('calendar')}
+            className="quick-action-button"
+          >
+            <span style={{ fontSize: '1.5rem' }}>📅</span>
+            <div>
+              <div style={{ fontWeight: '600' }}>View Calendar</div>
+              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>See upcoming events</div>
+            </div>
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('config')}
+            className="quick-action-button"
+          >
+            <span style={{ fontSize: '1.5rem' }}>⚙️</span>
+            <div>
+              <div style={{ fontWeight: '600' }}>Settings</div>
+              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Configure app</div>
+            </div>
+          </button>
+        </div>
       </div>
       </div>
     </PullToRefresh>
