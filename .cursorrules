@@ -101,17 +101,22 @@ AI Chief of Staff is an intelligent executive assistant application that automat
 
 ### Before Committing JavaScript Changes
 
-1. **Always run ESLint locally** before committing:
+1. **Bump version if needed** (unless it's a minor bug fix):
+   ```bash
+   node scripts/bump-version.js
+   ```
+
+2. **Always run ESLint locally** before committing:
    ```bash
    cd frontend
    npm run build  # This runs ESLint automatically
    ```
 
-2. **Fix all warnings** - The build will fail if there are any warnings
+3. **Fix all warnings** - The build will fail if there are any warnings
 
-3. **Check for unused code** - Remove unused functions, variables, imports
+4. **Check for unused code** - Remove unused functions, variables, imports
 
-4. **Verify the build succeeds** - The Docker build process runs `npm run build` which includes ESLint
+5. **Verify the build succeeds** - The Docker build process runs `npm run build` which includes ESLint
 
 ### Common ESLint Issues to Avoid
 
@@ -119,6 +124,57 @@ AI Chief of Staff is an intelligent executive assistant application that automat
 - Missing dependencies in useEffect hooks
 - Unused imports
 - Console.log statements in production code (use proper logging)
+
+## Version Management
+
+### Version Bumping Requirements
+
+**CRITICAL**: Bump the version number before each push, UNLESS it's a minor bug fix.
+
+- Version is stored in both `backend/package.json` and `frontend/package.json`
+- Both files must have the same version number
+- Use the version bump script: `node scripts/bump-version.js`
+- This increments the patch version (e.g., 1.0.0 -> 1.0.1)
+
+### When to Bump Version
+
+**Bump version for:**
+- New features
+- Significant changes or improvements
+- UI/UX enhancements
+- New integrations or functionality
+- Breaking changes (should also bump major or minor version manually)
+
+**Do NOT bump version for:**
+- Minor bug fixes (typos, small CSS tweaks, etc.)
+- Documentation-only changes
+- ESLint fixes that don't change functionality
+- Code cleanup that doesn't affect behavior
+
+### How to Bump Version
+
+1. **Run the bump script:**
+   ```bash
+   node scripts/bump-version.js
+   ```
+
+2. **Verify both package.json files were updated:**
+   - `backend/package.json`
+   - `frontend/package.json`
+   - Both should show the same new version
+
+3. **Commit the version changes along with your code changes:**
+   ```bash
+   git add backend/package.json frontend/package.json
+   git commit -m "Your commit message"
+   ```
+
+### Manual Version Bumping
+
+If you need to bump major or minor version (not just patch), manually edit both package.json files:
+- Major version: 1.0.0 -> 2.0.0 (breaking changes)
+- Minor version: 1.0.0 -> 1.1.0 (new features, backward compatible)
+- Patch version: 1.0.0 -> 1.0.1 (use the script for this)
 
 ## Development Guidelines
 
