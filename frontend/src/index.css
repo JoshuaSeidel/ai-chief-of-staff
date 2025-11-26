@@ -34,6 +34,7 @@ code {
   background-color: #27272a;
   border-bottom: 1px solid #3f3f46;
   padding: 1rem 2rem;
+  padding-top: max(1rem, env(safe-area-inset-top, 1rem));
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   position: sticky;
   top: 0;
@@ -462,6 +463,7 @@ table {
 @media (max-width: 768px) {
   .header {
     padding: 0.75rem 1rem;
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0.75rem));
   }
 
   .header h1 {
@@ -573,6 +575,7 @@ table {
 @media (max-width: 480px) {
   .header {
     padding: 0.75rem;
+    padding-top: max(0.75rem, env(safe-area-inset-top, 0.75rem));
   }
 
   .header h1 {
@@ -862,6 +865,7 @@ table {
 @media (max-width: 768px) and (orientation: landscape) {
   .header {
     padding: 0.5rem 1rem;
+    padding-top: max(0.5rem, env(safe-area-inset-top, 0.5rem));
   }
 
   .nav {
@@ -904,6 +908,7 @@ table {
   .header {
     padding-left: max(1rem, env(safe-area-inset-left));
     padding-right: max(1rem, env(safe-area-inset-right));
+    padding-top: max(1rem, env(safe-area-inset-top, 1rem));
   }
 
   .container {
