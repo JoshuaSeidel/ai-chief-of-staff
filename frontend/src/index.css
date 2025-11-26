@@ -531,33 +531,96 @@ table {
 
   .container {
     padding: 0.75rem;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .card {
     padding: 0.875rem;
     border-radius: 8px;
+    overflow-x: hidden;
   }
 
   .card h2 {
     font-size: 1rem;
     margin-bottom: 0.875rem;
+    word-wrap: break-word;
   }
 
   .card h3 {
     font-size: 0.9375rem;
     margin-top: 1rem;
+    word-wrap: break-word;
+  }
+
+  /* Better text readability on mobile */
+  .card p,
+  .card div,
+  .card span {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+  }
+
+  .brief-content {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   .brief-content h1 {
     font-size: 1.25rem;
+    margin-top: 1.25rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
   }
 
   .brief-content h2 {
     font-size: 1.125rem;
+    margin-top: 1.125rem;
+    margin-bottom: 0.625rem;
   }
 
   .brief-content h3 {
     font-size: 1rem;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .brief-content p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 0.875rem;
+    word-wrap: break-word;
+  }
+
+  .brief-content ul,
+  .brief-content ol {
+    margin-left: 1rem;
+    margin-bottom: 0.875rem;
+    padding-left: 1rem;
+  }
+
+  .brief-content li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+    font-size: 0.95rem;
+  }
+
+  .brief-content code {
+    font-size: 0.85em;
+    padding: 0.15rem 0.35rem;
+  }
+
+  .brief-content pre {
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.875rem;
+  }
+
+  .brief-content strong {
+    font-weight: 600;
   }
 
   .file-upload {
@@ -604,6 +667,66 @@ table {
   pre {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    font-size: 0.85rem;
+    padding: 0.75rem;
+  }
+
+  /* Better brief content readability on mobile */
+  .brief-content {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .brief-content p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 0.875rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  .brief-content ul,
+  .brief-content ol {
+    margin-left: 1rem;
+    padding-left: 1rem;
+    word-wrap: break-word;
+  }
+
+  .brief-content li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+    word-wrap: break-word;
+  }
+
+  .brief-content h1 {
+    font-size: 1.25rem;
+    line-height: 1.3;
+    word-wrap: break-word;
+  }
+
+  .brief-content h2 {
+    font-size: 1.125rem;
+    line-height: 1.3;
+    word-wrap: break-word;
+  }
+
+  .brief-content h3 {
+    font-size: 1rem;
+    line-height: 1.3;
+    word-wrap: break-word;
+  }
+
+  .brief-content code {
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  .brief-content strong {
+    font-weight: 600;
   }
 
   /* Better touch targets for mobile */
@@ -632,6 +755,47 @@ table {
   textarea {
     min-height: 120px;
     resize: vertical;
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+
+  /* Transcript page optimizations */
+  .transcripts .card {
+    overflow-x: hidden;
+  }
+
+  .transcripts pre,
+  .transcripts code {
+    font-size: 0.85rem;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  /* Better text wrapping for all content */
+  .card * {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Stats container mobile optimization */
+  .stats-container {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .stats-container > div {
+    flex: 1 1 100%;
+    min-width: 0;
+    padding: 0.75rem;
+  }
+
+  .stats-container > div > div:first-child {
+    font-size: 1.25rem !important;
+  }
+
+  .stats-container > div > div:last-child {
+    font-size: 0.8rem !important;
   }
 }
 
@@ -705,5 +869,29 @@ table {
   div[style*="display: flex"][style*="gap"] > button[style*="padding"] {
     flex: 1 1 calc(50% - 0.25rem);
     min-width: 0;
+  }
+
+  /* Transcript list items mobile optimization */
+  .transcripts .card > div {
+    overflow-x: hidden;
+    word-wrap: break-word;
+  }
+
+  /* Better table cell wrapping on mobile */
+  table td,
+  table th {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 200px;
+    font-size: 0.875rem;
+    padding: 0.75rem 0.5rem;
+  }
+
+  /* Ensure all text is readable */
+  .card,
+  .brief-content,
+  .transcripts {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
