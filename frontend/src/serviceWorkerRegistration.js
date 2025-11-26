@@ -74,7 +74,7 @@ function registerValidSW(swUrl, config) {
         if (event.data && event.data.type === 'SW_UPDATED') {
           console.log('Service worker updated to version:', event.data.version);
           // Optionally reload the page
-          if (confirm('A new version is available. Reload now?')) {
+          if (window.confirm('A new version is available. Reload now?')) {
             window.location.reload();
           }
         }
