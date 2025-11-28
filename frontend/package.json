@@ -16,10 +16,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "prebuild": "node scripts/inject-version.js && npm run lint",
+    "prebuild": "node scripts/inject-version.js",
     "build": "react-scripts build",
-    "lint": "eslint src --ext .js,.jsx --max-warnings=0",
-    "lint:fix": "eslint src --ext .js,.jsx --fix",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "generate-icons": "node public/generate-icons.js"

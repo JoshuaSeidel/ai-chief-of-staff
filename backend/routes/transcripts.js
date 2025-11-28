@@ -4,6 +4,7 @@ const { getDb, getDbType } = require('../database/db');
 const { extractCommitments } = require('../services/claude');
 const googleCalendar = require('../services/google-calendar');
 const microsoftPlanner = require('../services/microsoft-planner');
+const jira = require('../services/jira');
 const fs = require('fs');
 const { createModuleLogger } = require('../utils/logger');
 
@@ -15,7 +16,8 @@ const logger = createModuleLogger('TRANSCRIPTS');
 async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
   const isGoogleConnected = await googleCalendar.isConnected();
   const isMicrosoftConnected = await microsoftPlanner.isConnected();
-  logger.info(`Google Calendar connected: ${isGoogleConnected}, Microsoft Planner connected: ${isMicrosoftConnected}`);
+  const isJiraConnected = await jira.isConnected();
+  logger.info(`Google Calendar connected: ${isGoogleConnected}, Microsoft Planner connected: ${isMicrosoftConnected}, Jira connected: ${isJiraConnected}`);
 
   // Get user names from config
   let userNames = [];
@@ -103,6 +105,17 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
             logger.warn(`Failed to create Microsoft task: ${msError.message}`);
           }
         }
+        
+        // Create Jira issue
+        if (isJiraConnected) {
+          try {
+            const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
+            await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+            logger.info(`Created Jira issue ${jiraIssue.key} for commitment ${insertedId}`);
+          } catch (jiraError) {
+            logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
+          }
+        }
       }
     }
     logger.info(`Saved ${extracted.commitments.length} commitments`);
@@ -152,6 +165,17 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
             logger.info(`Created Microsoft task ${microsoftTask.id} for action ${insertedId}`);
           } catch (msError) {
             logger.warn(`Failed to create Microsoft task: ${msError.message}`);
+          }
+        }
+        
+        // Create Jira issue
+        if (isJiraConnected) {
+          try {
+            const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'action' });
+            await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+            logger.info(`Created Jira issue ${jiraIssue.key} for action ${insertedId}`);
+          } catch (jiraError) {
+            logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
           }
         }
       }
@@ -206,6 +230,17 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
             logger.warn(`Failed to create Microsoft task: ${msError.message}`);
           }
         }
+        
+        // Create Jira issue
+        if (isJiraConnected) {
+          try {
+            const jiraIssue = await jira.createIssueFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
+            await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+            logger.info(`Created Jira issue ${jiraIssue.key} for follow-up ${insertedId}`);
+          } catch (jiraError) {
+            logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
+          }
+        }
       }
     }
     logger.info(`Saved ${extracted.followUps.length} follow-ups`);
@@ -228,7 +263,19 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         getBooleanValue(false) // needs_confirmation = false for risks
       );
       
+      const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
+      
+      // Create Jira issue for risks (even without deadlines, risks can be tracked in Jira)
+      if (isJiraConnected) {
+        try {
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'risk' });
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          logger.info(`Created Jira issue ${jiraIssue.key} for risk ${insertedId}`);
+        } catch (jiraError) {
+          logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
+        }
+      }
       // Risks are not added to calendar - they're informational/awareness items only
     }
     logger.info(`Saved ${extracted.risks.length} risks (no calendar events for risks)`);

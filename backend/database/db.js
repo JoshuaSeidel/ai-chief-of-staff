@@ -930,6 +930,19 @@ async function runMigrations() {
           dbLogger.warn('Migration warning:', err.message);
         }
       }
+      
+      // Migration 8: Add jira_task_id to commitments
+      try {
+        await pool.query(`
+          ALTER TABLE commitments 
+          ADD COLUMN IF NOT EXISTS jira_task_id TEXT
+        `);
+        dbLogger.info('✓ Added jira_task_id column to commitments');
+      } catch (err) {
+        if (!err.message.includes('already exists')) {
+          dbLogger.warn('Migration warning:', err.message);
+        }
+      }
     } else {
       // SQLite migrations
       // Check if columns exist
@@ -947,6 +960,7 @@ async function runMigrations() {
       const hasCalendarEventId = tableInfo.some(col => col.name === 'calendar_event_id');
       const hasNeedsConfirmation = tableInfo.some(col => col.name === 'needs_confirmation');
       const hasMicrosoftTaskId = tableInfo.some(col => col.name === 'microsoft_task_id');
+      const hasJiraTaskId = tableInfo.some(col => col.name === 'jira_task_id');
       
       const columnsToAdd = [];
       if (!hasUrgency) columnsToAdd.push({ name: 'urgency', type: 'TEXT' });
@@ -956,6 +970,7 @@ async function runMigrations() {
       if (!hasCalendarEventId) columnsToAdd.push({ name: 'calendar_event_id', type: 'TEXT' });
       if (!hasNeedsConfirmation) columnsToAdd.push({ name: 'needs_confirmation', type: 'INTEGER', default: '0' });
       if (!hasMicrosoftTaskId) columnsToAdd.push({ name: 'microsoft_task_id', type: 'TEXT' });
+      if (!hasJiraTaskId) columnsToAdd.push({ name: 'jira_task_id', type: 'TEXT' });
       
       // Check transcripts table for processing tracking columns
       const transcriptsTableInfo = await new Promise((resolve, reject) => {

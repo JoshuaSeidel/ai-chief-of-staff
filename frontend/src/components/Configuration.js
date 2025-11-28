@@ -92,7 +92,6 @@ function Configuration() {
     aiMaxTokens: '4096',
     plaudApiKey: '',
     plaudApiUrl: 'https://api.plaud.ai',
-    icalCalendarUrl: '',
     googleClientId: '',
     googleClientSecret: '',
     googleRedirectUri: '',
@@ -102,6 +101,10 @@ function Configuration() {
     microsoftClientSecret: '',
     microsoftRedirectUri: '',
     microsoftTaskListId: '',
+    jiraBaseUrl: '',
+    jiraEmail: '',
+    jiraApiToken: '',
+    jiraProjectKey: '',
     userNames: '',
     dbType: 'sqlite',
     postgresHost: '',
@@ -114,12 +117,21 @@ function Configuration() {
   // Track which fields have been loaded from server (to know which ones to skip on save)
   const [loadedFields, setLoadedFields] = useState({});
   
+  // Integration toggles
+  const [enabledIntegrations, setEnabledIntegrations] = useState({
+    googleCalendar: true,
+    microsoftPlanner: false,
+    jira: false
+  });
+  
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [checkingGoogle, setCheckingGoogle] = useState(true);
   const [microsoftConnected, setMicrosoftConnected] = useState(false);
   const [checkingMicrosoft, setCheckingMicrosoft] = useState(true);
+  const [jiraConnected, setJiraConnected] = useState(false);
+  const [checkingJira, setCheckingJira] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [microsoftTaskLists, setMicrosoftTaskLists] = useState([]);
   const [loadingTaskLists, setLoadingTaskLists] = useState(false);
@@ -131,6 +143,7 @@ function Configuration() {
     loadConfig();
     checkGoogleCalendarStatus();
     checkMicrosoftPlannerStatus();
+    checkJiraStatus();
     loadPrompts();
     
     // Check notification permission on load
@@ -265,6 +278,7 @@ function Configuration() {
         microsoftClientSecret: !!appData.microsoftClientSecret,
         plaudApiKey: !!appData.plaudApiKey,
         googleClientSecret: !!appData.googleClientSecret,
+        jiraApiToken: !!appData.jiraApiToken,
         postgresPassword: !!(sysData.postgres?.password && sysData.postgres.password !== '********')
       };
       
@@ -284,7 +298,6 @@ function Configuration() {
         aiMaxTokens: appData.aiMaxTokens || appData.claudeMaxTokens || '4096',
         plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
         plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
-        icalCalendarUrl: appData.icalCalendarUrl || '',
         googleClientId: appData.googleClientId || '',
         googleClientSecret: appData.googleClientSecret ? '••••••••' : '',
         googleRedirectUri: appData.googleRedirectUri || '',
@@ -295,6 +308,10 @@ function Configuration() {
         microsoftClientSecret: appData.microsoftClientSecret ? '••••••••' : '',
         microsoftRedirectUri: appData.microsoftRedirectUri || '',
         microsoftTaskListId: appData.microsoftTaskListId || '',
+        jiraBaseUrl: appData.jiraBaseUrl || '',
+        jiraEmail: appData.jiraEmail || '',
+        jiraApiToken: appData.jiraApiToken ? '••••••••' : '',
+        jiraProjectKey: appData.jiraProjectKey || '',
         dbType: actualDbType,
         postgresHost: sysData.postgres?.host || '',
         postgresPort: sysData.postgres?.port || '5432',
@@ -342,6 +359,38 @@ function Configuration() {
       console.error('Failed to check Microsoft Planner status:', err);
     } finally {
       setCheckingMicrosoft(false);
+    }
+  };
+
+  const checkJiraStatus = async () => {
+    try {
+      const response = await fetch('/api/planner/jira/status');
+      const data = await response.json();
+      setJiraConnected(data.connected);
+    } catch (err) {
+      console.error('Failed to check Jira status:', err);
+    } finally {
+      setCheckingJira(false);
+    }
+  };
+
+  const handleJiraDisconnect = async () => {
+    if (!window.confirm('Are you sure you want to disconnect Jira? This will not delete any existing issues.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/planner/jira/disconnect', { method: 'POST' });
+      const data = await response.json();
+      
+      if (data.success) {
+        setMessage({ type: 'success', text: '✅ Jira disconnected successfully' });
+        await checkJiraStatus();
+      } else {
+        setMessage({ type: 'error', text: `❌ Failed to disconnect: ${data.message || 'Unknown error'}` });
+      }
+    } catch (err) {
+      setMessage({ type: 'error', text: `❌ Error disconnecting: ${err.message}` });
     }
   };
 
@@ -457,7 +506,6 @@ function Configuration() {
       appUpdates.ollamaModel = config.ollamaModel;
       appUpdates.aiMaxTokens = config.aiMaxTokens;
       appUpdates.plaudApiUrl = config.plaudApiUrl;
-      appUpdates.icalCalendarUrl = config.icalCalendarUrl;
       
       // Save API keys only if they've been changed (not masked anymore)
       if (config.openaiApiKey && !config.openaiApiKey.includes('•')) {
@@ -504,6 +552,22 @@ function Configuration() {
       }
       if (config.userNames) {
         appUpdates.userNames = config.userNames;
+      }
+      
+      // Jira configuration
+      if (config.jiraBaseUrl) {
+        appUpdates.jiraBaseUrl = config.jiraBaseUrl;
+      }
+      if (config.jiraEmail) {
+        appUpdates.jiraEmail = config.jiraEmail;
+      }
+      if (config.jiraApiToken && !config.jiraApiToken.includes('•')) {
+        appUpdates.jiraApiToken = config.jiraApiToken;
+      } else if (!config.jiraApiToken && loadedFields.jiraApiToken) {
+        appUpdates.jiraApiToken = '';
+      }
+      if (config.jiraProjectKey) {
+        appUpdates.jiraProjectKey = config.jiraProjectKey;
       }
       
       // System configuration (stored in /app/data/config.json)
@@ -573,9 +637,18 @@ function Configuration() {
           </div>
         )}
 
-        <div style={{ marginBottom: '2rem' }}>
-          <h3>AI Provider Configuration</h3>
-          
+        <details style={{ marginBottom: '2rem' }}>
+          <summary style={{ 
+            cursor: 'pointer', 
+            fontWeight: 'bold',
+            padding: '0.5rem',
+            color: '#e5e5e7',
+            fontSize: '1.125rem',
+            marginBottom: '0.5rem'
+          }}>
+            🤖 AI Provider Configuration
+          </summary>
+          <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             AI Provider
           </label>
@@ -773,7 +846,8 @@ function Configuration() {
           <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
             Enter your name(s) as they appear in meeting transcripts. Tasks assigned to you will be automatically added. Others will require confirmation.
           </p>
-        </div>
+          </div>
+        </details>
 
         {/* Plaud Integration - Hidden until implemented */}
         {false && (
@@ -809,6 +883,55 @@ function Configuration() {
           </div>
         )}
 
+        <div style={{ marginBottom: '2rem' }}>
+          <h3>🔌 Integrations</h3>
+          <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+            Enable or disable integrations. Only enabled integrations will be shown below.
+          </p>
+          
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '0.75rem',
+            marginBottom: '1.5rem',
+            padding: '1rem',
+            backgroundColor: '#18181b',
+            borderRadius: '8px',
+            border: '1px solid #3f3f46'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={enabledIntegrations.googleCalendar}
+                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, googleCalendar: e.target.checked })}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📅 Google Calendar</span>
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={enabledIntegrations.microsoftPlanner}
+                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, microsoftPlanner: e.target.checked })}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>📋 Microsoft Planner/To Do</span>
+            </label>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={enabledIntegrations.jira}
+                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, jira: e.target.checked })}
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+              />
+              <span style={{ fontSize: '0.95rem', color: '#e5e5e7' }}>🎯 Jira</span>
+            </label>
+          </div>
+        </div>
+
+        {enabledIntegrations.googleCalendar && (
         <div style={{ marginBottom: '2rem' }}>
           <h3>📅 Calendar Integration</h3>
           
@@ -971,35 +1094,10 @@ function Configuration() {
             )}
           </div>
 
-          <details style={{ marginBottom: '1rem' }}>
-            <summary style={{ 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              padding: '0.5rem',
-              color: '#a1a1aa'
-            }}>
-              📱 Alternative: iCloud Calendar (Read-only)
-            </summary>
-            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
-                Calendar URL (webcal:// or https://)
-              </label>
-              <input
-                type="text"
-                value={config.icalCalendarUrl}
-                onChange={(e) => handleChange('icalCalendarUrl', e.target.value)}
-                placeholder="webcal://p01-caldav.icloud.com/..."
-              />
-              <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.5rem' }}>
-                Find this in Calendar app → Calendar Settings → Right-click your calendar → Share
-              </p>
-              <p style={{ fontSize: '0.85rem', color: '#fbbf24', marginTop: '0.5rem' }}>
-                ⚠️ iCloud webcal URLs are read-only. Cannot create events automatically.
-              </p>
-            </div>
-          </details>
         </div>
+        )}
 
+        {enabledIntegrations.microsoftPlanner && (
         <div style={{ marginBottom: '2rem' }}>
           <h3>📋 Microsoft Planner/To Do Integration</h3>
           
@@ -1226,9 +1324,147 @@ function Configuration() {
             )}
           </div>
         </div>
+        )}
 
+        {enabledIntegrations.jira && (
         <div style={{ marginBottom: '2rem' }}>
-          <h3>Database Configuration</h3>
+          <h3>🎯 Jira Integration</h3>
+          
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            border: '2px solid #3f3f46', 
+            borderRadius: '12px', 
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: '1.5rem', marginRight: '0.5rem' }}>🎯</span>
+              Jira (Cloud or On-Prem)
+            </h4>
+            
+            {checkingJira ? (
+              <p style={{ color: '#a1a1aa' }}>Checking connection status...</p>
+            ) : jiraConnected ? (
+              <div>
+                <div style={{ 
+                  backgroundColor: '#e5ffe5', 
+                  color: '#00a000',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span>
+                    <strong>✓ Connected</strong> - Tasks will be created automatically in Jira
+                  </span>
+                  <button 
+                    onClick={handleJiraDisconnect}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#ff4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                  Tasks with deadlines will automatically create Jira issues (stories/tasks). Supports both Jira Cloud and on-premise.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p style={{ color: '#a1a1aa', marginBottom: '1rem', lineHeight: '1.6' }}>
+                  Connect your Jira instance to automatically create issues for commitments with deadlines.
+                  Supports both Jira Cloud (atlassian.net) and on-premise Jira servers.
+                </p>
+                
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  Jira Base URL
+                </label>
+                <input
+                  type="url"
+                  value={config.jiraBaseUrl}
+                  onChange={(e) => handleChange('jiraBaseUrl', e.target.value)}
+                  placeholder="https://yourcompany.atlassian.net or https://jira.yourcompany.com"
+                  style={{ marginBottom: '1rem' }}
+                />
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                  For Jira Cloud: https://yourcompany.atlassian.net<br />
+                  For on-premise: https://jira.yourcompany.com
+                </p>
+                
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  Email / Username
+                </label>
+                <input
+                  type="email"
+                  value={config.jiraEmail}
+                  onChange={(e) => handleChange('jiraEmail', e.target.value)}
+                  placeholder="your.email@example.com"
+                  style={{ marginBottom: '1rem' }}
+                />
+                
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  API Token
+                </label>
+                <input
+                  type="password"
+                  value={config.jiraApiToken}
+                  onChange={(e) => handleChange('jiraApiToken', e.target.value)}
+                  placeholder="Your Jira API token"
+                  style={{ marginBottom: '1rem' }}
+                />
+                {config.jiraApiToken.includes('•') && (
+                  <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                    ✓ API token is configured
+                  </p>
+                )}
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.jiraApiToken.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
+                  Create an API token: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer">Jira Cloud</a> or your on-premise Jira → Account Settings → Security → API Tokens
+                </p>
+                
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  Project Key
+                </label>
+                <input
+                  type="text"
+                  value={config.jiraProjectKey}
+                  onChange={(e) => handleChange('jiraProjectKey', e.target.value.toUpperCase())}
+                  placeholder="PROJ"
+                  style={{ marginBottom: '1rem' }}
+                />
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                  The project key where issues will be created (e.g., PROJ, DEV, TASK)
+                </p>
+                
+                <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '1rem', padding: '0.75rem', backgroundColor: '#1a2e1a', borderRadius: '6px' }}>
+                  💡 After saving these credentials, Jira will automatically connect. Issues will be created as Stories (for commitments) or Tasks (for action items).
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        )}
+
+        <details style={{ marginBottom: '2rem' }}>
+          <summary style={{ 
+            cursor: 'pointer', 
+            fontWeight: 'bold',
+            padding: '0.5rem',
+            color: '#e5e5e7',
+            fontSize: '1.125rem',
+            marginBottom: '0.5rem'
+          }}>
+            💾 Database Configuration
+          </summary>
+          <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
             Database Type
           </label>
@@ -1310,7 +1546,8 @@ function Configuration() {
               )}
             </div>
           )}
-        </div>
+          </div>
+        </details>
 
         <button onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : 'Save Configuration'}

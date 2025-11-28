@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createModuleLogger } = require('../utils/logger');
 const microsoftPlanner = require('../services/microsoft-planner');
+const jira = require('../services/jira');
 
 const logger = createModuleLogger('PLANNER');
 
@@ -211,6 +212,178 @@ router.get('/microsoft/lists', async (req, res) => {
     logger.error('Error listing Microsoft task lists', error);
     res.status(500).json({ 
       error: 'Error listing task lists',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Jira - Check connection status
+ */
+router.get('/jira/status', async (req, res) => {
+  try {
+    const connected = await jira.isConnected();
+    res.json({ connected });
+  } catch (error) {
+    logger.error('Error checking Jira status', error);
+    res.json({ connected: false });
+  }
+});
+
+/**
+ * Jira - Disconnect
+ */
+router.post('/jira/disconnect', async (req, res) => {
+  try {
+    await jira.disconnect();
+    res.json({ success: true, message: 'Jira disconnected' });
+  } catch (error) {
+    logger.error('Error disconnecting Jira', error);
+    res.status(500).json({ 
+      error: 'Error disconnecting',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Jira - List projects
+ */
+router.get('/jira/projects', async (req, res) => {
+  try {
+    const projects = await jira.listProjects();
+    res.json({ projects });
+  } catch (error) {
+    logger.error('Error listing Jira projects', error);
+    res.status(500).json({ 
+      error: 'Error listing projects',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Jira - Get issue types for a project
+ */
+router.get('/jira/issue-types/:projectKey', async (req, res) => {
+  try {
+    const { projectKey } = req.params;
+    const issueTypes = await jira.getIssueTypes(projectKey);
+    res.json({ issueTypes });
+  } catch (error) {
+    logger.error('Error getting Jira issue types', error);
+    res.status(500).json({ 
+      error: 'Error getting issue types',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Create Jira issue from commitment
+ */
+router.post('/jira/issues', async (req, res) => {
+  try {
+    const { summary, description, issueType, assignee, dueDate, priority } = req.body;
+    
+    if (!summary) {
+      return res.status(400).json({ error: 'Summary is required' });
+    }
+    
+    const issue = await jira.createIssue({
+      summary,
+      description,
+      issueType,
+      assignee,
+      dueDate,
+      priority
+    });
+    
+    res.json({ success: true, issue });
+  } catch (error) {
+    logger.error('Error creating Jira issue', error);
+    res.status(500).json({ 
+      error: 'Error creating issue',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Sync all pending tasks to Jira
+ */
+router.post('/jira/sync', async (req, res) => {
+  try {
+    const { getDb } = require('../database/db');
+    const db = getDb();
+    
+    // Get all pending tasks that don't have a Jira issue key
+    const tasks = await db.all(
+      `SELECT * FROM commitments 
+       WHERE status != 'completed' 
+       AND (jira_task_id IS NULL OR jira_task_id = '')
+       ORDER BY created_date DESC`
+    );
+    
+    logger.info(`Syncing ${tasks.length} tasks to Jira`);
+    
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+    
+    for (const task of tasks) {
+      try {
+        const jiraIssue = await jira.createIssueFromCommitment(task);
+        
+        // Store Jira issue key (e.g., PROJ-123)
+        await db.run(
+          'UPDATE commitments SET jira_task_id = ? WHERE id = ?',
+          [jiraIssue.key, task.id]
+        );
+        
+        results.success++;
+        logger.info(`Synced task ${task.id} to Jira as ${jiraIssue.key}`);
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          taskId: task.id,
+          error: error.message
+        });
+        logger.warn(`Failed to sync task ${task.id}:`, error.message);
+      }
+    }
+    
+    res.json({
+      success: true,
+      synced: results.success,
+      failed: results.failed,
+      total: tasks.length,
+      errors: results.errors
+    });
+  } catch (error) {
+    logger.error('Error syncing tasks to Jira', error);
+    res.status(500).json({ 
+      error: 'Error syncing tasks',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * List Jira issues
+ */
+router.get('/jira/issues', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const projectKey = req.query.projectKey || null;
+    const issues = await jira.listIssues(projectKey, limit);
+    res.json({ issues });
+  } catch (error) {
+    logger.error('Error listing Jira issues', error);
+    res.status(500).json({ 
+      error: 'Error listing issues',
       message: error.message
     });
   }

@@ -1,64 +1,28 @@
 const express = require('express');
 const router = express.Router();
-const ical = require('node-ical');
-const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
 const googleCalendar = require('../services/google-calendar');
 
 const logger = createModuleLogger('CALENDAR');
 
 /**
- * Fetch calendar events (tries Google Calendar first, falls back to iCloud)
+ * Fetch calendar events from Google Calendar
  */
 router.get('/events', async (req, res) => {
   try {
     // Check if Google Calendar is connected
     const isGoogleConnected = await googleCalendar.isConnected();
     
-    if (isGoogleConnected) {
-      logger.info('Fetching events from Google Calendar');
-      const events = await googleCalendar.listEvents(50);
-      return res.json({ source: 'google', events });
-    }
-    
-    // Fall back to iCloud
-    logger.info('Google Calendar not connected, trying iCloud');
-    const db = getDb();
-    const row = await db.get('SELECT value FROM config WHERE key = ?', ['icalCalendarUrl']);
-    let calendarUrl = row?.value;
-    
-    if (!calendarUrl || calendarUrl.trim() === '') {
+    if (!isGoogleConnected) {
       return res.status(400).json({ 
         error: 'No calendar configured',
-        message: 'Please connect Google Calendar or configure iCloud calendar URL'
+        message: 'Please connect Google Calendar in Configuration'
       });
     }
     
-    // Convert webcal:// to https:// (webcal is not a valid protocol for HTTP requests)
-    if (calendarUrl.startsWith('webcal://')) {
-      calendarUrl = calendarUrl.replace('webcal://', 'https://');
-      logger.info('Converted webcal:// to https://');
-    }
-    
-    logger.info('Fetching calendar events from iCloud');
-    const events = await ical.async.fromURL(calendarUrl);
-    const eventList = [];
-
-    for (const [key, event] of Object.entries(events)) {
-      if (event.type === 'VEVENT') {
-        eventList.push({
-          id: key,
-          summary: event.summary,
-          start: event.start,
-          end: event.end,
-          description: event.description,
-          location: event.location
-        });
-      }
-    }
-
-    logger.info(`Retrieved ${eventList.length} calendar events from iCloud`);
-    res.json({ source: 'icloud', events: eventList });
+    logger.info('Fetching events from Google Calendar');
+    const events = await googleCalendar.listEvents(50);
+    return res.json({ source: 'google', events });
   } catch (error) {
     logger.error('Error fetching calendar events', error);
     res.status(500).json({ 

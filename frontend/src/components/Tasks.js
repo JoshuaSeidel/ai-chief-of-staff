@@ -8,12 +8,15 @@ function Commitments() {
   const [error, setError] = useState(null);
   const [syncingMicrosoft, setSyncingMicrosoft] = useState(false);
   const [microsoftConnected, setMicrosoftConnected] = useState(false);
+  const [syncingJira, setSyncingJira] = useState(false);
+  const [jiraConnected, setJiraConnected] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, completed, overdue
   const [typeFilter, setTypeFilter] = useState('all'); // all, commitment, action, follow-up, risk
 
   useEffect(() => {
     loadCommitments();
     checkMicrosoftPlannerStatus();
+    checkJiraStatus();
   }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const checkMicrosoftPlannerStatus = async () => {
@@ -23,6 +26,16 @@ function Commitments() {
       setMicrosoftConnected(data.connected);
     } catch (err) {
       console.error('Failed to check Microsoft Planner status:', err);
+    }
+  };
+
+  const checkJiraStatus = async () => {
+    try {
+      const response = await fetch('/api/planner/jira/status');
+      const data = await response.json();
+      setJiraConnected(data.connected);
+    } catch (err) {
+      console.error('Failed to check Jira status:', err);
     }
   };
 
@@ -51,6 +64,34 @@ function Commitments() {
       alert(`❌ Error syncing: ${err.message}`);
     } finally {
       setSyncingMicrosoft(false);
+    }
+  };
+
+  const handleSyncToJira = async () => {
+    if (!jiraConnected) {
+      alert('Please connect Jira in Configuration first');
+      return;
+    }
+    
+    if (!window.confirm('This will create Jira issues for all pending tasks that don\'t already have one. Continue?')) {
+      return;
+    }
+    
+    setSyncingJira(true);
+    try {
+      const response = await fetch('/api/planner/jira/sync', { method: 'POST' });
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✅ Synced ${data.synced} tasks to Jira${data.failed > 0 ? `\n⚠️ ${data.failed} failed` : ''}`);
+        loadCommitments(); // Reload to show updated task IDs
+      } else {
+        alert(`❌ Sync failed: ${data.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`❌ Error syncing: ${err.message}`);
+    } finally {
+      setSyncingJira(false);
     }
   };
 
@@ -195,7 +236,7 @@ function Commitments() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>📋 Tasks</h2>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button 
               onClick={handleSyncToMicrosoft} 
               disabled={syncingMicrosoft || loading || !microsoftConnected}
@@ -215,6 +256,26 @@ function Commitments() {
               title={!microsoftConnected ? 'Connect Microsoft Planner in Settings to enable sync' : 'Sync tasks to Microsoft Planner'}
             >
               {syncingMicrosoft ? '⏳ Syncing...' : '📋 Sync to Microsoft Planner'}
+            </button>
+            <button 
+              onClick={handleSyncToJira} 
+              disabled={syncingJira || loading || !jiraConnected}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: !jiraConnected ? '#52525b' : (syncingJira ? '#6e6e73' : '#0052CC'),
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: (!jiraConnected || syncingJira) ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                opacity: !jiraConnected ? 0.6 : 1
+              }}
+              title={!jiraConnected ? 'Connect Jira in Settings to enable sync' : 'Sync tasks to Jira'}
+            >
+              {syncingJira ? '⏳ Syncing...' : '🎯 Sync to Jira'}
             </button>
             <button onClick={loadCommitments} disabled={loading} className="secondary">
               {loading ? 'Loading...' : '🔄 Refresh'}
