@@ -1,8 +1,19 @@
 const fs = require('fs');
 const path = require('path');
 
-// Get version from environment or package.json
-const version = process.env.VERSION || process.env.npm_package_version || new Date().getTime().toString();
+// Get version from environment, package.json, or fallback to timestamp
+const packageJsonPath = path.join(__dirname, '..', 'package.json');
+let version = process.env.VERSION || process.env.npm_package_version;
+
+if (!version && fs.existsSync(packageJsonPath)) {
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  version = packageJson.version;
+}
+
+if (!version) {
+  version = new Date().getTime().toString();
+}
+
 const commitHash = process.env.COMMIT_HASH || 'unknown';
 const buildDate = process.env.BUILD_DATE || new Date().toISOString();
 

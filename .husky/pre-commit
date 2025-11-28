@@ -1,4 +1,18 @@
 #!/bin/sh
+echo "📦 Bumping version..."
+
+# Run version bump script
+node scripts/bump-version.js
+VERSION_BUMP_EXIT_CODE=$?
+
+if [ $VERSION_BUMP_EXIT_CODE -ne 0 ]; then
+  echo "❌ Version bump failed. Please fix the issue before committing."
+  exit 1
+fi
+
+# Stage the updated package.json files
+git add backend/package.json frontend/package.json
+
 echo "🔍 Running ESLint on JavaScript files..."
 
 # Check if we're in the frontend directory or root
