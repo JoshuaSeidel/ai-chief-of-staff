@@ -511,41 +511,145 @@ function Transcripts() {
             </p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid #d2d2d7' }}>
-                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Filename</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Upload Date</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Source</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transcripts.map((transcript) => {
-                  const isProcessing = transcript.processing_status === 'processing';
-                  const isFailed = transcript.processing_status === 'failed';
-                  return (
-                    <tr key={transcript.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
-                      <td style={{ padding: '0.75rem' }}>{transcript.filename}</td>
-                      <td style={{ padding: '0.75rem' }}>
-                        {new Date(transcript.upload_date).toLocaleDateString()}
-                      </td>
-                      <td style={{ padding: '0.75rem' }}>
+          <>
+            {/* Desktop table view */}
+            <div className="transcripts-table-desktop" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #d2d2d7' }}>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Filename</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Upload Date</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Source</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transcripts.map((transcript) => {
+                    const isProcessing = transcript.processing_status === 'processing';
+                    const isFailed = transcript.processing_status === 'failed';
+                    return (
+                      <tr key={transcript.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
+                        <td style={{ padding: '0.75rem' }}>{transcript.filename}</td>
+                        <td style={{ padding: '0.75rem' }}>
+                          {new Date(transcript.upload_date).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: '0.75rem' }}>
+                          <span style={{ 
+                            padding: '0.25rem 0.5rem',
+                            borderRadius: '4px',
+                            fontSize: '0.85rem',
+                            backgroundColor: '#18181b',
+                            color: '#a1a1aa'
+                          }}>
+                            {transcript.source}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.75rem' }}>
+                          {isProcessing ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ color: '#60a5fa', fontSize: '0.85rem' }}>⏳ Processing</span>
+                              <div style={{
+                                width: '60px',
+                                height: '4px',
+                                backgroundColor: '#27272a',
+                                borderRadius: '2px',
+                                overflow: 'hidden'
+                              }}>
+                                <div style={{
+                                  width: `${transcript.processing_progress || 0}%`,
+                                  height: '100%',
+                                  backgroundColor: '#60a5fa',
+                                  transition: 'width 0.3s ease'
+                                }} />
+                              </div>
+                              <span style={{ color: '#a1a1aa', fontSize: '0.75rem' }}>
+                                {transcript.processing_progress || 0}%
+                              </span>
+                            </div>
+                          ) : isFailed ? (
+                            <span style={{ color: '#ef4444', fontSize: '0.85rem' }}>❌ Failed</span>
+                          ) : (
+                            <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓ Complete</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                          <button
+                            className="secondary"
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
+                            onClick={() => handleViewTranscript(transcript.id)}
+                          >
+                            View
+                          </button>
+                          <button
+                            className="secondary"
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
+                            onClick={() => handleReprocess(transcript.id, transcript.filename)}
+                            disabled={uploading || isProcessing}
+                            title="Re-extract commitments and action items"
+                          >
+                            🔄 Reprocess
+                          </button>
+                          <button
+                            className="secondary"
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                            onClick={() => handleDelete(transcript.id)}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card view */}
+            <div className="transcripts-table-mobile">
+              {transcripts.map((transcript) => {
+                const isProcessing = transcript.processing_status === 'processing';
+                const isFailed = transcript.processing_status === 'failed';
+                return (
+                  <div
+                    key={transcript.id}
+                    style={{
+                      backgroundColor: '#18181b',
+                      border: '1px solid #3f3f46',
+                      borderRadius: '8px',
+                      padding: '1rem',
+                      marginBottom: '1rem'
+                    }}
+                  >
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <h3 style={{ margin: 0, fontSize: '1rem', color: '#e5e5e7', wordBreak: 'break-word' }}>
+                        {transcript.filename}
+                      </h3>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem', fontSize: '0.875rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#a1a1aa' }}>Upload Date:</span>
+                        <span style={{ color: '#e5e5e7' }}>
+                          {new Date(transcript.upload_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#a1a1aa' }}>Source:</span>
                         <span style={{ 
                           padding: '0.25rem 0.5rem',
                           borderRadius: '4px',
                           fontSize: '0.85rem',
-                          backgroundColor: '#18181b',
+                          backgroundColor: '#27272a',
                           color: '#a1a1aa'
                         }}>
                           {transcript.source}
                         </span>
-                      </td>
-                      <td style={{ padding: '0.75rem' }}>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#a1a1aa' }}>Status:</span>
                         {isProcessing ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end' }}>
                             <span style={{ color: '#60a5fa', fontSize: '0.85rem' }}>⏳ Processing</span>
                             <div style={{
                               width: '60px',
@@ -570,18 +674,29 @@ function Transcripts() {
                         ) : (
                           <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓ Complete</span>
                         )}
-                      </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'right' }}>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <button
+                        className="secondary"
+                        style={{ 
+                          padding: '0.625rem 1rem', 
+                          fontSize: '0.875rem',
+                          width: '100%'
+                        }}
+                        onClick={() => handleViewTranscript(transcript.id)}
+                      >
+                        View
+                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <button
                           className="secondary"
-                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
-                          onClick={() => handleViewTranscript(transcript.id)}
-                        >
-                          View
-                        </button>
-                        <button
-                          className="secondary"
-                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
+                          style={{ 
+                            padding: '0.625rem 1rem', 
+                            fontSize: '0.875rem',
+                            flex: 1
+                          }}
                           onClick={() => handleReprocess(transcript.id, transcript.filename)}
                           disabled={uploading || isProcessing}
                           title="Re-extract commitments and action items"
@@ -590,18 +705,22 @@ function Transcripts() {
                         </button>
                         <button
                           className="secondary"
-                          style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                          style={{ 
+                            padding: '0.625rem 1rem', 
+                            fontSize: '0.875rem',
+                            flex: 1
+                          }}
                           onClick={() => handleDelete(transcript.id)}
                         >
                           Delete
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
       </div>

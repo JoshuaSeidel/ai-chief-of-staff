@@ -15,6 +15,11 @@ function App() {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
+
+  // Minimum swipe distance (in pixels)
+  const minSwipeDistance = 50;
 
   // Update URL when tab changes
   useEffect(() => {
@@ -72,6 +77,45 @@ function App() {
     { id: 'config', label: 'Settings', icon: '⚙️' }
   ];
 
+  // Swipe navigation handlers
+  const onTouchStart = (e) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe || isRightSwipe) {
+      const currentIndex = navItems.findIndex(item => item.id === activeTab);
+      let newIndex;
+
+      if (isLeftSwipe) {
+        // Swipe left - go to next tab
+        newIndex = currentIndex < navItems.length - 1 ? currentIndex + 1 : currentIndex;
+      } else {
+        // Swipe right - go to previous tab
+        newIndex = currentIndex > 0 ? currentIndex - 1 : currentIndex;
+      }
+
+      if (newIndex !== currentIndex) {
+        setActiveTab(navItems[newIndex].id);
+      }
+    }
+    
+    // Reset touch state
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -109,7 +153,13 @@ function App() {
         onClick={() => setMobileMenuOpen(false)}
       />
 
-      <main className="container">
+      <main 
+        className="container"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ touchAction: 'pan-y' }}
+      >
         {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
         {activeTab === 'transcripts' && <Transcripts />}
         {activeTab === 'tasks' && <Tasks />}

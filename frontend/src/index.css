@@ -459,6 +459,15 @@ table {
    MOBILE RESPONSIVE STYLES
    ======================================== */
 
+/* Desktop - show table, hide mobile cards */
+.transcripts-table-desktop {
+  display: block;
+}
+
+.transcripts-table-mobile {
+  display: none !important;
+}
+
 /* Tablet and below */
 @media (max-width: 768px) {
   .header {
@@ -968,6 +977,15 @@ table {
     max-width: 200px;
     font-size: 0.875rem;
     padding: 0.75rem 0.5rem;
+  }
+
+  /* Transcripts table - hide desktop table on mobile, show card view */
+  .transcripts-table-desktop {
+    display: none !important;
+  }
+
+  .transcripts-table-mobile {
+    display: block;
   }
 
   /* Ensure all text is readable */
