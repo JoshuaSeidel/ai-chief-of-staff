@@ -58,6 +58,9 @@ ENV VERSION=$VERSION
 ENV COMMIT_HASH=$COMMIT_HASH
 ENV BUILD_DATE=$BUILD_DATE
 
+# Copy frontend package.json so backend can read frontend version at runtime
+COPY frontend/package.json ./frontend-package.json
+
 # Copy built frontend to backend's public directory
 RUN mkdir -p /app/public
 COPY --from=frontend-build /app/frontend/build /app/public

@@ -236,11 +236,21 @@ router.get('/version', (req, res) => {
     }
     
     // Get frontend version
+    // Try multiple paths: Docker container path, local dev path, or environment variable
     try {
-      const frontendPackagePath = path.join(__dirname, '..', '..', 'frontend', 'package.json');
+      // Priority 1: Docker container path (frontend-package.json copied during build)
+      let frontendPackagePath = path.join(__dirname, '..', 'frontend-package.json');
+      
+      // Priority 2: Local development path
+      if (!fs.existsSync(frontendPackagePath)) {
+        frontendPackagePath = path.join(__dirname, '..', '..', 'frontend', 'package.json');
+      }
+      
       if (fs.existsSync(frontendPackagePath)) {
         const frontendPackageJson = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
         frontendVersion = frontendPackageJson.version || null;
+      } else {
+        logger.warn('Frontend package.json not found at any expected location');
       }
     } catch (pkgError) {
       logger.warn('Failed to read frontend package.json', pkgError);
