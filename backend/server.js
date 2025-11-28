@@ -152,6 +152,7 @@ async function startServer() {
     app.use('/api/prompts', require('./routes/prompts'));
     app.use('/api/notifications', require('./routes/notifications'));
     app.use('/api/webhook', webhookRoutes);
+    app.use('/api/intelligence', require('./routes/intelligence'));
     
     serverLogger.info('API routes initialized');
     
