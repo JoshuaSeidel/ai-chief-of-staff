@@ -333,6 +333,7 @@ function Commitments() {
   };
 
   return (
+    <>
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="commitments">
       <div className="card">
@@ -807,8 +808,10 @@ function Commitments() {
           </div>
         </div>
       )}
+      </div>
+    </PullToRefresh>
 
-      {/* Create Task Modal */}
+      {/* Create Task Modal - Outside PullToRefresh for proper positioning */}
       {showCreateModal && (
         <div style={{
           position: 'fixed',
@@ -821,7 +824,8 @@ function Commitments() {
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
-          padding: '1rem'
+          padding: '1rem',
+          overflow: 'auto'
         }} onClick={() => !creating && setShowCreateModal(false)}>
           <div className="card" style={{
             maxWidth: '500px',
@@ -829,7 +833,8 @@ function Commitments() {
             maxHeight: '90vh',
             overflow: 'auto',
             backgroundColor: '#27272a',
-            border: '1px solid #3f3f46'
+            border: '1px solid #3f3f46',
+            margin: 'auto'
           }} onClick={(e) => e.stopPropagation()}>
             <h2 style={{ marginBottom: '1.5rem' }}>Create New Task</h2>
             
@@ -987,8 +992,7 @@ function Commitments() {
           </div>
         </div>
       )}
-      </div>
-    </PullToRefresh>
+    </>
   );
 }
 
