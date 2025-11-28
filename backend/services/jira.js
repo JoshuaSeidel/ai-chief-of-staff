@@ -233,7 +233,35 @@ async function createIssue(issueData) {
   
   logger.info(`Creating Jira issue: ${summary} in project ${projectKey}`);
   
-  const createdIssue = await jiraRequest('/issue', 'POST', issue);
+  // Try to create issue with assignee first
+  let createdIssue;
+  try {
+    createdIssue = await jiraRequest('/issue', 'POST', issue);
+  } catch (error) {
+    // If creation fails due to assignee issue, retry without assignee
+    if (error.message && error.message.includes('assignee') && issue.fields.assignee) {
+      logger.warn(`Issue creation failed due to assignee, retrying without assignee: ${error.message}`);
+      delete issue.fields.assignee;
+      createdIssue = await jiraRequest('/issue', 'POST', issue);
+      
+      // Try to assign after creation (this can fail silently)
+      if (assignee && createdIssue && createdIssue.key) {
+        try {
+          const users = await jiraRequest(`/user/search?query=${encodeURIComponent(assignee)}`);
+          if (users && users.length > 0) {
+            await jiraRequest(`/issue/${createdIssue.key}/assignee`, 'PUT', {
+              accountId: users[0].accountId
+            });
+            logger.info(`Assigned issue ${createdIssue.key} to ${assignee}`);
+          }
+        } catch (assignError) {
+          logger.warn(`Could not assign issue ${createdIssue.key} to ${assignee}: ${assignError.message}`);
+        }
+      }
+    } else {
+      throw error;
+    }
+  }
   
   logger.info(`Jira issue created: ${createdIssue.key} (${createdIssue.id})`);
   return createdIssue;
