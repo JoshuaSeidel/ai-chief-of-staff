@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>AI-Chief-of-Staff</Name>
+  <Repository>ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest</Repository>
+  <Registry>https://ghcr.io/joshuaseidel/plaud-ai-chief-of-staff</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff/issues</Support>
+  <Project>https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff</Project>
+  <Overview>AI Chief of Staff - Your intelligent executive assistant powered by Claude AI. Automatically extracts commitments, action items, follow-ups, and risks from meeting transcripts. Integrates with Google Calendar, generates weekly reports, and provides mobile PWA with push notifications.&#xD;
+&#xD;
+🆕 MICROSERVICES ARCHITECTURE:&#xD;
+This version supports optional microservices for enhanced AI features:&#xD;
+- AI Intelligence Service (Python/FastAPI) - Advanced task analysis&#xD;
+- Pattern Recognition Service - Behavioral insights&#xD;
+- NL Parser - Natural language processing&#xD;
+- Voice Processor - Audio transcription&#xD;
+- Context Service (Go) - High-performance context retrieval&#xD;
+&#xD;
+DEPLOYMENT OPTIONS:&#xD;
+1. Standalone Mode: Run as single container (default, simpler)&#xD;
+2. Microservices Mode: Use docker-compose for full architecture&#xD;
+&#xD;
+Core Features:&#xD;
+- Automatic transcript processing and task extraction&#xD;
+- Intelligent deadline assignment based on urgency&#xD;
+- Google Calendar integration with detailed event descriptions&#xD;
+- Weekly executive briefs and pattern detection&#xD;
+- Mobile-responsive PWA with offline support&#xD;
+- Push notifications for overdue tasks&#xD;
+- Customizable AI prompts&#xD;
+- PostgreSQL or SQLite database support&#xD;
+&#xD;
+Requirements:&#xD;
+- Anthropic API key (for AI features)&#xD;
+- PostgreSQL database (recommended) or SQLite&#xD;
+- Redis (optional, for microservices caching)&#xD;
+- Optional: Google Calendar OAuth for calendar integration&#xD;
+- Optional: VAPID keys for push notifications&#xD;
+&#xD;
+For microservices setup, see: https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff/blob/main/unraid/MICROSERVICES-SETUP.md</Overview>
+  <Category>Productivity: Tools: Status:Stable</Category>
+  <WebUI>http://[IP]:[PORT:3001]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/ai-chief-of-staff-microservices.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>PostgreSQL database (use separate PostgreSQL container or external server). Optional: Redis for microservices caching.</Requires>
+  
+  <!-- Network Ports -->
+  <Config Name="WebUI Port" Target="3001" Default="3001" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">3001</Config>
+  
+  <!-- Storage Paths -->
+  <Config Name="App Data" Target="/app/data" Default="/mnt/user/appdata/ai-chief-of-staff" Mode="rw" Description="Configuration files, logs, and SQLite database (if used)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ai-chief-of-staff</Config>
+  <Config Name="Uploads" Target="/app/uploads" Default="/mnt/user/appdata/ai-chief-of-staff/uploads" Mode="rw" Description="Uploaded transcript files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ai-chief-of-staff/uploads</Config>
+  
+  <!-- Database Configuration -->
+  <Config Name="Database Type" Target="DB_TYPE" Default="postgres" Mode="" Description="Database type: 'postgres' (recommended) or 'sqlite'" Type="Variable" Display="always" Required="true" Mask="false">postgres</Config>
+  <Config Name="PostgreSQL Host" Target="POSTGRES_HOST" Default="" Mode="" Description="PostgreSQL hostname or IP (e.g., 192.168.1.10 or postgres)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="PostgreSQL Port" Target="POSTGRES_PORT" Default="5432" Mode="" Description="PostgreSQL port" Type="Variable" Display="always" Required="false" Mask="false">5432</Config>
+  <Config Name="PostgreSQL Database" Target="POSTGRES_DB" Default="ai_chief_of_staff" Mode="" Description="PostgreSQL database name" Type="Variable" Display="always" Required="false" Mask="false">ai_chief_of_staff</Config>
+  <Config Name="PostgreSQL User" Target="POSTGRES_USER" Default="aicos" Mode="" Description="PostgreSQL username" Type="Variable" Display="always" Required="false" Mask="false">aicos</Config>
+  <Config Name="PostgreSQL Password" Target="POSTGRES_PASSWORD" Default="" Mode="" Description="PostgreSQL password" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  
+  <!-- Microservices Configuration (Optional) -->
+  <Config Name="AI Intelligence URL" Target="AI_INTELLIGENCE_URL" Default="" Mode="" Description="AI Intelligence service URL (optional, e.g., http://192.168.1.10:8001). Leave blank for standalone mode." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Pattern Recognition URL" Target="PATTERN_RECOGNITION_URL" Default="" Mode="" Description="Pattern Recognition service URL (optional, e.g., http://192.168.1.10:8002)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="NL Parser URL" Target="NL_PARSER_URL" Default="" Mode="" Description="Natural Language Parser service URL (optional, e.g., http://192.168.1.10:8003)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Voice Processor URL" Target="VOICE_PROCESSOR_URL" Default="" Mode="" Description="Voice Processor service URL (optional, e.g., http://192.168.1.10:8004)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Context Service URL" Target="CONTEXT_SERVICE_URL" Default="" Mode="" Description="Context Service URL (optional, e.g., http://192.168.1.10:8005)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Redis URL" Target="REDIS_URL" Default="" Mode="" Description="Redis URL for caching (optional, e.g., redis://192.168.1.10:6379). Required if using microservices." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  
+  <!-- API Keys -->
+  <Config Name="Anthropic API Key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="Anthropic Claude API key (required for AI features). Get from: https://console.anthropic.com" Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="OpenAI API Key" Target="OPENAI_API_KEY" Default="" Mode="" Description="OpenAI API key (optional, for voice transcription with Whisper)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  
+  <!-- OAuth Configuration -->
+  <Config Name="Google Redirect URI" Target="GOOGLE_REDIRECT_URI" Default="" Mode="" Description="Google OAuth redirect URI (e.g., https://aicos.yourdomain.com/api/calendar/google/callback). Leave blank if not using SWAG." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  
+  <!-- Push Notifications -->
+  <Config Name="VAPID Public Key" Target="VAPID_PUBLIC_KEY" Default="" Mode="" Description="VAPID public key for push notifications. Generate with: npx web-push generate-vapid-keys" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="VAPID Private Key" Target="VAPID_PRIVATE_KEY" Default="" Mode="" Description="VAPID private key for push notifications" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="VAPID Subject" Target="VAPID_SUBJECT" Default="mailto:admin@example.com" Mode="" Description="VAPID subject (email address)" Type="Variable" Display="advanced" Required="false" Mask="false">mailto:admin@example.com</Config>
+  
+  <!-- System Configuration -->
+  <Config Name="Node Environment" Target="NODE_ENV" Default="production" Mode="" Description="Node.js environment (production recommended)" Type="Variable" Display="advanced" Required="false" Mask="false">production</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID for file permissions" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID for file permissions" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+</Container>

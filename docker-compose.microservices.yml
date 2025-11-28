@@ -1,0 +1,322 @@
+version: '3.8'
+
+# AI Chief of Staff - Microservices Architecture
+# Development environment with all services
+
+services:
+  # ============================================================================
+  # FRONTEND - React Application
+  # ============================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001
+    depends_on:
+      - backend
+    networks:
+      - aicos-network
+    volumes:
+      - ./frontend/src:/app/src
+    restart: unless-stopped
+
+  # ============================================================================
+  # BACKEND - Node.js/Express API Gateway
+  # ============================================================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      # Database
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/aicos
+      - DB_TYPE=postgres
+      
+      # Cache
+      - REDIS_URL=redis://redis:6379
+      
+      # Microservices
+      - AI_INTELLIGENCE_URL=http://ai-intelligence:8001
+      - PATTERN_RECOGNITION_URL=http://pattern-recognition:8002
+      - NL_PARSER_URL=http://nl-parser:8003
+      - VOICE_PROCESSOR_URL=http://voice-processor:8004
+      - CONTEXT_SERVICE_URL=http://context-service:8005
+      
+      # External APIs
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Config
+      - NODE_ENV=development
+      - LOG_LEVEL=info
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aicos-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # MICROSERVICES
+  # ============================================================================
+
+  # AI Intelligence Service - Task analysis with Claude
+  ai-intelligence:
+    build:
+      context: ./services/ai-intelligence
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+    depends_on:
+      - redis
+    networks:
+      - aicos-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Pattern Recognition Service - ML-based insights
+  pattern-recognition:
+    build:
+      context: ./services/pattern-recognition
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8002"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/aicos
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aicos-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    volumes:
+      # Persist ML models
+      - pattern-models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Natural Language Parser - Task extraction
+  nl-parser:
+    build:
+      context: ./services/nl-parser
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+    depends_on:
+      - redis
+    networks:
+      - aicos-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Voice Processor - Whisper transcription
+  voice-processor:
+    build:
+      context: ./services/voice-processor
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+    depends_on:
+      - redis
+    networks:
+      - aicos-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    # Uncomment for GPU support (requires nvidia-docker)
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Context Service - High-performance context retrieval (Go)
+  context-service:
+    build:
+      context: ./services/context-service
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/aicos
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=info
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - aicos-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================================
+  # DATA LAYER
+  # ============================================================================
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=aicos
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=en_US.UTF-8
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - aicos-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache & Queue
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - aicos-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================================
+  # MONITORING (Optional - uncomment for production)
+  # ============================================================================
+
+  # # Prometheus - Metrics collection
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - prometheus-data:/prometheus
+  #   networks:
+  #     - aicos-network
+  #   restart: unless-stopped
+
+  # # Grafana - Metrics visualization
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   ports:
+  #     - "3030:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  #   volumes:
+  #     - grafana-data:/var/lib/grafana
+  #   networks:
+  #     - aicos-network
+  #   restart: unless-stopped
+
+networks:
+  aicos-network:
+    driver: bridge
+    name: aicos-network
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  pattern-models:
+    driver: local
+  # prometheus-data:
+  #   driver: local
+  # grafana-data:
+  #   driver: local
