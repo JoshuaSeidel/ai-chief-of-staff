@@ -146,6 +146,13 @@ function Configuration() {
     checkJiraStatus();
     loadPrompts();
     
+    // Set initial integration toggles based on configuration
+    // This will be updated when status checks complete
+    const hasJiraConfig = config.jiraBaseUrl && config.jiraEmail && config.jiraApiToken && config.jiraProjectKey;
+    if (hasJiraConfig) {
+      setEnabledIntegrations(prev => ({ ...prev, jira: true }));
+    }
+    
     // Check notification permission on load
     if (typeof Notification !== 'undefined') {
       setNotificationsEnabled(Notification.permission === 'granted');
@@ -287,6 +294,12 @@ function Configuration() {
       // Use actual runtime DB type if available, otherwise use config file value
       const actualDbType = sysData._runtime?.actualDbType || sysData.dbType || 'sqlite';
       
+      // Set Jira integration toggle if configured
+      const hasJiraConfig = appData.jiraBaseUrl && appData.jiraEmail && appData.jiraApiToken && appData.jiraProjectKey;
+      if (hasJiraConfig) {
+        setEnabledIntegrations(prev => ({ ...prev, jira: true }));
+      }
+      
       setConfig({
         aiProvider: appData.aiProvider || 'anthropic',
         anthropicApiKey: appData.anthropicApiKey ? '••••••••' : '',
@@ -370,7 +383,14 @@ function Configuration() {
         throw new Error(`HTTP ${response.status}`);
       }
       const data = await response.json();
-      setJiraConnected(data.connected || false);
+      const isConnected = data.connected || false;
+      setJiraConnected(isConnected);
+      
+      // If Jira is configured (has credentials), keep checkbox checked even if not connected
+      const hasConfig = config.jiraBaseUrl && config.jiraEmail && config.jiraApiToken && config.jiraProjectKey;
+      if (hasConfig || isConnected) {
+        setEnabledIntegrations(prev => ({ ...prev, jira: true }));
+      }
     } catch (err) {
       console.error('Failed to check Jira status:', err);
       setJiraConnected(false);
@@ -1413,7 +1433,17 @@ function Configuration() {
                   value={config.jiraEmail}
                   onChange={(e) => handleChange('jiraEmail', e.target.value)}
                   placeholder="your.email@example.com"
-                  style={{ marginBottom: '1rem' }}
+                  style={{ 
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #3f3f46',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontFamily: 'inherit',
+                    marginBottom: '1rem',
+                    backgroundColor: '#18181b',
+                    color: '#e5e5e7'
+                  }}
                 />
                 
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>

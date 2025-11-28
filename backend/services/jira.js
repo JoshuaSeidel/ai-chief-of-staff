@@ -145,15 +145,19 @@ async function createIssue(issueData) {
   
   // Get project to find issue type ID
   const project = await getProject(projectKey);
-  const issueTypeObj = project.issueTypes.find(type => 
+  let issueTypeObj = project.issueTypes.find(type => 
     type.name === issueType || type.name.toLowerCase() === issueType.toLowerCase()
   );
   
   if (!issueTypeObj) {
     // Fallback to first available issue type
-    const firstType = project.issueTypes[0];
-    logger.warn(`Issue type "${issueType}" not found, using "${firstType.name}"`);
-    issueTypeObj = firstType;
+    const firstType = project.issueTypes && project.issueTypes.length > 0 ? project.issueTypes[0] : null;
+    if (firstType) {
+      logger.warn(`Issue type "${issueType}" not found, using "${firstType.name}"`);
+      issueTypeObj = firstType;
+    } else {
+      throw new Error('No issue types available in project. Please configure issue types in Jira.');
+    }
   }
   
   // Map priority names to Jira priority IDs

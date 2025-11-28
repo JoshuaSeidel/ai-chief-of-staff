@@ -323,6 +323,7 @@ router.post('/jira/sync', async (req, res) => {
     const db = getDb();
     
     // Get all pending tasks that don't have a Jira issue key
+    // Include all task types: commitments, actions, follow-ups, risks
     const tasks = await db.all(
       `SELECT * FROM commitments 
        WHERE status != 'completed' 
@@ -371,6 +372,69 @@ router.post('/jira/sync', async (req, res) => {
     logger.error('Error syncing tasks to Jira', error);
     res.status(500).json({ 
       error: 'Error syncing tasks',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Sync failed tasks to Jira (tasks that previously failed to sync)
+ */
+router.post('/jira/sync-failed', async (req, res) => {
+  try {
+    const { getDb } = require('../database/db');
+    const db = getDb();
+    
+    // Get all pending tasks that don't have a Jira issue key
+    // This includes tasks that failed to sync previously
+    const tasks = await db.all(
+      `SELECT * FROM commitments 
+       WHERE status != 'completed' 
+       AND (jira_task_id IS NULL OR jira_task_id = '')
+       ORDER BY created_date DESC`
+    );
+    
+    logger.info(`Syncing ${tasks.length} failed/pending tasks to Jira`);
+    
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+    
+    for (const task of tasks) {
+      try {
+        const jiraIssue = await jira.createIssueFromCommitment(task);
+        
+        // Store Jira issue key (e.g., PROJ-123)
+        await db.run(
+          'UPDATE commitments SET jira_task_id = ? WHERE id = ?',
+          [jiraIssue.key, task.id]
+        );
+        
+        results.success++;
+        logger.info(`Synced task ${task.id} to Jira as ${jiraIssue.key}`);
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          taskId: task.id,
+          error: error.message
+        });
+        logger.warn(`Failed to sync task ${task.id}:`, error.message);
+      }
+    }
+    
+    res.json({
+      success: true,
+      synced: results.success,
+      failed: results.failed,
+      total: tasks.length,
+      errors: results.errors
+    });
+  } catch (error) {
+    logger.error('Error syncing failed tasks to Jira', error);
+    res.status(500).json({ 
+      error: 'Error syncing failed tasks',
       message: error.message
     });
   }

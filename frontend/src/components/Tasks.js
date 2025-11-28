@@ -95,6 +95,37 @@ function Commitments() {
     }
   };
 
+  const handleSyncFailedToJira = async () => {
+    if (!jiraConnected) {
+      alert('Please connect Jira in Configuration first');
+      return;
+    }
+    
+    if (!window.confirm('This will retry syncing all failed/pending tasks to Jira. Continue?')) {
+      return;
+    }
+    
+    setSyncingJira(true);
+    try {
+      const response = await fetch('/api/planner/jira/sync-failed', { method: 'POST' });
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✅ Synced ${data.synced} tasks to Jira${data.failed > 0 ? `\n⚠️ ${data.failed} failed` : ''}`);
+        if (data.errors && data.errors.length > 0) {
+          console.error('Sync errors:', data.errors);
+        }
+        loadCommitments(); // Reload to show updated task IDs
+      } else {
+        alert(`❌ Sync failed: ${data.message || 'Unknown error'}`);
+      }
+    } catch (err) {
+      alert(`❌ Error syncing: ${err.message}`);
+    } finally {
+      setSyncingJira(false);
+    }
+  };
+
   const loadCommitments = async () => {
     setLoading(true);
     setError(null);
@@ -277,6 +308,27 @@ function Commitments() {
             >
               {syncingJira ? '⏳ Syncing...' : '🎯 Sync to Jira'}
             </button>
+            {jiraConnected && (
+              <button 
+                onClick={handleSyncFailedToJira} 
+                disabled={syncingJira || loading}
+                style={{
+                  padding: '0.5rem 1rem',
+                  backgroundColor: syncingJira ? '#6e6e73' : '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: syncingJira ? 'not-allowed' : 'pointer',
+                  fontSize: '0.9rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+                title="Retry syncing failed/pending tasks to Jira"
+              >
+                {syncingJira ? '⏳ Syncing...' : '🔄 Retry Failed'}
+              </button>
+            )}
             <button onClick={loadCommitments} disabled={loading} className="secondary">
               {loading ? 'Loading...' : '🔄 Refresh'}
             </button>

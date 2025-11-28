@@ -106,15 +106,16 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
           }
         }
         
-        // Create Jira issue
-        if (isJiraConnected) {
-          try {
-            const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
-            await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
-            logger.info(`Created Jira issue ${jiraIssue.key} for commitment ${insertedId}`);
-          } catch (jiraError) {
-            logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
-          }
+      }
+      
+      // Create Jira issue for all commitments (regardless of deadline or assignment)
+      if (isJiraConnected) {
+        try {
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          logger.info(`Created Jira issue ${jiraIssue.key} for commitment ${insertedId}`);
+        } catch (jiraError) {
+          logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
         }
       }
     }
@@ -168,15 +169,16 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
           }
         }
         
-        // Create Jira issue
-        if (isJiraConnected) {
-          try {
-            const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'action' });
-            await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
-            logger.info(`Created Jira issue ${jiraIssue.key} for action ${insertedId}`);
-          } catch (jiraError) {
-            logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
-          }
+      }
+      
+      // Create Jira issue for all actions (regardless of deadline or assignment)
+      if (isJiraConnected) {
+        try {
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'action' });
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          logger.info(`Created Jira issue ${jiraIssue.key} for action ${insertedId}`);
+        } catch (jiraError) {
+          logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
         }
       }
     }
@@ -231,15 +233,16 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
           }
         }
         
-        // Create Jira issue
-        if (isJiraConnected) {
-          try {
-            const jiraIssue = await jira.createIssueFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
-            await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
-            logger.info(`Created Jira issue ${jiraIssue.key} for follow-up ${insertedId}`);
-          } catch (jiraError) {
-            logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
-          }
+      }
+      
+      // Create Jira issue for all follow-ups (regardless of deadline or assignment)
+      if (isJiraConnected) {
+        try {
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          logger.info(`Created Jira issue ${jiraIssue.key} for follow-up ${insertedId}`);
+        } catch (jiraError) {
+          logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
         }
       }
     }
