@@ -1,6 +1,6 @@
 {
   "name": "ai-chief-of-staff-backend",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "Backend API for AI Chief of Staff Application",
   "main": "server.js",
   "scripts": {

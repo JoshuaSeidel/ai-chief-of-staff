@@ -202,11 +202,12 @@ router.put('/', async (req, res) => {
 router.get('/version', (req, res) => {
   try {
     let commitHash = null;
-    let version = '1.0.0';
+    let backendVersion = null;
+    let frontendVersion = null;
     let buildDate = null;
     
     // Priority 1: Environment variables (set during Docker build)
-    version = process.env.VERSION || version;
+    backendVersion = process.env.VERSION || null;
     commitHash = process.env.COMMIT_HASH || null;
     buildDate = process.env.BUILD_DATE || null;
     
@@ -223,17 +224,26 @@ router.get('/version', (req, res) => {
       }
     }
     
-    // Priority 3: Try to get version from backend package.json
-    if (version === '1.0.0') {
-      try {
-        const packagePath = path.join(__dirname, '..', 'package.json');
-        if (fs.existsSync(packagePath)) {
-          const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
-          version = packageJson.version || version;
-        }
-      } catch (pkgError) {
-        // Ignore
+    // Priority 3: Get versions from package.json files (always read from source of truth)
+    try {
+      const backendPackagePath = path.join(__dirname, '..', 'package.json');
+      if (fs.existsSync(backendPackagePath)) {
+        const backendPackageJson = JSON.parse(fs.readFileSync(backendPackagePath, 'utf8'));
+        backendVersion = backendVersion || backendPackageJson.version || null;
       }
+    } catch (pkgError) {
+      logger.warn('Failed to read backend package.json', pkgError);
+    }
+    
+    // Get frontend version
+    try {
+      const frontendPackagePath = path.join(__dirname, '..', '..', 'frontend', 'package.json');
+      if (fs.existsSync(frontendPackagePath)) {
+        const frontendPackageJson = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
+        frontendVersion = frontendPackageJson.version || null;
+      }
+    } catch (pkgError) {
+      logger.warn('Failed to read frontend package.json', pkgError);
     }
     
     // Build date fallback
@@ -242,7 +252,9 @@ router.get('/version', (req, res) => {
     }
     
     res.json({
-      version,
+      version: backendVersion || 'unknown', // Keep for backward compatibility
+      backendVersion: backendVersion || 'unknown',
+      frontendVersion: frontendVersion || 'unknown',
       commitHash: commitHash || 'unknown',
       buildDate
     });

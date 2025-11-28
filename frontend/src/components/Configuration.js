@@ -64,7 +64,10 @@ function VersionInfo() {
         Application Version
       </p>
       <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-        <strong style={{ color: '#e5e5e7' }}>Version:</strong> <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{version.version || 'Unknown'}</span>
+        <strong style={{ color: '#e5e5e7' }}>Frontend:</strong> <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{version.frontendVersion || version.version || 'Unknown'}</span>
+      </p>
+      <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+        <strong style={{ color: '#e5e5e7' }}>Backend:</strong> <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{version.backendVersion || version.version || 'Unknown'}</span>
       </p>
       {version.commitHash && version.commitHash !== 'unknown' && (
         <p style={{ color: '#a1a1aa', fontSize: '0.85rem', fontFamily: 'monospace', marginTop: '0.25rem' }}>
