@@ -2038,48 +2038,108 @@ function Configuration() {
         </p>
         
         <button 
-          onClick={() => {
+          onClick={async () => {
             if ('Notification' in window) {
-              if (Notification.permission === 'granted') {
-                alert('Notifications are already enabled for this device!');
-              } else {
-                Notification.requestPermission().then(async (permission) => {
-                  if (permission === 'granted') {
-                    setNotificationsEnabled(true); // Update state immediately
-                    try {
-                      const registration = await navigator.serviceWorker.ready;
-                      const response = await fetch('/api/notifications/vapid-public-key');
-                      if (response.ok) {
-                        const { publicKey } = await response.json();
-                        const urlBase64ToUint8Array = (base64String) => {
-                          const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                          const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-                          const rawData = window.atob(base64);
-                          const outputArray = new Uint8Array(rawData.length);
-                          for (let i = 0; i < rawData.length; ++i) {
-                            outputArray[i] = rawData.charCodeAt(i);
-                          }
-                          return outputArray;
-                        };
-                        const subscription = await registration.pushManager.subscribe({
-                          userVisibleOnly: true,
-                          applicationServerKey: urlBase64ToUint8Array(publicKey)
-                        });
-                        await fetch('/api/notifications/subscribe', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ subscription })
-                        });
-                        alert('✅ Notifications enabled successfully!');
-                      } else {
-                        alert('⚠️ Notifications enabled, but server needs VAPID keys configured.');
-                      }
-                    } catch (error) {
-                      console.error('Error:', error);
-                      alert('⚠️ Notifications enabled, but push subscription failed.');
+              // If already enabled, ask to disable
+              if (notificationsEnabled) {
+                if (window.confirm('Disable push notifications?\n\nYou can re-enable them anytime to re-register this device.')) {
+                  try {
+                    const registration = await navigator.serviceWorker.ready;
+                    const subscription = await registration.pushManager.getSubscription();
+                    if (subscription) {
+                      await subscription.unsubscribe();
+                      // Optionally notify backend to remove subscription
+                      await fetch('/api/notifications/unsubscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ endpoint: subscription.endpoint })
+                      });
                     }
+                    setNotificationsEnabled(false);
+                    alert('✅ Notifications disabled. Click again to re-enable.');
+                  } catch (error) {
+                    console.error('Error unsubscribing:', error);
+                    setNotificationsEnabled(false);
+                    alert('⚠️ Notifications disabled locally.');
                   }
-                });
+                }
+              } else {
+                // Enable notifications
+                if (Notification.permission === 'granted') {
+                  // Already have permission, just subscribe
+                  try {
+                    setNotificationsEnabled(true);
+                    const registration = await navigator.serviceWorker.ready;
+                    const response = await fetch('/api/notifications/vapid-public-key');
+                    if (response.ok) {
+                      const { publicKey } = await response.json();
+                      const urlBase64ToUint8Array = (base64String) => {
+                        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                        const rawData = window.atob(base64);
+                        const outputArray = new Uint8Array(rawData.length);
+                        for (let i = 0; i < rawData.length; ++i) {
+                          outputArray[i] = rawData.charCodeAt(i);
+                        }
+                        return outputArray;
+                      };
+                      const subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(publicKey)
+                      });
+                      await fetch('/api/notifications/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ subscription })
+                      });
+                      alert('✅ Notifications enabled successfully!');
+                    } else {
+                      alert('⚠️ Notifications enabled, but server needs VAPID keys configured.');
+                    }
+                  } catch (error) {
+                    console.error('Error:', error);
+                    alert('⚠️ Push subscription failed: ' + error.message);
+                  }
+                } else {
+                  // Request permission first
+                  Notification.requestPermission().then(async (permission) => {
+                    if (permission === 'granted') {
+                      setNotificationsEnabled(true);
+                      try {
+                        const registration = await navigator.serviceWorker.ready;
+                        const response = await fetch('/api/notifications/vapid-public-key');
+                        if (response.ok) {
+                          const { publicKey } = await response.json();
+                          const urlBase64ToUint8Array = (base64String) => {
+                            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                            const rawData = window.atob(base64);
+                            const outputArray = new Uint8Array(rawData.length);
+                            for (let i = 0; i < rawData.length; ++i) {
+                              outputArray[i] = rawData.charCodeAt(i);
+                            }
+                            return outputArray;
+                          };
+                          const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(publicKey)
+                          });
+                          await fetch('/api/notifications/subscribe', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ subscription })
+                          });
+                          alert('✅ Notifications enabled successfully!');
+                        } else {
+                          alert('⚠️ Notifications enabled, but server needs VAPID keys configured.');
+                        }
+                      } catch (error) {
+                        console.error('Error:', error);
+                        alert('⚠️ Notifications enabled, but push subscription failed.');
+                      }
+                    }
+                  });
+                }
               }
             } else {
               alert('❌ This browser does not support notifications');
@@ -2087,7 +2147,7 @@ function Configuration() {
           }}
           style={{ marginBottom: '1rem' }}
         >
-          {notificationsEnabled ? '✅ Notifications Enabled' : '🔔 Enable Notifications'}
+          {notificationsEnabled ? '✅ Notifications Enabled - Click to Disable' : '🔔 Enable Notifications'}
         </button>
 
         <button 
@@ -2100,8 +2160,39 @@ function Configuration() {
             }
           }}
           className="secondary"
+          style={{ marginRight: '0.5rem' }}
         >
           🧪 Send Test Notification
+        </button>
+
+        <button 
+          onClick={async () => {
+            if (!window.confirm('⚠️ Regenerating VAPID keys will invalidate all existing push subscriptions.\n\nAll users will need to re-enable notifications.\n\nContinue?')) {
+              return;
+            }
+            
+            try {
+              const response = await fetch('/api/notifications/regenerate-vapid', { method: 'POST' });
+              const data = await response.json();
+              
+              if (response.ok) {
+                alert('✅ VAPID keys regenerated successfully!\n\n' + data.note);
+                // Disable notifications as current subscription is now invalid
+                setNotificationsEnabled(false);
+              } else {
+                alert('❌ Failed to regenerate VAPID keys: ' + data.message);
+              }
+            } catch (error) {
+              alert('❌ Error regenerating VAPID keys: ' + error.message);
+            }
+          }}
+          className="secondary"
+          style={{ 
+            backgroundColor: '#dc2626',
+            borderColor: '#dc2626'
+          }}
+        >
+          🔄 Regenerate VAPID Keys
         </button>
 
         <div style={{ 

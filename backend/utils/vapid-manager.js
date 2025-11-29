@@ -96,7 +96,52 @@ async function getVapidPublicKey() {
   }
 }
 
+/**
+ * Force regenerate VAPID keys
+ * WARNING: This will invalidate all existing push subscriptions
+ */
+async function regenerateVapidKeys() {
+  try {
+    const db = getDb();
+    
+    logger.info('Force regenerating VAPID keys...');
+    const vapidKeys = webpush.generateVAPIDKeys();
+    
+    // Replace existing keys in database
+    await db.run(
+      'INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)',
+      ['vapidPublicKey', vapidKeys.publicKey]
+    );
+    await db.run(
+      'INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)',
+      ['vapidPrivateKey', vapidKeys.privateKey]
+    );
+    await db.run(
+      'INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)',
+      ['vapidSubject', 'mailto:notifications@aicos.app']
+    );
+    
+    // Clear all existing subscriptions as they're now invalid
+    await db.run('DELETE FROM push_subscriptions');
+    logger.info('Cleared all push subscriptions (invalidated by new keys)');
+    
+    // Set new keys in web-push
+    webpush.setVapidDetails(
+      'mailto:notifications@aicos.app',
+      vapidKeys.publicKey,
+      vapidKeys.privateKey
+    );
+    
+    logger.info('VAPID keys regenerated successfully');
+    return vapidKeys;
+  } catch (error) {
+    logger.error('Failed to regenerate VAPID keys', { error: error.message });
+    throw error;
+  }
+}
+
 module.exports = {
   ensureVapidKeys,
-  getVapidPublicKey
+  getVapidPublicKey,
+  regenerateVapidKeys
 };

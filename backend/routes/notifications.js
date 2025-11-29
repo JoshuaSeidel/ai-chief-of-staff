@@ -104,5 +104,28 @@ router.post('/test', async (req, res) => {
   }
 });
 
+/**
+ * Regenerate VAPID keys (will invalidate all existing subscriptions)
+ */
+router.post('/regenerate-vapid', async (req, res) => {
+  try {
+    const { regenerateVapidKeys } = require('../utils/vapid-manager');
+    const keys = await regenerateVapidKeys();
+    
+    logger.info('VAPID keys regenerated - all existing subscriptions invalidated');
+    res.json({ 
+      message: 'VAPID keys regenerated successfully',
+      publicKey: keys.publicKey,
+      note: 'All users will need to re-enable notifications'
+    });
+  } catch (error) {
+    logger.error('Error regenerating VAPID keys:', error);
+    res.status(500).json({ 
+      error: 'Failed to regenerate VAPID keys',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
 
