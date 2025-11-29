@@ -16,6 +16,7 @@ import hashlib
 import json
 from collections import Counter, defaultdict
 import statistics
+import asyncpg
 
 # Configure structured logging
 logging.basicConfig(
@@ -61,6 +62,7 @@ app.add_middleware(
 # Initialize clients
 anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 redis_client = None
+db_pool = None
 
 try:
     redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
@@ -69,6 +71,23 @@ try:
     logger.info(f"✓ Connected to Redis at {redis_url}")
 except Exception as e:
     logger.warning(f"Redis not available: {e}. Running without cache.")
+
+# Initialize database connection pool
+async def init_db():
+    global db_pool
+    database_url = os.getenv("DATABASE_URL")
+    if database_url:
+        try:
+            db_pool = await asyncpg.create_pool(database_url, min_size=1, max_size=10)
+            logger.info(f"✓ Connected to PostgreSQL database")
+        except Exception as e:
+            logger.error(f"❌ Failed to connect to database: {e}", exc_info=True)
+    else:
+        logger.warning("DATABASE_URL not set - database features disabled")
+
+@app.on_event("startup")
+async def startup():
+    await init_db()
 
 # ============================================================================
 # Models
@@ -248,23 +267,142 @@ async def health_check():
 @app.post("/analyze-patterns")
 async def analyze_patterns(request: dict):
     """
-    Analyze task patterns from database (called by backend)
-    
-    Note: This microservice doesn't have direct database access.
-    The backend's local implementation is better suited for this task
-    as it can directly query the commitments table.
-    
-    This endpoint exists to prevent 404 errors but immediately indicates
-    that the backend should use its local implementation.
+    Analyze task patterns from database
+    Queries commitments table and generates insights using AI
     """
-    time_range = request.get("time_range", "30d")
-    logger.info(f"Pattern analysis requested for {time_range} - redirecting to backend local implementation")
-    
-    # Return an error that tells the backend to use local implementation
-    raise HTTPException(
-        status_code=501,
-        detail="Pattern analysis requires direct database access. Backend should use local implementation with database connection."
-    )
+    try:
+        time_range = request.get("time_range", "30d")
+        logger.info(f"Analyzing patterns for time range: {time_range}")
+        
+        if not db_pool:
+            raise HTTPException(status_code=503, detail="Database not available")
+        
+        # Parse time range
+        days_match = time_range.rstrip('d')
+        days = int(days_match) if days_match.isdigit() else 30
+        start_date = datetime.utcnow() - timedelta(days=days)
+        
+        async with db_pool.acquire() as conn:
+            # Get all tasks
+            all_tasks = await conn.fetch(
+                "SELECT * FROM commitments WHERE created_date >= $1 ORDER BY created_date DESC",
+                start_date
+            )
+            
+            # Get completed tasks
+            completed_tasks = await conn.fetch(
+                "SELECT * FROM commitments WHERE status = $1 AND completed_date >= $2 ORDER BY completed_date DESC",
+                'completed', start_date
+            )
+            
+            # Get pending tasks
+            pending_tasks = await conn.fetch(
+                "SELECT * FROM commitments WHERE status = $1 AND created_date >= $2 ORDER BY created_date DESC",
+                'pending', start_date
+            )
+            
+            # Get overdue tasks
+            now = datetime.utcnow()
+            overdue_tasks = await conn.fetch(
+                "SELECT * FROM commitments WHERE status != $1 AND deadline < $2 AND deadline IS NOT NULL",
+                'completed', now
+            )
+        
+        logger.info(f"Found {len(all_tasks)} total, {len(completed_tasks)} completed, {len(pending_tasks)} pending, {len(overdue_tasks)} overdue")
+        
+        if len(completed_tasks) == 0:
+            return {
+                "error": "Pattern analysis requires task completion history",
+                "note": "Complete some tasks to see pattern analysis",
+                "stats": {
+                    "total_tasks": len(all_tasks),
+                    "completed": 0,
+                    "pending": len(pending_tasks),
+                    "overdue": len(overdue_tasks),
+                    "completion_rate": 0
+                }
+            }
+        
+        # Calculate stats
+        completion_rate = round((len(completed_tasks) / len(all_tasks) * 100), 1) if len(all_tasks) > 0 else 0
+        
+        # Calculate average completion time
+        completion_times = []
+        for task in completed_tasks:
+            if task['completed_date'] and task['created_date']:
+                completed = datetime.fromisoformat(str(task['completed_date']).replace('Z', '+00:00'))
+                created = datetime.fromisoformat(str(task['created_date']).replace('Z', '+00:00'))
+                days_to_complete = (completed - created).days
+                if days_to_complete >= 0:
+                    completion_times.append(days_to_complete)
+        
+        avg_completion_days = round(sum(completion_times) / len(completion_times), 1) if completion_times else 0
+        
+        # Find most productive day
+        tasks_by_day = Counter()
+        for task in completed_tasks:
+            if task['completed_date']:
+                day = datetime.fromisoformat(str(task['completed_date']).replace('Z', '+00:00')).strftime('%A')
+                tasks_by_day[day] += 1
+        
+        most_productive_day = tasks_by_day.most_common(1)[0][0] if tasks_by_day else "N/A"
+        
+        # Generate AI insights
+        prompt = f"""Analyze this task completion data and provide actionable productivity insights.
+
+Stats (Last {days} days):
+- Total tasks: {len(all_tasks)}
+- Completed: {len(completed_tasks)}
+- Pending: {len(pending_tasks)}
+- Overdue: {len(overdue_tasks)}
+- Completion rate: {completion_rate}%
+- Average time to complete: {avg_completion_days} days
+- Most productive day: {most_productive_day}
+
+Recent Completed Tasks:
+{chr(10).join([f"- {task['description'][:100]}" for task in list(completed_tasks)[:10]])}
+
+Recent Pending Tasks:
+{chr(10).join([f"- {task['description'][:100]} (deadline: {task['deadline'] or 'none'})" for task in list(pending_tasks)[:10]])}
+
+{"Overdue Tasks:" + chr(10) + chr(10).join([f"- {task['description'][:100]}" for task in list(overdue_tasks)[:5]]) if overdue_tasks else ""}
+
+Provide:
+1. **Working Patterns**: What patterns emerge from completion data?
+2. **Productivity Trends**: Is performance improving or declining?
+3. **Time Management**: Are deadlines being met?
+4. **Recommendations**: 3-5 specific actionable suggestions
+
+Format as markdown with clear sections."""
+
+        response = anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=2048,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        
+        insights = response.content[0].text
+        
+        return {
+            "success": True,
+            "time_range": f"{days}d",
+            "stats": {
+                "total_tasks": len(all_tasks),
+                "completed": len(completed_tasks),
+                "pending": len(pending_tasks),
+                "overdue": len(overdue_tasks),
+                "completion_rate": completion_rate,
+                "avg_completion_days": avg_completion_days,
+                "most_productive_day": most_productive_day,
+                "tasks_by_day": dict(tasks_by_day)
+            },
+            "insights": insights,
+            "analysis_date": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Pattern analysis error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/detect-patterns", response_model=List[ProductivityPattern])
 async def detect_patterns(data: WorkingHoursData):

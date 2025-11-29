@@ -362,8 +362,11 @@ Respond in JSON format:
 }}"""
 
     try:
+        logger.info(f"Client type: {type(ai_client)}, USE_SHARED_LIBS: {USE_SHARED_LIBS}")
+        
         if USE_SHARED_LIBS:
             # Using shared AI provider abstraction
+            logger.info("Using shared AI provider for clustering")
             result = ai_client.complete_json(
                 prompt=prompt,
                 max_tokens=1000,
@@ -371,19 +374,23 @@ Respond in JSON format:
             )
         else:
             # Using direct Anthropic client
+            logger.info("Using direct Anthropic client for clustering")
             import anthropic as anthropic_module
-            if not isinstance(ai_client, anthropic_module.Anthropic):
-                # Re-initialize if needed
-                logger.warning("AI client not properly initialized, re-initializing")
-                anthropic_client = anthropic_module.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-                message = anthropic_client.messages.create(
+            
+            # Always use the global ai_client if it's properly initialized
+            if isinstance(ai_client, anthropic_module.Anthropic):
+                logger.info("Using existing Anthropic client")
+                message = ai_client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=1000,
                     temperature=0.4,
                     messages=[{"role": "user", "content": prompt}]
                 )
             else:
-                message = ai_client.messages.create(
+                # Re-initialize if needed
+                logger.warning(f"AI client type mismatch: {type(ai_client)}, re-initializing")
+                anthropic_client = anthropic_module.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+                message = anthropic_client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=1000,
                     temperature=0.4,

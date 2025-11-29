@@ -230,14 +230,23 @@ router.post('/analyze-patterns', async (req, res) => {
 
     logger.info(`Analyzing patterns for user ${user_id || 'default'}`);
 
-    // Note: Pattern analysis requires direct database access to query task history
-    // The local implementation is more efficient as it doesn't require serializing
-    // all task data to send to the microservice. Always use local implementation.
-    logger.info('Using local pattern analysis (direct database access)');
-    
-    const { analyzeTaskPatterns } = require('./intelligence-local');
-    const result = await analyzeTaskPatterns(time_range);
-    return res.json(result);
+    // Try microservice first (has direct database access)
+    try {
+      const response = await axios.post(
+        `${PATTERN_RECOGNITION_URL}/analyze-patterns`,
+        { time_range },
+        { timeout: 30000 }
+      );
+      logger.info('Pattern analysis completed by microservice');
+      return res.json(response.data);
+    } catch (microserviceErr) {
+      logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message} - using local implementation`);
+      
+      // Fall back to local implementation
+      const { analyzeTaskPatterns } = require('./intelligence-local');
+      const result = await analyzeTaskPatterns(time_range);
+      return res.json(result);
+    }
 
   } catch (err) {
     logger.error('Error analyzing patterns:', err);

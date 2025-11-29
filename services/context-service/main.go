@@ -95,7 +95,7 @@ func main() {
 
 	// Add request logging middleware
 	r.Use(loggingMiddleware)
-	
+
 	// Enable CORS
 	r.Use(corsMiddleware)
 
@@ -517,16 +517,16 @@ func respondError(w http.ResponseWriter, status int, message string) {
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Log incoming request
 		log.Printf("→ %s %s", r.Method, r.URL.Path)
-		
+
 		// Create a response writer wrapper to capture status code
 		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-		
+
 		// Call the next handler
 		next.ServeHTTP(wrapped, r)
-		
+
 		// Log response with timing
 		duration := time.Since(start)
 		log.Printf("← %s %s [%d] %.3fms", r.Method, r.URL.Path, wrapped.statusCode, float64(duration.Microseconds())/1000.0)
