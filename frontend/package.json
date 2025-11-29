@@ -13,7 +13,7 @@
     "axios": "^1.7.9",
     "react-markdown": "^10.1.0",
     "date-fns": "^4.1.0",
-    "@callstack/liquid-glass": "^1.0.0"
+    "@callstack/liquid-glass": "^0.6.0"
   },
   "scripts": {
     "start": "react-scripts start",
