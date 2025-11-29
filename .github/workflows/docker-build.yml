@@ -1,9 +1,10 @@
-name: Build and Push Docker Image
+name: Build and Push Docker Images (Microservices)
 
 on:
   push:
     branches:
       - main
+      - 'feature/**'
     tags:
       - 'v*'
   pull_request:
@@ -12,49 +13,83 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  REPO: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  prepare:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      commit_hash: ${{ steps.version.outputs.commit_hash }}
+      build_date: ${{ steps.version.outputs.build_date }}
+      branch: ${{ steps.version.outputs.branch }}
+      tag_suffix: ${{ steps.version.outputs.tag_suffix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Bump version
-        run: |
-          node scripts/bump-version.js || echo "Version bump failed, continuing with existing version"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add backend/package.json frontend/package.json || true
-          if ! git diff --staged --quiet; then
-            git commit -m "chore: bump version for build" || true
-            git push origin HEAD:${{ github.ref }} || echo "Note: Version bump commit could not be pushed (branch may be protected). Build will continue with bumped version in this run."
-          else
-            echo "No version changes to commit"
-          fi
-
-      - name: Get version and commit hash
+      - name: Get version and metadata
         id: version
         run: |
           VERSION=$(node -p "require('./backend/package.json').version")
           COMMIT_HASH=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           BRANCH_NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\///')
+          
+          # Determine tag suffix - feature branches get 'dev' tag
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            TAG_SUFFIX="latest"
+          else
+            TAG_SUFFIX="dev"
+          fi
+          
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "tag_suffix=$TAG_SUFFIX" >> $GITHUB_OUTPUT
+          
           echo "Version: $VERSION"
           echo "Commit: $COMMIT_HASH"
           echo "Build Date: $BUILD_DATE"
           echo "Branch: $BRANCH_NAME"
+          echo "Tag Suffix: $TAG_SUFFIX"
+
+  build-microservices:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - name: frontend
+            context: ./frontend
+            dockerfile: ./frontend/Dockerfile
+          - name: backend
+            context: ./backend
+            dockerfile: ./backend/Dockerfile
+          - name: ai-intelligence
+            context: ./services/ai-intelligence
+            dockerfile: ./services/ai-intelligence/Dockerfile
+          - name: pattern-recognition
+            context: ./services/pattern-recognition
+            dockerfile: ./services/pattern-recognition/Dockerfile
+          - name: nl-parser
+            context: ./services/nl-parser
+            dockerfile: ./services/nl-parser/Dockerfile
+          - name: voice-processor
+            context: ./services/voice-processor
+            dockerfile: ./services/voice-processor/Dockerfile
+          - name: context-service
+            context: ./services/context-service
+            dockerfile: ./services/context-service/Dockerfile
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -63,40 +98,45 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=v${{ steps.version.outputs.version }},enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=${{ steps.version.outputs.branch }}-v${{ steps.version.outputs.version }},enable=${{ github.ref != 'refs/heads/main' && github.event_name != 'pull_request' }}
-            type=sha,prefix=sha-
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log tags that will be applied
-        run: |
-          echo "Tags that will be applied:"
-          echo "${{ steps.meta.outputs.tags }}"
-
-      - name: Build and push Docker image
+      - name: Build and push ${{ matrix.service.name }}
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./Dockerfile
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.REPO }}/aicos-${{ matrix.service.name }}:${{ needs.prepare.outputs.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ env.REPO }}/aicos-${{ matrix.service.name }}:v${{ needs.prepare.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=${{ steps.version.outputs.version }}
-            COMMIT_HASH=${{ steps.version.outputs.commit_hash }}
-            BUILD_DATE=${{ steps.version.outputs.build_date }}
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT_HASH=${{ needs.prepare.outputs.commit_hash }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
 
-      - name: Image digest
-        run: echo ${{ steps.meta.outputs.digest }}
+  summary:
+    needs: [prepare, build-microservices]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Build Summary
+        run: |
+          echo "## Build Complete 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ needs.prepare.outputs.tag_suffix }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ needs.prepare.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ needs.prepare.outputs.commit_hash }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Images Built:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-frontend:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-backend:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-ai-intelligence:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-pattern-recognition:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-nl-parser:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-voice-processor:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-context-service:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
