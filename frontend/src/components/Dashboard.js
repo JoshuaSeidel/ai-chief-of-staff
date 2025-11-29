@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { briefAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import { PullToRefresh } from './PullToRefresh';
+import LiquidGlass from 'liquid-glass-react';
 
 function Dashboard({ setActiveTab }) {
   const [brief, setBrief] = useState(null);
@@ -156,12 +157,23 @@ function Dashboard({ setActiveTab }) {
   };
 
   const deliverablesData = brief ? parseDeliverablesTable(brief) : null;
+  const containerRef = useRef(null);
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="dashboard">
+      <div className="dashboard" ref={containerRef}>
       {/* Daily Brief Section */}
-      <div className="card glass-card">
+      <LiquidGlass
+        displacementScale={80}
+        blurAmount={0.15}
+        saturation={150}
+        aberrationIntensity={2}
+        elasticity={0.2}
+        cornerRadius={16}
+        mouseContainer={containerRef}
+        padding="0"
+      >
+      <div className="card glass-card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
           <h2 style={{ margin: 0 }}>Morning Dashboard</h2>
           <button 
@@ -509,9 +521,20 @@ function Dashboard({ setActiveTab }) {
           </div>
         )}
       </div>
+      </LiquidGlass>
 
       {/* Quick Actions Section */}
-      <div className="card glass-card">
+      <LiquidGlass
+        displacementScale={70}
+        blurAmount={0.15}
+        saturation={150}
+        aberrationIntensity={2}
+        elasticity={0.2}
+        cornerRadius={16}
+        mouseContainer={containerRef}
+        padding="0"
+      >
+      <div className="card glass-card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
         <h2 style={{ marginBottom: '1rem' }}>Quick Actions</h2>
         <div className="quick-actions-grid">
           <button 
@@ -559,6 +582,7 @@ function Dashboard({ setActiveTab }) {
           </button>
         </div>
       </div>
+      </LiquidGlass>
       </div>
     </PullToRefresh>
   );

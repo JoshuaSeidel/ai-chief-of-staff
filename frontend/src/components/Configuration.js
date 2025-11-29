@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { configAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
+import LiquidGlass from 'liquid-glass-react';
 
 // Version info component
 function VersionInfo() {
@@ -715,10 +716,22 @@ function Configuration() {
     }
   };
 
+  const containerRef = useRef(null);
+
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="configuration">
-      <div className="card">
+      <div className="configuration" ref={containerRef}>
+      <LiquidGlass
+        displacementScale={75}
+        blurAmount={0.15}
+        saturation={150}
+        aberrationIntensity={2}
+        elasticity={0.2}
+        cornerRadius={16}
+        mouseContainer={containerRef}
+        padding="0"
+      >
+      <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
         <h2>Configuration</h2>
         <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
           Configure your AI Chief of Staff application settings. All settings persist across container restarts.
@@ -2397,6 +2410,7 @@ function Configuration() {
           <li>Create calendar blocks automatically</li>
         </ul>
       </div>
+      </LiquidGlass>
       </div>
     </PullToRefresh>
   );

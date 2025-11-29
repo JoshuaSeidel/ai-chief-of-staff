@@ -7,11 +7,12 @@ An intelligent executive assistant that automates personal productivity by inges
 ### Core Functionality
 - 📊 **Smart Dashboard**: AI-generated priorities, patterns, and insights
 - 📝 **Transcript Processing**: Upload transcripts (file or paste) with automatic AI extraction
-- 🤖 **Claude AI Integration**: Extracts tasks, actions, follow-ups, and risks
+- 🤖 **Multi-Provider AI Integration**: Choose from Anthropic, OpenAI, Ollama (local), or AWS Bedrock per service
 - 💾 **Dual Database Support**: SQLite or PostgreSQL with unified interface
 - ⚙️ **Configuration UI**: Easy setup for API keys, prompts, and integrations
 - 🐳 **Docker Deployment**: Single container or microservices architecture
-- 🚀 **Microservices Architecture**: Optional specialized AI services for enhanced capabilities
+- 🚀 **Microservices Architecture**: Optional specialized AI services with independent provider selection
+- 🎨 **Liquid Glass UI Theme**: Beautiful Apple-style morphism effect with mouse-responsive refraction
 
 ### Task Management
 - 📋 **Unified Task System**: Commitments, Actions, Follow-ups, Risks in one view
@@ -42,6 +43,15 @@ An intelligent executive assistant that automates personal productivity by inges
 - 🚀 **Fast Loading**: Service worker caching for instant load
 - 📐 **Mobile Optimized**: Responsive design with mobile-first approach
 - 🎨 **Safe Area Support**: Proper handling of device notches and status bars
+
+### Liquid Glass UI Theme
+- ✨ **Apple-Style Morphism**: Beautiful liquid glass effect inspired by iOS design
+- 🎯 **Mouse-Responsive**: Glass panels follow mouse movement with realistic refraction
+- 🌈 **Gradient Background**: Immersive 3-color gradient with depth overlays
+- 💎 **13 Glass Panels**: Dashboard (2), Calendar (3), Tasks (5), Transcripts (2), Configuration (1)
+- 🔮 **Semi-Transparent Cards**: Backdrop blur with light refraction for depth
+- 🎨 **Visual Variety**: Unique displacement and blur settings per section for natural feel
+- ⚡ **Powered by liquid-glass-react**: NPM package by rdev with customizable parameters
 
 ### Notifications & Reminders
 - ⏰ **Task Reminders**: Notifications 24 hours before deadline
@@ -96,6 +106,39 @@ The application supports an optional microservices architecture with specialized
 - **Access**: Available in the "AI Tools" tab
 
 **Note**: Microservices are optional. The application works perfectly in standalone mode. Microservices provide enhanced AI capabilities when deployed with `docker-compose.microservices.yml`.
+
+#### 🎛️ Multi-Provider AI Configuration
+Each microservice can use a different AI provider independently:
+
+- **Supported Providers**:
+  - **Anthropic Claude**: Claude Sonnet 4.5, Claude 4, Claude 3.5 Sonnet, Claude 3 Opus
+  - **OpenAI**: GPT-4, GPT-4 Turbo, GPT-3.5 Turbo, Whisper-1 (voice)
+  - **Ollama (Local)**: Mistral, Llama 2, Code Llama - runs entirely on your hardware
+  - **AWS Bedrock**: Claude models via AWS infrastructure
+
+- **Per-Service Configuration**:
+  - **AI Intelligence**: Choose provider for effort estimation and energy classification
+  - **Voice Processor**: Choose provider for audio transcription (OpenAI Whisper recommended)
+  - **Pattern Recognition**: Choose provider for behavioral pattern detection
+  - **NL Parser**: Choose provider for natural language task parsing
+
+- **Configuration Storage**:
+  - All settings stored in database (persists across restarts)
+  - No environment variables required for user-facing configuration
+  - API endpoint for microservices: `GET /api/config/ai-provider/:serviceName`
+  - Configure through intuitive UI in Configuration tab
+
+- **Benefits**:
+  - Cost optimization: Use local Ollama for high-volume tasks
+  - Performance tuning: Match provider to task complexity
+  - Redundancy: Switch providers if one has availability issues
+  - Privacy: Keep sensitive tasks on local models
+
+**Example Configuration**:
+- AI Intelligence: Anthropic Claude Sonnet 4.5 (best reasoning)
+- Voice Processor: OpenAI Whisper-1 (specialized audio)
+- Pattern Recognition: Ollama Mistral (local, fast, cost-free)
+- NL Parser: OpenAI GPT-4 (excellent natural language understanding)
 
 ## Tech Stack
 
@@ -297,12 +340,57 @@ npm start
 All configuration is done through the web UI Configuration tab:
 
 ### AI Configuration
-- **Anthropic API Key** (Required): Get from https://console.anthropic.com/
-- **Claude Model**: Choose from:
-  - Claude Sonnet 4.5 (latest, recommended)
-  - Claude Sonnet 4
-  - Claude 3.5 Sonnet
-  - Claude 3 Opus
+
+#### Multi-Provider AI Configuration (New!)
+
+Configure each microservice independently with different AI providers:
+
+**Main Application:**
+- **Anthropic API Key**: Get from https://console.anthropic.com/
+- **Claude Model**: Choose from Claude Sonnet 4.5, 4, 3.5 Sonnet, or 3 Opus
+
+**Per-Service AI Configuration:**
+Each microservice can use a different provider/model:
+
+1. **AI Intelligence Service**:
+   - Provider: Anthropic, OpenAI, Ollama, or AWS Bedrock
+   - Model: Select from available models per provider
+   - Use case: Effort estimation, energy classification
+
+2. **Voice Processor Service**:
+   - Provider: OpenAI (Whisper-1) or Ollama
+   - Model: whisper-1 (OpenAI) or speech models (Ollama)
+   - Use case: Audio transcription
+
+3. **Pattern Recognition Service**:
+   - Provider: Anthropic, OpenAI, Ollama, or AWS Bedrock
+   - Model: Select from available models per provider
+   - Use case: Behavioral pattern detection
+
+4. **Natural Language Parser Service**:
+   - Provider: Anthropic, OpenAI, Ollama, or AWS Bedrock
+   - Model: Select from available models per provider
+   - Use case: Task parsing from natural language
+
+**API Keys Required (Based on Provider Selection)**:
+- **Anthropic**: Get from https://console.anthropic.com/
+- **OpenAI**: Get from https://platform.openai.com/api-keys
+- **Ollama**: Local installation, configure base URL (default: http://localhost:11434)
+- **AWS Bedrock**: Configure AWS Access Key ID and Secret Access Key
+
+**Configuration Steps**:
+1. Open Configuration tab in the UI
+2. Scroll to "AI Provider Configuration" section
+3. For each service, select provider and model
+4. Enter required API keys in the "API Keys" section
+5. Click "Save Configuration"
+6. Microservices will automatically use their configured providers
+
+**Benefits**:
+- **Cost Optimization**: Use free local Ollama for high-volume tasks
+- **Performance Tuning**: Match provider strengths to task type
+- **Privacy**: Keep sensitive operations on local models
+- **Redundancy**: Switch providers if availability issues occur
 
 ### Integrations (Optional)
 
@@ -733,6 +821,21 @@ docker start ai-chief-of-staff
 ```
 
 ## Recent Updates
+
+### v1.1.0 (Latest)
+- ✨ **Liquid Glass UI Theme** - Beautiful Apple-style morphism effect across entire interface
+  - 13 glass panels with mouse-responsive refraction
+  - Immersive gradient background with depth overlays
+  - Powered by liquid-glass-react NPM package
+- 🎛️ **Multi-Provider AI Configuration** - Independent provider selection per microservice
+  - Support for Anthropic, OpenAI, Ollama (local), and AWS Bedrock
+  - Configure each service (AI Intelligence, Voice Processor, Pattern Recognition, NL Parser) independently
+  - Database-backed configuration (persists across restarts)
+  - API endpoint for microservices to query their configuration
+- 🐛 **Bug Fixes**:
+  - Fixed calendar `getConfig is not a function` error
+  - Added missing configuration manager functions
+  - Improved error handling in config routes
 
 ### v1.0.0
 - ✅ **Mobile Optimizations** - Complete responsive redesign with mobile-first approach

@@ -12,7 +12,8 @@
     "react-router-dom": "^7.9.6",
     "axios": "^1.7.9",
     "react-markdown": "^10.1.0",
-    "date-fns": "^4.1.0"
+    "date-fns": "^4.1.0",
+    "liquid-glass-react": "^0.0.15"
   },
   "scripts": {
     "start": "react-scripts start",

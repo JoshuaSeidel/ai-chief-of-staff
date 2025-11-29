@@ -292,11 +292,71 @@ router.get('/version', async (req, res) => {
 });
 
 /**
+ * Get AI provider configuration for a specific microservice
+ * /api/config/ai-provider/:serviceName
+ */
+router.get('/ai-provider/:serviceName', async (req, res) => {
+  try {
+    const { serviceName } = req.params;
+    const validServices = ['aiIntelligence', 'voiceProcessor', 'patternRecognition', 'nlParser'];
+    
+    if (!validServices.includes(serviceName)) {
+      return res.status(400).json({ 
+        error: 'Invalid service name',
+        validServices 
+      });
+    }
+    
+    logger.info(`Fetching AI provider config for service: ${serviceName}`);
+    const db = getDb();
+    
+    // Get provider and model for this service
+    const providerRow = await db.get('SELECT value FROM config WHERE key = ?', [`${serviceName}Provider`]);
+    const modelRow = await db.get('SELECT value FROM config WHERE key = ?', [`${serviceName}Model`]);
+    
+    // Get API keys
+    const anthropicKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
+    const openaiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['openaiApiKey']);
+    const ollamaUrlRow = await db.get('SELECT value FROM config WHERE key = ?', ['ollamaBaseUrl']);
+    const awsKeyIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['awsAccessKeyId']);
+    const awsSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['awsSecretAccessKey']);
+    
+    const provider = providerRow?.value || 'anthropic';
+    const model = modelRow?.value || 'claude-sonnet-4-5-20250929';
+    
+    res.json({
+      service: serviceName,
+      provider,
+      model,
+      apiKeys: {
+        anthropic: anthropicKeyRow?.value,
+        openai: openaiKeyRow?.value,
+        ollamaBaseUrl: ollamaUrlRow?.value || 'http://localhost:11434',
+        awsAccessKeyId: awsKeyIdRow?.value,
+        awsSecretAccessKey: awsSecretRow?.value
+      }
+    });
+  } catch (err) {
+    logger.error(`Error fetching AI provider config for ${req.params.serviceName}`, err);
+    res.status(500).json({ 
+      error: 'Error fetching AI provider configuration',
+      message: err.message 
+    });
+  }
+});
+
+/**
  * Get specific config value from database
  */
 router.get('/:key', async (req, res) => {
   try {
     const key = req.params.key;
+    
+    // Prevent AI provider route conflict
+    if (key === 'ai-provider') {
+      return res.status(400).json({ error: 'Use /ai-provider/:serviceName endpoint instead' });
+    }
+    
     logger.info(`Fetching config key: ${key}`);
     
     const db = getDb();
