@@ -69,13 +69,23 @@ function VersionInfo() {
       <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
         <strong style={{ color: '#e5e5e7' }}>Backend:</strong> <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{version.backendVersion || version.version || 'Unknown'}</span>
       </p>
-      {version.commitHash && version.commitHash !== 'unknown' && (
-        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', fontFamily: 'monospace', marginTop: '0.25rem' }}>
-          <strong style={{ color: '#e5e5e7' }}>Commit:</strong> <code style={{ color: '#60a5fa' }}>{version.commitHash}</code>
-        </p>
+      {version.microservices && Object.keys(version.microservices).length > 0 && (
+        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #3f3f46' }}>
+          <p style={{ color: '#e5e5e7', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: '500' }}>
+            Microservices:
+          </p>
+          {Object.entries(version.microservices).map(([name, ver]) => (
+            <p key={name} style={{ color: '#a1a1aa', fontSize: '0.85rem', marginBottom: '0.25rem', marginLeft: '1rem' }}>
+              <strong style={{ color: '#e5e5e7' }}>{name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}:</strong>{' '}
+              <span style={{ color: ver === 'unavailable' ? '#ef4444' : '#60a5fa', fontFamily: 'monospace' }}>
+                {ver}
+              </span>
+            </p>
+          ))}
+        </div>
       )}
       {version.buildDate && (
-        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #3f3f46' }}>
           <strong style={{ color: '#e5e5e7' }}>Build Date:</strong> {new Date(version.buildDate).toLocaleString()}
         </p>
       )}
@@ -208,9 +218,15 @@ function Configuration() {
   const loadServicesHealth = async () => {
     try {
       const response = await intelligenceAPI.checkHealth();
-      setServicesHealth(response.data);
+      console.log('Health check response:', response);
+      if (response && response.data) {
+        setServicesHealth(response.data);
+      } else {
+        console.warn('Health check response missing data:', response);
+        setServicesHealth(null);
+      }
     } catch (err) {
-      console.log('Microservices health check unavailable');
+      console.error('Microservices health check error:', err);
       setServicesHealth(null);
     }
   };
@@ -1874,7 +1890,23 @@ function Configuration() {
       </div>
 
       <div className="card">
-        <h2>AI Services Status</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ margin: 0 }}>AI Services Status</h2>
+          <button
+            onClick={loadServicesHealth}
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#3f3f46',
+              color: '#e4e4e7',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.85rem'
+            }}
+          >
+            🔄 Refresh
+          </button>
+        </div>
         {servicesHealth ? (
           <div style={{ 
             border: '1px solid #52525b', 
@@ -1948,9 +1980,25 @@ function Configuration() {
             )}
           </div>
         ) : (
-          <p style={{ color: '#a1a1aa', marginTop: '1rem' }}>
-            Microservices health information unavailable. Services may not be running.
-          </p>
+          <div style={{ marginTop: '1rem' }}>
+            <p style={{ color: '#a1a1aa', marginBottom: '0.5rem' }}>
+              Microservices health information unavailable. Services may not be running.
+            </p>
+            <button
+              onClick={loadServicesHealth}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '0.85rem'
+              }}
+            >
+              🔄 Check Again
+            </button>
+          </div>
         )}
       </div>
 

@@ -196,35 +196,22 @@ router.put('/', async (req, res) => {
 });
 
 /**
- * Get version information (commit hash, build date, etc.)
+ * Get version information (versions of all services)
  * MUST be before /:key route to avoid route conflict
  */
-router.get('/version', (req, res) => {
+router.get('/version', async (req, res) => {
   try {
-    let commitHash = null;
     let backendVersion = null;
     let frontendVersion = null;
     let buildDate = null;
+    const microservicesVersions = {};
     
     // Priority 1: Environment variables (set during Docker build)
     backendVersion = process.env.VERSION || null;
-    commitHash = process.env.COMMIT_HASH || null;
+    frontendVersion = process.env.FRONTEND_VERSION || null; // Set in microservices mode
     buildDate = process.env.BUILD_DATE || null;
     
-    // Priority 2: Try to get commit hash from git (for local development)
-    if (!commitHash) {
-      try {
-        commitHash = execSync('git rev-parse --short HEAD', { 
-          cwd: path.join(__dirname, '..', '..'),
-          encoding: 'utf8',
-          timeout: 2000
-        }).trim();
-      } catch (gitError) {
-        // Git not available or not in a git repo
-      }
-    }
-    
-    // Priority 3: Get versions from package.json files (always read from source of truth)
+    // Priority 2: Get versions from package.json files (always read from source of truth)
     try {
       const backendPackagePath = path.join(__dirname, '..', 'package.json');
       if (fs.existsSync(backendPackagePath)) {
@@ -237,24 +224,48 @@ router.get('/version', (req, res) => {
     
     // Get frontend version
     // Try multiple paths: Docker container path, local dev path, or environment variable
-    try {
-      // Priority 1: Docker container path (frontend-package.json copied during build)
-      let frontendPackagePath = path.join(__dirname, '..', 'frontend-package.json');
-      
-      // Priority 2: Local development path
-      if (!fs.existsSync(frontendPackagePath)) {
-        frontendPackagePath = path.join(__dirname, '..', '..', 'frontend', 'package.json');
+    if (!frontendVersion) {
+      try {
+        // Priority 1: Docker container path (frontend-package.json copied during build)
+        let frontendPackagePath = path.join(__dirname, '..', 'frontend-package.json');
+        
+        // Priority 2: Local development path
+        if (!fs.existsSync(frontendPackagePath)) {
+          frontendPackagePath = path.join(__dirname, '..', '..', 'frontend', 'package.json');
+        }
+        
+        if (fs.existsSync(frontendPackagePath)) {
+          const frontendPackageJson = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
+          frontendVersion = frontendPackageJson.version || null;
+        } else {
+          logger.warn('Frontend package.json not found at any expected location');
+        }
+      } catch (pkgError) {
+        logger.warn('Failed to read frontend package.json', pkgError);
       }
-      
-      if (fs.existsSync(frontendPackagePath)) {
-        const frontendPackageJson = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
-        frontendVersion = frontendPackageJson.version || null;
-      } else {
-        logger.warn('Frontend package.json not found at any expected location');
-      }
-    } catch (pkgError) {
-      logger.warn('Failed to read frontend package.json', pkgError);
     }
+    
+    // Get microservices versions by querying their health endpoints
+    const axios = require('axios');
+    const microservices = {
+      'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'http://aicos-ai-intelligence:8001',
+      'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'http://aicos-pattern-recognition:8002',
+      'nl-parser': process.env.NL_PARSER_URL || 'http://aicos-nl-parser:8003',
+      'voice-processor': process.env.VOICE_PROCESSOR_URL || 'http://aicos-voice-processor:8004',
+      'context-service': process.env.CONTEXT_SERVICE_URL || 'http://aicos-context-service:8005'
+    };
+    
+    // Query each microservice for version (with timeout to avoid hanging)
+    const versionPromises = Object.entries(microservices).map(async ([name, url]) => {
+      try {
+        const response = await axios.get(`${url}/health`, { timeout: 2000 });
+        microservicesVersions[name] = response.data.version || 'unknown';
+      } catch (error) {
+        microservicesVersions[name] = 'unavailable';
+      }
+    });
+    
+    await Promise.allSettled(versionPromises);
     
     // Build date fallback
     if (!buildDate) {
@@ -265,7 +276,7 @@ router.get('/version', (req, res) => {
       version: backendVersion || 'unknown', // Keep for backward compatibility
       backendVersion: backendVersion || 'unknown',
       frontendVersion: frontendVersion || 'unknown',
-      commitHash: commitHash || 'unknown',
+      microservices: microservicesVersions,
       buildDate
     });
   } catch (err) {
