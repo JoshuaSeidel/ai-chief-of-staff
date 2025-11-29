@@ -24,6 +24,7 @@ jobs:
       build_date: ${{ steps.version.outputs.build_date }}
       branch: ${{ steps.version.outputs.branch }}
       tag_suffix: ${{ steps.version.outputs.tag_suffix }}
+      repo_lower: ${{ steps.version.outputs.repo_lower }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,6 +38,7 @@ jobs:
           COMMIT_HASH=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           BRANCH_NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\///')
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           
           # Determine tag suffix - feature branches get 'dev' tag
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -50,12 +52,14 @@ jobs:
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "tag_suffix=$TAG_SUFFIX" >> $GITHUB_OUTPUT
+          echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
           
           echo "Version: $VERSION"
           echo "Commit: $COMMIT_HASH"
           echo "Build Date: $BUILD_DATE"
           echo "Branch: $BRANCH_NAME"
           echo "Tag Suffix: $TAG_SUFFIX"
+          echo "Repository: $REPO_LOWER"
 
   build-microservices:
     needs: prepare
@@ -108,8 +112,8 @@ jobs:
           file: ${{ matrix.service.dockerfile }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.REPO }}/aicos-${{ matrix.service.name }}:${{ needs.prepare.outputs.tag_suffix }}
-            ${{ env.REGISTRY }}/${{ env.REPO }}/aicos-${{ matrix.service.name }}:v${{ needs.prepare.outputs.version }}
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-${{ matrix.service.name }}:${{ needs.prepare.outputs.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-${{ matrix.service.name }}:v${{ needs.prepare.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
@@ -133,10 +137,10 @@ jobs:
           echo "**Commit:** ${{ needs.prepare.outputs.commit_hash }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Images Built:" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-frontend:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-backend:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-ai-intelligence:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-pattern-recognition:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-nl-parser:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-voice-processor:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.REPO }}/aicos-context-service:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-frontend:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-backend:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-ai-intelligence:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-pattern-recognition:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-nl-parser:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-voice-processor:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-context-service:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
