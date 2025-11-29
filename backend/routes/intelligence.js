@@ -15,7 +15,6 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const multer = require('multer');
 const FormData = require('form-data');
 const { createModuleLogger } = require('../utils/logger');
 
@@ -320,45 +319,54 @@ router.post('/predict-completion', async (req, res) => {
  * POST /api/intelligence/transcribe
  * Transcribe audio file to text (proxies to voice-processor service)
  */
-router.post('/transcribe', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Audio file is required' });
+router.post('/transcribe', (req, res) => {
+  const upload = req.app.get('upload');
+  
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      logger.error('File upload error:', err);
+      return res.status(400).json({ error: 'File upload failed', message: err.message });
     }
 
-    const { language, temperature } = req.body;
-
-    logger.info(`Transcribing audio: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)}MB)`);
-
-    // Create form data for microservice
-    const formData = new FormData();
-    formData.append('file', req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype
-    });
-    if (language) formData.append('language', language);
-    if (temperature) formData.append('temperature', temperature);
-
-    const result = await axios.post(
-      `${VOICE_PROCESSOR_URL}/transcribe`,
-      formData,
-      {
-        headers: formData.getHeaders(),
-        timeout: MICROSERVICE_TIMEOUT,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'Audio file is required' });
       }
-    );
 
-    res.json(result.data);
+      const { language, temperature } = req.body;
 
-  } catch (err) {
-    logger.error('Error transcribing audio:', err);
-    res.status(500).json({ 
-      error: 'Failed to transcribe audio',
-      message: err.message 
-    });
-  }
+      logger.info(`Transcribing audio: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)}MB)`);
+
+      // Create form data for microservice
+      const formData = new FormData();
+      formData.append('file', req.file.buffer, {
+        filename: req.file.originalname,
+        contentType: req.file.mimetype
+      });
+      if (language) formData.append('language', language);
+      if (temperature) formData.append('temperature', temperature);
+
+      const result = await axios.post(
+        `${VOICE_PROCESSOR_URL}/transcribe`,
+        formData,
+        {
+          headers: formData.getHeaders(),
+          timeout: MICROSERVICE_TIMEOUT,
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity
+        }
+      );
+
+      res.json(result.data);
+
+    } catch (err) {
+      logger.error('Error transcribing audio:', err);
+      res.status(500).json({ 
+        error: 'Failed to transcribe audio',
+        message: err.message 
+      });
+    }
+  });
 });
 
 /**

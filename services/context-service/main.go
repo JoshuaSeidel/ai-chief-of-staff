@@ -90,15 +90,39 @@ func main() {
 }
 
 func initDB() error {
+	// Check for DATABASE_URL first (standard PostgreSQL connection string)
+	databaseURL := getEnv("DATABASE_URL", "")
+	if databaseURL != "" {
+		var err error
+		db, err = sql.Open("postgres", databaseURL)
+		if err != nil {
+			return err
+		}
+
+		// Test connection
+		if err = db.Ping(); err != nil {
+			return err
+		}
+
+		// Set connection pool settings
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(5)
+		db.SetConnMaxLifetime(5 * time.Minute)
+
+		log.Println("Connected to PostgreSQL database via DATABASE_URL")
+		return nil
+	}
+
+	// Fall back to individual environment variables
 	dbType := getEnv("DB_TYPE", "postgres")
 
 	var connStr string
 	if dbType == "postgres" {
-		host := getEnv("POSTGRES_HOST", "postgres")
+		host := getEnv("POSTGRES_HOST", "aicos-postgres")
 		port := getEnv("POSTGRES_PORT", "5432")
-		user := getEnv("POSTGRES_USER", "aicos")
-		password := getEnv("POSTGRES_PASSWORD", "")
-		dbname := getEnv("POSTGRES_DB", "ai_chief_of_staff")
+		user := getEnv("POSTGRES_USER", "postgres")
+		password := getEnv("POSTGRES_PASSWORD", "postgres")
+		dbname := getEnv("POSTGRES_DB", "aicos")
 
 		connStr = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 			host, port, user, password, dbname)
