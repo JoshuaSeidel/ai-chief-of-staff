@@ -87,7 +87,8 @@ router.post('/estimate-effort', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       const { estimateEffort } = require('./intelligence-local');
       const result = await estimateEffort(description, context);
       return res.json(result);
@@ -125,7 +126,8 @@ router.post('/classify-energy', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       const { classifyEnergy } = require('./intelligence-local');
       const result = await classifyEnergy(description);
       return res.json(result);
@@ -163,7 +165,8 @@ router.post('/cluster-tasks', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       const { clusterTasks } = require('./intelligence-local');
       const result = await clusterTasks(tasks);
       return res.json(result);
@@ -201,7 +204,8 @@ router.post('/parse-task', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`NL Parser microservice unavailable (${NL_PARSER_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       const { parseTask } = require('./intelligence-local');
       const result = await parseTask(text);
       return res.json(result);
@@ -236,7 +240,8 @@ router.post('/analyze-patterns', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local pattern analysis', { error: microserviceErr.message });
+      logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local pattern analysis');
       
       // Fallback: Local implementation using database + AI
       const { analyzeTaskPatterns } = require('./intelligence-local');
@@ -273,7 +278,8 @@ router.get('/insights', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       // Use analyze patterns as fallback for insights
       const { analyzeTaskPatterns } = require('./intelligence-local');
       const result = await analyzeTaskPatterns('30d');
@@ -314,7 +320,8 @@ router.post('/extract-dates', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`NL Parser microservice unavailable (${NL_PARSER_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       const { extractDates } = require('./intelligence-local');
       const result = await extractDates(text);
       return res.json(result);
@@ -352,7 +359,8 @@ router.post('/predict-completion', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local effort estimation');
       // Use effort estimation as fallback
       const { estimateEffort } = require('./intelligence-local');
       const result = await estimateEffort(task_description);
@@ -483,7 +491,8 @@ router.get('/context', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       const { getContext } = require('./intelligence-local');
       const result = await getContext(category, source, limit || 50, active_only !== 'false');
       return res.json(result);
@@ -514,7 +523,8 @@ router.get('/context/rolling', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       const { getContext } = require('./intelligence-local');
       const result = await getContext(null, null, 100, true);
       return res.json(result);
@@ -552,7 +562,8 @@ router.post('/context/search', async (req, res) => {
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn('Microservice unavailable, using local implementation');
+      logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
+      logger.info('Falling back to local implementation');
       const { searchContext } = require('./intelligence-local');
       const result = await searchContext(query, category, limit || 20);
       return res.json(result);

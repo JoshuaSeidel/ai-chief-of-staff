@@ -38,8 +38,10 @@ function Dashboard({ setActiveTab }) {
       setBrief(response.data.content);
       setLastGenerated(response.data.created_date);
     } catch (err) {
-      // No brief for today yet, that's okay
-      console.log('No brief for today yet');
+      // No brief for today yet - this is normal, don't log as error
+      if (err.response?.status !== 404) {
+        console.error('Error loading brief:', err);
+      }
     }
   };
 
@@ -292,14 +294,18 @@ function Dashboard({ setActiveTab }) {
                 </div>
               )}
             </div>
-            <details style={{ marginTop: '0.5rem' }}>
-              <summary style={{ cursor: 'pointer', color: '#a1a1aa', fontSize: '0.85rem' }}>
-                View AI insights
-              </summary>
-              <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#e5e5e7', lineHeight: '1.5', maxHeight: '200px', overflow: 'auto' }}>
-                {productivityInsights.insights.substring(0, 500)}...
-              </div>
-            </details>
+            {productivityInsights.insights && (
+              <details style={{ marginTop: '0.5rem' }}>
+                <summary style={{ cursor: 'pointer', color: '#a1a1aa', fontSize: '0.85rem' }}>
+                  View AI insights
+                </summary>
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#e5e5e7', lineHeight: '1.5', maxHeight: '200px', overflow: 'auto' }}>
+                  {productivityInsights.insights.length > 500 
+                    ? `${productivityInsights.insights.substring(0, 500)}...` 
+                    : productivityInsights.insights}
+                </div>
+              </details>
+            )}
           </div>
         )}
         {loadingInsights && !productivityInsights && (
