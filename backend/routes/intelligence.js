@@ -230,34 +230,14 @@ router.post('/analyze-patterns', async (req, res) => {
 
     logger.info(`Analyzing patterns for user ${user_id || 'default'}`);
 
-    // Note: For pattern analysis, local implementation is preferred because it has direct database access
-    // The microservice would need to be passed all task data, which is less efficient
-    // Try microservice first for consistency, but fallback is actually more capable
-    try {
-      const result = await callMicroservice(
-        PATTERN_RECOGNITION_URL,
-        '/analyze-patterns',
-        'POST',
-        { user_id, time_range }
-      );
-      
-      // If microservice returns a placeholder response, use local instead
-      if (result.note && result.note.includes('placeholder')) {
-        logger.info('Microservice available but needs database access - using local implementation');
-        const { analyzeTaskPatterns } = require('./intelligence-local');
-        const localResult = await analyzeTaskPatterns(time_range);
-        return res.json(localResult);
-      }
-      
-      return res.json(result);
-    } catch (microserviceErr) {
-      logger.info(`Using local pattern analysis (has direct database access)`);
-      
-      // Fallback: Local implementation using database + AI
-      const { analyzeTaskPatterns } = require('./intelligence-local');
-      const result = await analyzeTaskPatterns(time_range);
-      return res.json(result);
-    }
+    // Note: Pattern analysis requires direct database access to query task history
+    // The local implementation is more efficient as it doesn't require serializing
+    // all task data to send to the microservice. Always use local implementation.
+    logger.info('Using local pattern analysis (direct database access)');
+    
+    const { analyzeTaskPatterns } = require('./intelligence-local');
+    const result = await analyzeTaskPatterns(time_range);
+    return res.json(result);
 
   } catch (err) {
     logger.error('Error analyzing patterns:', err);

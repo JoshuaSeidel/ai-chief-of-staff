@@ -249,36 +249,22 @@ async def health_check():
 async def analyze_patterns(request: dict):
     """
     Analyze task patterns from database (called by backend)
-    This is a simplified endpoint that returns stats and insights
-    Compatible with backend's intelligence-local.js format
+    
+    Note: This microservice doesn't have direct database access.
+    The backend's local implementation is better suited for this task
+    as it can directly query the commitments table.
+    
+    This endpoint exists to prevent 404 errors but immediately indicates
+    that the backend should use its local implementation.
     """
-    try:
-        time_range = request.get("time_range", "30d")
-        
-        logger.info(f"Analyzing patterns for time range: {time_range}")
-        
-        # For now, return a simple success response indicating the service is available
-        # The backend should provide task data or we should query the database
-        # This is a placeholder that prevents 404 errors
-        return {
-            "success": True,
-            "time_range": time_range,
-            "stats": {
-                "total_tasks": 0,
-                "completed": 0,
-                "pending": 0,
-                "overdue": 0,
-                "completion_rate": 0,
-                "avg_completion_days": 0,
-                "most_productive_day": "N/A"
-            },
-            "insights": "Pattern analysis requires task completion data from the database. This endpoint is available but needs task data to analyze.",
-            "note": "This is a placeholder response. Backend should use local implementation with database access for full pattern analysis.",
-            "service": "pattern-recognition-microservice"
-        }
-    except Exception as e:
-        logger.error(f"❌ Pattern analysis error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+    time_range = request.get("time_range", "30d")
+    logger.info(f"Pattern analysis requested for {time_range} - redirecting to backend local implementation")
+    
+    # Return an error that tells the backend to use local implementation
+    raise HTTPException(
+        status_code=501,
+        detail="Pattern analysis requires direct database access. Backend should use local implementation with database connection."
+    )
 
 @app.post("/detect-patterns", response_model=List[ProductivityPattern])
 async def detect_patterns(data: WorkingHoursData):
