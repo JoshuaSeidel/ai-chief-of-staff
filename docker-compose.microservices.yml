@@ -218,7 +218,7 @@ services:
       - "8005:8005"
     environment:
       # Use DATABASE_URL (preferred) or individual variables
-      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos?sslmode=disable
       # Fallback individual variables (if DATABASE_URL not used)
       - DB_TYPE=postgres
       - POSTGRES_HOST=aicos-postgres

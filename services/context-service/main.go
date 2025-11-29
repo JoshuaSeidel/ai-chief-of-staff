@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -93,6 +95,25 @@ func initDB() error {
 	// Check for DATABASE_URL first (standard PostgreSQL connection string)
 	databaseURL := getEnv("DATABASE_URL", "")
 	if databaseURL != "" {
+		// Ensure sslmode=disable is set (PostgreSQL in Docker typically doesn't have SSL enabled)
+		// Parse the URL and add sslmode parameter if not present
+		if !strings.Contains(databaseURL, "sslmode=") {
+			parsedURL, err := url.Parse(databaseURL)
+			if err == nil {
+				query := parsedURL.Query()
+				query.Set("sslmode", "disable")
+				parsedURL.RawQuery = query.Encode()
+				databaseURL = parsedURL.String()
+			} else {
+				// If parsing fails, try simple string append
+				separator := "?"
+				if strings.Contains(databaseURL, "?") {
+					separator = "&"
+				}
+				databaseURL = databaseURL + separator + "sslmode=disable"
+			}
+		}
+
 		var err error
 		db, err = sql.Open("postgres", databaseURL)
 		if err != nil {
