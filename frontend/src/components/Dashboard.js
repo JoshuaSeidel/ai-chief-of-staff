@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { briefAPI } from '../services/api';
+import { briefAPI, intelligenceAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import { PullToRefresh } from './PullToRefresh';
 
@@ -20,10 +20,7 @@ function Dashboard({ setActiveTab }) {
   const loadProductivityInsights = async () => {
     setLoadingInsights(true);
     try {
-      const axios = require('axios');
-      const response = await axios.post('/api/intelligence/analyze-patterns', {
-        time_range: '7d'
-      });
+      const response = await intelligenceAPI.analyzePatterns(null, '7d');
       if (response.data && response.data.success) {
         setProductivityInsights(response.data);
       }

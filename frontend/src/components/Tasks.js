@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { commitmentsAPI } from '../services/api';
+import { commitmentsAPI, transcriptsAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
 function Commitments() {
@@ -226,14 +226,13 @@ function Commitments() {
     
     setClusteringTasks(true);
     try {
-      const axios = require('axios');
       const tasks = pendingTasks.map((c, i) => ({
         id: i + 1,
         description: c.description,
         deadline: c.deadline
       }));
       
-      const response = await axios.post('/api/intelligence/cluster-tasks', { tasks });
+      const response = await intelligenceAPI.clusterTasks(tasks);
       if (response.data && response.data.clusters) {
         setClusters(response.data);
         setShowClusters(true);
@@ -242,7 +241,7 @@ function Commitments() {
       }
     } catch (err) {
       console.error('Clustering failed:', err);
-      alert('Smart grouping unavailable. Make sure microservices are running.');
+      alert('Smart grouping unavailable: ' + err.message);
     } finally {
       setClusteringTasks(false);
     }
