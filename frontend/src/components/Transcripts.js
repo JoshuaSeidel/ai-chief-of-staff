@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { transcriptsAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
-import LiquidGlass from 'liquid-glass-react';
 
 function Transcripts() {
   const [transcripts, setTranscripts] = useState([]);
@@ -409,22 +408,10 @@ function Transcripts() {
     }
   };
 
-  const containerRef = useRef(null);
-
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="transcripts" ref={containerRef}>
-      <LiquidGlass
-        displacementScale={80}
-        blurAmount={0.15}
-        saturation={150}
-        aberrationIntensity={2}
-        elasticity={0.2}
-        cornerRadius={16}
-        mouseContainer={containerRef}
-        padding="0"
-      >
-      <div className="card glass-card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+      <div className="transcripts">
+      <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>Upload Transcript</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -727,19 +714,8 @@ function Transcripts() {
           </form>
         )}
       </div>
-      </LiquidGlass>
 
-      <LiquidGlass
-        displacementScale={70}
-        blurAmount={0.15}
-        saturation={150}
-        aberrationIntensity={2}
-        elasticity={0.2}
-        cornerRadius={16}
-        mouseContainer={containerRef}
-        padding="0"
-      >
-      <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+      <div className="card">
         <h2>Recent Transcripts</h2>
         
         {transcripts.length === 0 ? (
@@ -963,7 +939,6 @@ function Transcripts() {
           </>
         )}
       </div>
-      </LiquidGlass>
       </div>
     </PullToRefresh>
   );

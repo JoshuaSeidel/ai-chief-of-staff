@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { configAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
-import LiquidGlass from 'liquid-glass-react';
 
 // Version info component
 function VersionInfo() {
@@ -716,22 +715,10 @@ function Configuration() {
     }
   };
 
-  const containerRef = useRef(null);
-
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="configuration" ref={containerRef}>
-      <LiquidGlass
-        displacementScale={75}
-        blurAmount={0.15}
-        saturation={150}
-        aberrationIntensity={2}
-        elasticity={0.2}
-        cornerRadius={16}
-        mouseContainer={containerRef}
-        padding="0"
-      >
-      <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+      <div className="configuration">
+      <div className="card">
         <h2>Configuration</h2>
         <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
           Configure your AI Chief of Staff application settings. All settings persist across container restarts.
@@ -999,8 +986,80 @@ function Configuration() {
         <div style={{ marginBottom: '2rem' }}>
           <h3>🤖 AI Models & Providers</h3>
           <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1.5rem' }}>
-            Configure AI providers and models for each service. Each service can use a different provider/model combination.
+            Configure AI providers and models for the main application and each microservice. Each service can use a different provider/model combination.
           </p>
+          
+          {/* Main Application AI Configuration */}
+          <div className="glass-panel" style={{ marginBottom: '1.5rem', border: '2px solid #3b82f6' }}>
+            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem', color: '#60a5fa' }}>
+              🏠 Main Application
+            </h4>
+            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              Primary AI provider for transcript processing, daily briefs, and task extraction
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Provider
+                </label>
+                <select
+                  value={config.aiProvider || 'anthropic'}
+                  onChange={(e) => handleChange('aiProvider', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Model
+                </label>
+                <select
+                  value={config.claudeModel || 'claude-sonnet-4-5-20250929'}
+                  onChange={(e) => handleChange('claudeModel', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  {(config.aiProvider || 'anthropic') === 'anthropic' && (
+                    <>
+                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                    </>
+                  )}
+                  {(config.aiProvider || 'anthropic') === 'openai' && (
+                    <>
+                      <option value="gpt-4">GPT-4</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </>
+                  )}
+                  {(config.aiProvider || 'anthropic') === 'ollama' && (
+                    <>
+                      <option value="mistral:latest">Mistral Latest</option>
+                      <option value="llama2:latest">Llama 2 Latest</option>
+                      <option value="codellama:latest">Code Llama Latest</option>
+                    </>
+                  )}
+                  {(config.aiProvider || 'anthropic') === 'bedrock' && (
+                    <>
+                      <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
+                      <option value="anthropic.claude-3-5-sonnet-20241022-v2:0">Claude 3.5 Sonnet</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <h4 style={{ marginTop: '2rem', marginBottom: '1rem', fontSize: '1rem', color: '#a1a1aa' }}>
+            Microservices Configuration (Optional)
+          </h4>
           
           {/* AI Intelligence Service */}
           <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
@@ -2410,7 +2469,6 @@ function Configuration() {
           <li>Create calendar blocks automatically</li>
         </ul>
       </div>
-      </LiquidGlass>
       </div>
     </PullToRefresh>
   );

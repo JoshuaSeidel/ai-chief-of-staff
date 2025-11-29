@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { calendarAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
-import LiquidGlass from 'liquid-glass-react';
 
 function Calendar() {
   const [events, setEvents] = useState([]);
@@ -122,22 +121,11 @@ function Calendar() {
   };
 
   const groupedEvents = groupEventsByDate();
-  const containerRef = useRef(null);
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="calendar" ref={containerRef}>
-      <LiquidGlass
-        displacementScale={75}
-        blurAmount={0.15}
-        saturation={150}
-        aberrationIntensity={2}
-        elasticity={0.2}
-        cornerRadius={16}
-        mouseContainer={containerRef}
-        padding="0"
-      >
-      <div className="card glass-card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+      <div className="calendar">
+      <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
           <h2 style={{ margin: 0 }}>📅 Calendar</h2>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -252,19 +240,8 @@ function Calendar() {
           </div>
         )}
       </div>
-      </LiquidGlass>
 
-      <LiquidGlass
-        displacementScale={70}
-        blurAmount={0.15}
-        saturation={150}
-        aberrationIntensity={2}
-        elasticity={0.2}
-        cornerRadius={16}
-        mouseContainer={containerRef}
-        padding="0"
-      >
-      <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+      <div className="card">
         <h2>Upcoming Events</h2>
         
         {loading && (
@@ -354,19 +331,8 @@ function Calendar() {
           </div>
         )}
       </div>
-      </LiquidGlass>
 
-      <LiquidGlass
-        displacementScale={65}
-        blurAmount={0.15}
-        saturation={150}
-        aberrationIntensity={1}
-        elasticity={0.2}
-        cornerRadius={16}
-        mouseContainer={containerRef}
-        padding="0"
-      >
-      <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+      <div className="card">
         <h2>💡 Tips</h2>
         <ul style={{ fontSize: '0.9rem', color: '#a1a1aa', lineHeight: '1.8' }}>
           <li>Create time blocks for focus time, meetings, and deep work</li>
@@ -375,7 +341,6 @@ function Calendar() {
           <li>Events are automatically filtered to show next 2 months</li>
         </ul>
       </div>
-      </LiquidGlass>
       </div>
     </PullToRefresh>
   );

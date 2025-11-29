@@ -45,13 +45,13 @@ An intelligent executive assistant that automates personal productivity by inges
 - 🎨 **Safe Area Support**: Proper handling of device notches and status bars
 
 ### Liquid Glass UI Theme
-- ✨ **Apple-Style Morphism**: Beautiful liquid glass effect inspired by iOS design
-- 🎯 **Mouse-Responsive**: Glass panels follow mouse movement with realistic refraction
-- 🌈 **Gradient Background**: Immersive 3-color gradient with depth overlays
-- 💎 **13 Glass Panels**: Dashboard (2), Calendar (3), Tasks (5), Transcripts (2), Configuration (1)
-- 🔮 **Semi-Transparent Cards**: Backdrop blur with light refraction for depth
-- 🎨 **Visual Variety**: Unique displacement and blur settings per section for natural feel
-- ⚡ **Powered by liquid-glass-react**: NPM package by rdev with customizable parameters
+- ✨ **Modern Glass Morphism**: Subtle liquid glass effect across entire interface
+- 🌈 **Gradient Background**: Elegant dark gradient (slate blue to navy) with fixed attachment
+- 💎 **Glassmorphic Cards**: Semi-transparent cards with backdrop blur and saturation
+- 🎨 **Hover Effects**: Smooth transitions with subtle lift and glow on hover
+- 🔮 **Enhanced Depth**: Shadows and borders create multi-layer depth perception
+- ⚡ **Performance Optimized**: CSS-based effects with hardware acceleration
+- 🎯 **Consistent Theme**: Applied uniformly across all pages and components
 
 ### Notifications & Reminders
 - ⏰ **Task Reminders**: Notifications 24 hours before deadline
@@ -345,12 +345,14 @@ All configuration is done through the web UI Configuration tab:
 
 Configure each microservice independently with different AI providers:
 
-**Main Application:**
-- **Anthropic API Key**: Get from https://console.anthropic.com/
-- **Claude Model**: Choose from Claude Sonnet 4.5, 4, 3.5 Sonnet, or 3 Opus
+**Main Application (Required):**
+Configure the primary AI provider used for transcript processing, daily briefs, and task extraction:
+- **Provider**: Choose from Anthropic, OpenAI, Ollama (local), or AWS Bedrock
+- **Model**: Select model based on provider (e.g., Claude Sonnet 4.5, GPT-4, Mistral)
+- **API Keys**: Configure in the API Keys section below
 
-**Per-Service AI Configuration:**
-Each microservice can use a different provider/model:
+**Per-Service AI Configuration (Optional - for Microservices):**
+Each microservice can optionally use a different provider/model:
 
 1. **AI Intelligence Service**:
    - Provider: Anthropic, OpenAI, Ollama, or AWS Bedrock
@@ -823,11 +825,13 @@ docker start ai-chief-of-staff
 ## Recent Updates
 
 ### v1.1.0 (Latest)
-- ✨ **Liquid Glass UI Theme** - Beautiful Apple-style morphism effect across entire interface
-  - 13 glass panels with mouse-responsive refraction
-  - Immersive gradient background with depth overlays
-  - Powered by liquid-glass-react NPM package
-- 🎛️ **Multi-Provider AI Configuration** - Independent provider selection per microservice
+- ✨ **Liquid Glass UI Theme** - Modern glassmorphism design across entire interface
+  - Subtle gradient background with glassmorphic cards
+  - Backdrop blur and saturation effects
+  - Smooth hover transitions with depth
+- 🎛️ **Multi-Provider AI Configuration** - Independent provider selection per service
+  - Main Application AI configuration (dedicated section)
+  - Per-microservice provider configuration (optional)
   - Support for Anthropic, OpenAI, Ollama (local), and AWS Bedrock
   - Configure each service (AI Intelligence, Voice Processor, Pattern Recognition, NL Parser) independently
   - Database-backed configuration (persists across restarts)

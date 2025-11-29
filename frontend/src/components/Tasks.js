@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { commitmentsAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
-import LiquidGlass from 'liquid-glass-react';
 
 function Commitments() {
   const [commitments, setCommitments] = useState([]);
@@ -333,23 +332,11 @@ function Commitments() {
     'risk': 'Risks'
   };
 
-  const containerRef = useRef(null);
-
   return (
     <>
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="commitments" ref={containerRef}>
-            <LiquidGlass
-              displacementScale={80}
-              blurAmount={0.15}
-              saturation={150}
-              aberrationIntensity={2}
-              elasticity={0.2}
-              cornerRadius={16}
-              mouseContainer={containerRef}
-              padding="0"
-            >
-            <div className="card glass-card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+      <div className="commitments">
+            <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
           <h2 style={{ margin: 0 }}>Task Management</h2>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -591,24 +578,13 @@ function Commitments() {
           </div>
         </div>
       </div>
-      </LiquidGlass>
 
       {/* Overdue Commitments */}
       {/* Confirmation Section */}
       {(() => {
         const confirmationGroup = groupByConfirmation();
         return confirmationGroup.needsConfirmation.length > 0 && (
-          <LiquidGlass
-            displacementScale={70}
-            blurAmount={0.15}
-            saturation={150}
-            aberrationIntensity={2}
-            elasticity={0.2}
-            cornerRadius={16}
-            mouseContainer={containerRef}
-            padding="0"
-          >
-          <div className="card" style={{ border: '2px solid #f59e0b', marginBottom: '1.5rem', background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+          <div className="card" style={{ border: '2px solid #f59e0b', marginBottom: '1.5rem' }}>
             <h3 style={{ color: '#f59e0b', marginBottom: '1rem' }}>🔔 Tasks Needing Confirmation</h3>
             <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1rem' }}>
               These tasks have unclear assignees. Confirm if they're yours, or reject to remove them.
@@ -680,22 +656,11 @@ function Commitments() {
               </div>
             ))}
           </div>
-          </LiquidGlass>
         );
       })()}
 
       {grouped.overdue.length > 0 && (filter === 'all' || filter === 'overdue') && (
-        <LiquidGlass
-          displacementScale={70}
-          blurAmount={0.15}
-          saturation={150}
-          aberrationIntensity={2}
-          elasticity={0.2}
-          cornerRadius={16}
-          mouseContainer={containerRef}
-          padding="0"
-        >
-        <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+        <div className="card">
           <h3 style={{ color: '#ff3b30', marginBottom: '1rem' }}>⚠️ Overdue Commitments</h3>
           {grouped.overdue.map(commitment => (
             <div
@@ -737,22 +702,11 @@ function Commitments() {
             </div>
           ))}
         </div>
-        </LiquidGlass>
       )}
 
       {/* Pending Commitments */}
       {grouped.pending.length > 0 && (filter === 'all' || filter === 'pending') && (
-        <LiquidGlass
-          displacementScale={70}
-          blurAmount={0.15}
-          saturation={150}
-          aberrationIntensity={2}
-          elasticity={0.2}
-          cornerRadius={16}
-          mouseContainer={containerRef}
-          padding="0"
-        >
-        <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+        <div className="card">
           <h3 style={{ color: '#ff9500', marginBottom: '1rem' }}>⏳ Pending Commitments</h3>
           {grouped.pending.map(commitment => (
             <div
@@ -794,22 +748,11 @@ function Commitments() {
             </div>
           ))}
         </div>
-        </LiquidGlass>
       )}
 
       {/* Completed Commitments */}
       {grouped.completed.length > 0 && (filter === 'all' || filter === 'completed') && (
-        <LiquidGlass
-          displacementScale={65}
-          blurAmount={0.15}
-          saturation={150}
-          aberrationIntensity={1}
-          elasticity={0.2}
-          cornerRadius={16}
-          mouseContainer={containerRef}
-          padding="0"
-        >
-        <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+        <div className="card">
           <h3 style={{ color: '#34c759', marginBottom: '1rem' }}>✅ Completed Commitments</h3>
           {grouped.completed.map(commitment => (
             <div
@@ -852,21 +795,10 @@ function Commitments() {
             </div>
           ))}
         </div>
-        </LiquidGlass>
       )}
 
       {commitments.length === 0 && !loading && (
-        <LiquidGlass
-          displacementScale={65}
-          blurAmount={0.15}
-          saturation={150}
-          aberrationIntensity={1}
-          elasticity={0.2}
-          cornerRadius={16}
-          mouseContainer={containerRef}
-          padding="0"
-        >
-        <div className="card" style={{ background: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(20px)' }}>
+        <div className="card">
           <div style={{ textAlign: 'center', padding: '3rem', color: '#6e6e73' }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
             <p>No commitments found.</p>
@@ -875,7 +807,6 @@ function Commitments() {
             </p>
           </div>
         </div>
-        </LiquidGlass>
       )}
       </div>
     </PullToRefresh>
