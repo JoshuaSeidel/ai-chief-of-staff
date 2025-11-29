@@ -72,6 +72,7 @@ logger.info(f"Using Claude model: {CLAUDE_MODEL}")
 # Initialize clients
 try:
     if USE_SHARED_LIBS:
+        logger.info("Attempting to use shared AI provider abstraction...")
         # Use config-driven AI provider selection
         config = get_config_manager()
         provider_config = config.get_ai_provider_config('ai_intelligence')
@@ -83,13 +84,18 @@ try:
                 api_key=provider_config.get('api_key')
             )
             logger.info(f"✓ Using AI provider: {provider_config['provider']} with model {provider_config['model']}")
+            logger.info(f"AI client type: {type(ai_client)}")
         except Exception as e:
             logger.warning(f"Failed to use configured provider, trying fallback: {e}")
             ai_client = get_best_available_provider()
+            logger.info(f"AI client type after fallback: {type(ai_client)}")
     else:
+        logger.info("Using direct Anthropic client (shared libs not available)")
         # Legacy fallback to direct Anthropic
-        ai_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-        logger.info("✓ Using legacy Anthropic client")
+        import anthropic as anthropic_module
+        ai_client = anthropic_module.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        logger.info(f"✓ Using legacy Anthropic client - type: {type(ai_client)}")
+        logger.info(f"AI client has messages: {hasattr(ai_client, 'messages')}")
     
     redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379"))
     logger.info("✓ Initialized AI and Redis clients")
@@ -357,18 +363,32 @@ Respond in JSON format:
 
     try:
         if USE_SHARED_LIBS:
+            # Using shared AI provider abstraction
             result = ai_client.complete_json(
                 prompt=prompt,
                 max_tokens=1000,
                 temperature=0.4
             )
         else:
-            message = ai_client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=1000,
-                temperature=0.4,
-                messages=[{"role": "user", "content": prompt}]
-            )
+            # Using direct Anthropic client
+            import anthropic as anthropic_module
+            if not isinstance(ai_client, anthropic_module.Anthropic):
+                # Re-initialize if needed
+                logger.warning("AI client not properly initialized, re-initializing")
+                anthropic_client = anthropic_module.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+                message = anthropic_client.messages.create(
+                    model=CLAUDE_MODEL,
+                    max_tokens=1000,
+                    temperature=0.4,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+            else:
+                message = ai_client.messages.create(
+                    model=CLAUDE_MODEL,
+                    max_tokens=1000,
+                    temperature=0.4,
+                    messages=[{"role": "user", "content": prompt}]
+                )
             result = json.loads(message.content[0].text)
         
         logger.info(f"✓ Created {len(result['clusters'])} clusters")
