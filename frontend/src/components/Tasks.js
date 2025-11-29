@@ -348,6 +348,28 @@ function Commitments() {
     };
   };
 
+  // Apply filters to get filtered commitments
+  const getFilteredCommitments = () => {
+    let filtered = commitments;
+    
+    // Apply status filter
+    if (filter === 'overdue') {
+      filtered = filtered.filter(c => isOverdue(c));
+    } else if (filter === 'pending') {
+      filtered = filtered.filter(c => c.status === 'pending' && !isOverdue(c));
+    } else if (filter === 'completed') {
+      filtered = filtered.filter(c => c.status === 'completed');
+    }
+    
+    // Apply type filter
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(c => (c.task_type || 'commitment') === typeFilter);
+    }
+    
+    return filtered;
+  };
+
+  const filteredCommitments = getFilteredCommitments();
   const grouped = groupByStatus();
   const byType = groupByType();
   
