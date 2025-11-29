@@ -63,6 +63,15 @@ async function unsubscribe(endpoint) {
  */
 async function sendToAll(payload) {
   try {
+    // Ensure VAPID keys are set before attempting to send
+    const { getVapidPublicKey } = require('../utils/vapid-manager');
+    const publicKey = await getVapidPublicKey();
+    
+    if (!publicKey) {
+      logger.error('VAPID keys not configured, cannot send push notifications');
+      return { sent: 0, failed: 0, error: 'VAPID keys not configured' };
+    }
+    
     const db = getDb();
     const subscriptions = await db.all('SELECT * FROM push_subscriptions');
     
@@ -88,14 +97,27 @@ async function sendToAll(payload) {
           
           return { success: true };
         } catch (error) {
-          logger.warn(`Failed to send to ${sub.endpoint}:`, error.message);
+          // Better error logging
+          const errorMsg = error.body || error.message || 'Unknown error';
+          const statusCode = error.statusCode || error.status || 'unknown';
           
-          // If subscription is invalid, remove it
+          // Silently clean up expired subscriptions (common and expected)
           if (error.statusCode === 410 || error.statusCode === 404) {
+            logger.debug(`Subscription expired/not found, removing: ${sub.endpoint.substring(0, 50)}...`);
             await unsubscribe(sub.endpoint);
+            return { success: false, expired: true };
           }
           
-          return { success: false, error: error.message };
+          // Log authentication errors but don't spam logs
+          if (error.statusCode === 401 || error.statusCode === 403) {
+            logger.debug(`Subscription unauthorized (likely re-subscribed with new keys): ${sub.endpoint.substring(0, 50)}...`);
+            await unsubscribe(sub.endpoint);
+            return { success: false, unauthorized: true };
+          }
+          
+          // Only log unexpected errors
+          logger.warn(`Failed to send push notification (status ${statusCode}): ${errorMsg.substring(0, 100)}`);
+          return { success: false, error: errorMsg, statusCode };
         }
       })
     );
