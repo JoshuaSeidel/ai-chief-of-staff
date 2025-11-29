@@ -12,6 +12,7 @@ import os
 import hashlib
 import logging
 import sys
+from datetime import datetime
 
 # Add shared directory to path
 sys.path.append('/app/shared')
@@ -29,14 +30,31 @@ except ImportError:
     logger = logging.getLogger(__name__)
     logger.warning("⚠ Shared libs not available, using direct Anthropic import")
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 app = FastAPI(
     title="AI Intelligence Service",
     version="1.0.0",
     description="Task analysis and intelligence using Claude AI"
 )
+
+# Middleware for request logging
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start_time = datetime.now()
+    logger.info(f"→ {request.method} {request.url.path}")
+    
+    response = await call_next(request)
+    
+    duration = (datetime.now() - start_time).total_seconds()
+    logger.info(f"← {request.method} {request.url.path} [{response.status_code}] {duration:.3f}s")
+    
+    return response
 
 # CORS for internal Docker network
 app.add_middleware(
@@ -76,7 +94,7 @@ try:
     redis_client = redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379"))
     logger.info("✓ Initialized AI and Redis clients")
 except Exception as e:
-    logger.error(f"Failed to initialize clients: {e}")
+    logger.error(f"❌ Failed to initialize clients: {e}", exc_info=True)
     ai_client = None
     redis_client = None
 
@@ -215,7 +233,7 @@ Respond in JSON format:
         return result
         
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse AI response: {e}")
+        logger.error(f"⚠ Failed to parse AI response: {e}", exc_info=True)
         # Return safe defaults
         return {
             "estimated_hours": 0.5,
@@ -224,7 +242,7 @@ Respond in JSON format:
             "breakdown": []
         }
     except Exception as e:
-        logger.error(f"Effort estimation failed: {e}")
+        logger.error(f"❌ Effort estimation failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/classify-energy", response_model=EnergyClassificationResponse)
@@ -292,7 +310,7 @@ Respond in JSON format:
         return result
         
     except Exception as e:
-        logger.error(f"Energy classification failed: {e}")
+        logger.error(f"❌ Energy classification failed: {e}", exc_info=True)
         # Return safe default
         return {
             "energy_level": "administrative",
@@ -357,7 +375,7 @@ Respond in JSON format:
         return result
         
     except Exception as e:
-        logger.error(f"Task clustering failed: {e}")
+        logger.error(f"❌ Task clustering failed: {e}", exc_info=True)
         return {"clusters": []}
 
 @app.get("/health")

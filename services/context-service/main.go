@@ -61,14 +61,26 @@ var (
 )
 
 func main() {
+	// Configure structured logging
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.Println("=== Context Service Starting ===")
+
 	// Initialize database
+	log.Println("→ Initializing database connection...")
 	if err := initDB(); err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer db.Close()
+	log.Println("✓ Database connected")
 
 	// Initialize Redis
+	log.Println("→ Initializing Redis connection...")
 	initRedis()
+	if redisClient != nil {
+		log.Println("✓ Redis connected")
+	} else {
+		log.Println("⚠ Redis not available (caching disabled)")
+	}
 
 	// Create router
 	r := mux.NewRouter()
@@ -81,12 +93,15 @@ func main() {
 	r.HandleFunc("/context/rolling", getRollingContextHandler).Methods("GET")
 	r.HandleFunc("/context/search", searchContextHandler).Methods("POST")
 
+	// Add request logging middleware
+	r.Use(loggingMiddleware)
+	
 	// Enable CORS
 	r.Use(corsMiddleware)
 
 	// Start server
 	port := getEnv("PORT", "8005")
-	log.Printf("Context Service starting on port %s", port)
+	log.Printf("✓ Context Service listening on port %s", port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
@@ -496,6 +511,37 @@ func respondJSON(w http.ResponseWriter, status int, data interface{}) {
 
 func respondError(w http.ResponseWriter, status int, message string) {
 	respondJSON(w, status, map[string]string{"error": message})
+}
+
+// Logging middleware to track all requests
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		
+		// Log incoming request
+		log.Printf("→ %s %s", r.Method, r.URL.Path)
+		
+		// Create a response writer wrapper to capture status code
+		wrapped := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		
+		// Call the next handler
+		next.ServeHTTP(wrapped, r)
+		
+		// Log response with timing
+		duration := time.Since(start)
+		log.Printf("← %s %s [%d] %.3fms", r.Method, r.URL.Path, wrapped.statusCode, float64(duration.Microseconds())/1000.0)
+	})
+}
+
+// Response writer wrapper to capture status code
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriter) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

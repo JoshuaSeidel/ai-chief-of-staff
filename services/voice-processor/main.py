@@ -31,6 +31,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Request logging middleware
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start_time = datetime.now()
+    logger.info(f"→ {request.method} {request.url.path}")
+    
+    response = await call_next(request)
+    
+    duration = (datetime.now() - start_time).total_seconds()
+    logger.info(f"← {request.method} {request.url.path} [{response.status_code}] {duration:.3f}s")
+    
+    return response
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -66,7 +79,7 @@ try:
     storage_manager = get_storage_manager()
     logger.info(f"Storage manager initialized: {storage_manager.storage_type}")
 except Exception as e:
-    logger.error(f"Failed to initialize storage manager: {e}")
+    logger.error(f"❌ Failed to initialize storage manager: {e}", exc_info=True)
     storage_manager = None
 
 # Cache TTL (1 hour for transcriptions)

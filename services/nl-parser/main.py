@@ -16,8 +16,12 @@ import hashlib
 import json
 import re
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 # Configure AI model (Claude Sonnet 4.5 for NLP parsing)
@@ -30,6 +34,19 @@ app = FastAPI(
     description="Parses natural language into structured task data",
     version="1.0.0"
 )
+
+# Middleware for request logging
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start_time = datetime.now()
+    logger.info(f"→ {request.method} {request.url.path}")
+    
+    response = await call_next(request)
+    
+    duration = (datetime.now() - start_time).total_seconds()
+    logger.info(f"← {request.method} {request.url.path} [{response.status_code}] {duration:.3f}s")
+    
+    return response
 
 # Add CORS middleware
 app.add_middleware(
@@ -343,7 +360,7 @@ Be concise. Only include non-null values.
         return result
         
     except Exception as e:
-        logger.error(f"Parse task error: {e}")
+        logger.error(f"❌ Parse task error: {e}", exc_info=True)
         # Return fallback result
         return ParsedTask(
             title=request.text[:50],
@@ -446,7 +463,7 @@ Return as JSON array:
             return results
         
     except Exception as e:
-        logger.error(f"Bulk parse error: {e}")
+        logger.error(f"❌ Bulk parse error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/quick-add", response_model=ParsedTask)
@@ -485,7 +502,7 @@ async def quick_add(request: QuickAddRequest):
         )
         
     except Exception as e:
-        logger.error(f"Quick add error: {e}")
+        logger.error(f"❌ Quick add error: {e}", exc_info=True)
         return ParsedTask(
             title=request.text[:30],
             priority="medium",
@@ -541,7 +558,7 @@ Only extract clear, actionable commitments. Skip vague statements.
         return {"commitments": [], "count": 0}
         
     except Exception as e:
-        logger.error(f"Extract commitments error: {e}")
+        logger.error(f"❌ Extract commitments error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================

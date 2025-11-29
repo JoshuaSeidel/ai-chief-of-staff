@@ -17,8 +17,12 @@ import json
 from collections import Counter, defaultdict
 import statistics
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(funcName)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
 # Configure AI model (Claude Sonnet 4.5 for complex pattern analysis)
@@ -31,6 +35,19 @@ app = FastAPI(
     description="Detects behavioral patterns and provides productivity insights",
     version="1.0.0"
 )
+
+# Middleware for request logging
+@app.middleware("http")
+async def log_requests(request, call_next):
+    start_time = datetime.now()
+    logger.info(f"→ {request.method} {request.url.path}")
+    
+    response = await call_next(request)
+    
+    duration = (datetime.now() - start_time).total_seconds()
+    logger.info(f"← {request.method} {request.url.path} [{response.status_code}] {duration:.3f}s")
+    
+    return response
 
 # Add CORS middleware
 app.add_middleware(
@@ -345,7 +362,7 @@ Return as JSON array with format:
         return patterns
         
     except Exception as e:
-        logger.error(f"Pattern detection error: {e}")
+        logger.error(f"❌ Pattern detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze-focus-time", response_model=FocusTimeAnalysis)
@@ -449,7 +466,7 @@ async def analyze_focus_time(data: WorkingHoursData):
         return result
         
     except Exception as e:
-        logger.error(f"Focus time analysis error: {e}")
+        logger.error(f"❌ Focus time analysis error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/detect-anomalies", response_model=AnomalyDetection)
@@ -531,7 +548,7 @@ async def detect_anomalies(events: List[TaskEvent]):
         }
         
     except Exception as e:
-        logger.error(f"Anomaly detection error: {e}")
+        logger.error(f"❌ Anomaly detection error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze-streak", response_model=StreakAnalysis)
@@ -616,7 +633,7 @@ async def analyze_streak(events: List[CompletionEvent]):
         }
         
     except Exception as e:
-        logger.error(f"Streak analysis error: {e}")
+        logger.error(f"❌ Streak analysis error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================
