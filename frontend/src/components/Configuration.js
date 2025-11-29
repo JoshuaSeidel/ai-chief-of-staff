@@ -133,7 +133,7 @@ function Configuration() {
   
   // Integration toggles
   const [enabledIntegrations, setEnabledIntegrations] = useState({
-    googleCalendar: true,
+    googleCalendar: false,
     microsoft: false, // Combined Microsoft Calendar + Planner
     jira: false,
     radicale: false
