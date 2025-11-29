@@ -120,6 +120,19 @@ async function subscribeToPush(registration) {
     
     const { publicKey } = await response.json();
     
+    // Check for existing subscription
+    const existingSubscription = await registration.pushManager.getSubscription();
+    if (existingSubscription) {
+      // Unsubscribe if applicationServerKey doesn't match
+      console.log('Existing push subscription found, checking if update needed...');
+      try {
+        await existingSubscription.unsubscribe();
+        console.log('Unsubscribed from old push subscription');
+      } catch (err) {
+        console.error('Failed to unsubscribe:', err);
+      }
+    }
+    
     // Subscribe to push notifications
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
@@ -137,7 +150,10 @@ async function subscribeToPush(registration) {
     
     console.log('Successfully subscribed to push notifications');
   } catch (error) {
-    console.error('Failed to subscribe to push:', error);
+    // Only log errors that aren't about existing subscriptions
+    if (!error.message.includes('already exists')) {
+      console.error('Failed to subscribe to push:', error);
+    }
   }
 }
 

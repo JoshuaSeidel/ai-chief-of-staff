@@ -92,8 +92,8 @@ try:
     else:
         logger.info("Using direct Anthropic client (shared libs not available)")
         # Legacy fallback to direct Anthropic
-        import anthropic as anthropic_module
-        ai_client = anthropic_module.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        import anthropic
+        ai_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         logger.info(f"✓ Using legacy Anthropic client - type: {type(ai_client)}")
         logger.info(f"AI client has messages: {hasattr(ai_client, 'messages')}")
     
@@ -375,10 +375,10 @@ Respond in JSON format:
         else:
             # Using direct Anthropic client
             logger.info("Using direct Anthropic client for clustering")
-            import anthropic as anthropic_module
+            import anthropic
             
             # Always use the global ai_client if it's properly initialized
-            if isinstance(ai_client, anthropic_module.Anthropic):
+            if isinstance(ai_client, anthropic.Anthropic):
                 logger.info("Using existing Anthropic client")
                 message = ai_client.messages.create(
                     model=CLAUDE_MODEL,
@@ -389,7 +389,7 @@ Respond in JSON format:
             else:
                 # Re-initialize if needed
                 logger.warning(f"AI client type mismatch: {type(ai_client)}, re-initializing")
-                anthropic_client = anthropic_module.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+                anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
                 message = anthropic_client.messages.create(
                     model=CLAUDE_MODEL,
                     max_tokens=1000,

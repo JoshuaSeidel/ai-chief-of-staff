@@ -238,7 +238,7 @@ router.get('/version', async (req, res) => {
           const frontendPackageJson = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
           frontendVersion = frontendPackageJson.version || null;
         } else {
-          logger.warn('Frontend package.json not found, using backend version as fallback');
+          logger.debug('Frontend package.json not found in Docker build, using backend version');
           // Fallback: use backend version if frontend not found (same version in most cases)
           frontendVersion = backendVersion;
         }
