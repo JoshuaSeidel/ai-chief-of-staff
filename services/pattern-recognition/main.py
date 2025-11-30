@@ -294,7 +294,7 @@ async def analyze_patterns(request: dict):
         # Parse time range
         days_match = time_range.rstrip('d')
         days = int(days_match) if days_match.isdigit() else 30
-        start_date = datetime.utcnow() - timedelta(days=days)
+        start_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
         
         async with db_pool.acquire() as conn:
             # Get all tasks
@@ -316,7 +316,7 @@ async def analyze_patterns(request: dict):
             )
             
             # Get overdue tasks
-            now = datetime.utcnow()
+            now = datetime.utcnow().isoformat()
             overdue_tasks = await conn.fetch(
                 "SELECT * FROM commitments WHERE status != $1 AND deadline < $2 AND deadline IS NOT NULL",
                 'completed', now
@@ -391,7 +391,8 @@ Format as markdown with clear sections."""
 
         response = anthropic_client.messages.create(
             model=CLAUDE_MODEL,
-            max_tokens=2048,
+            max_tokens=1024,  # Reduced for faster responses
+            temperature=0.7,  # Slightly creative but focused
             messages=[{"role": "user", "content": prompt}]
         )
         
@@ -508,7 +509,8 @@ Return as JSON array with format:
                 
                 response = anthropic_client.messages.create(
                     model=CLAUDE_MODEL,
-                    max_tokens=1500,
+                    max_tokens=800,  # Reduced for faster JSON responses
+                    temperature=0.5,  # More focused for structured output
                     messages=[{"role": "user", "content": prompt}]
                 )
                 

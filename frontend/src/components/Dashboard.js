@@ -295,22 +295,37 @@ function Dashboard({ setActiveTab }) {
               )}
             </div>
             {productivityInsights.insights && (
-              <details style={{ marginTop: '0.5rem' }}>
+              <details open style={{ marginTop: '0.5rem' }}>
                 <summary style={{ cursor: 'pointer', color: '#a1a1aa', fontSize: '0.85rem' }}>
-                  View AI insights
+                  {productivityInsights.insights === 'Generating AI insights...' ? '🤖 Generating AI insights...' : 'View AI insights'}
                 </summary>
                 <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#e5e5e7', lineHeight: '1.5', maxHeight: '200px', overflow: 'auto' }}>
-                  {productivityInsights.insights.length > 500 
-                    ? `${productivityInsights.insights.substring(0, 500)}...` 
-                    : productivityInsights.insights}
+                  {productivityInsights.insights === 'Generating AI insights...' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#22c55e' }}>
+                      <span>🔄</span>
+                      <span>Analyzing your patterns with AI...</span>
+                    </div>
+                  ) : (
+                    productivityInsights.insights.length > 500 
+                      ? `${productivityInsights.insights.substring(0, 500)}...` 
+                      : productivityInsights.insights
+                  )}
                 </div>
               </details>
             )}
           </div>
         )}
         {loadingInsights && !productivityInsights && (
-          <div style={{ textAlign: 'center', padding: '0.5rem', color: '#a1a1aa', fontSize: '0.85rem' }}>
-            Loading productivity insights...
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '1rem', 
+            color: '#22c55e', 
+            fontSize: '0.85rem',
+            backgroundColor: '#18181b',
+            borderRadius: '8px',
+            marginBottom: '1rem'
+          }}>
+            <div>🔄 Loading productivity insights...</div>
           </div>
         )}
 
