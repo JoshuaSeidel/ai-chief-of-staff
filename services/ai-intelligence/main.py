@@ -74,12 +74,20 @@ try:
         model = get_ai_model(provider=provider)
         
         try:
+            # Get API key from environment based on provider
+            api_key = None
+            if provider == "anthropic":
+                api_key = os.getenv("ANTHROPIC_API_KEY")
+            elif provider == "openai":
+                api_key = os.getenv("OPENAI_API_KEY")
+            # Ollama doesn't need API key
+            
             ai_client = get_ai_client(
                 provider=provider,
                 model=model,
-                api_key=provider_config.get('api_key')
+                api_key=api_key
             )
-            logger.info(f"✓ Using AI provider: {provider_config['provider']} with model {provider_config['model']}")
+            logger.info(f"✓ Using AI provider: {provider} with model {model}")
             logger.info(f"AI client type: {type(ai_client)}")
         except Exception as e:
             logger.warning(f"Failed to use configured provider, trying fallback: {e}")

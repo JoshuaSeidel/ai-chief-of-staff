@@ -143,11 +143,18 @@ services:
     ports:
       - "8001:8001"
     environment:
+      # Infrastructure
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - REDIS_URL=redis://aicos-redis:6379
+      
+      # API Keys (still needed for API calls)
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Runtime
       - LOG_LEVEL=info
+      
+      # Note: AI model selection comes from database via Settings UI
     depends_on:
       - aicos-redis
     networks:
@@ -176,11 +183,18 @@ services:
     ports:
       - "8002:8002"
     environment:
+      # Infrastructure
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - REDIS_URL=redis://aicos-redis:6379
+      
+      # API Keys
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Runtime
       - LOG_LEVEL=info
+      
+      # Note: AI model selection comes from database via Settings UI
     depends_on:
       - aicos-postgres
       - aicos-redis
@@ -213,10 +227,17 @@ services:
     ports:
       - "8003:8003"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # Infrastructure
       - REDIS_URL=redis://aicos-redis:6379
-      - CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}
+      
+      # API Keys
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      
+      # Runtime
       - LOG_LEVEL=info
+      
+      # Note: AI model selection comes from database via Settings UI
     depends_on:
       - aicos-redis
     networks:
@@ -245,31 +266,17 @@ services:
     ports:
       - "8004:8004"
     environment:
-      # Database for storing transcript metadata
+      # Infrastructure
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
-      
-      # OpenAI API key for Whisper transcription
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      
-      # Redis for caching and rate limiting
       - REDIS_URL=redis://aicos-redis:6379
       
-      # Whisper model (whisper-1 is latest)
-      - WHISPER_MODEL=${WHISPER_MODEL:-whisper-1}
+      # API Keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       
-      # Storage configuration (local or S3)
-      - STORAGE_TYPE=${VOICE_STORAGE_TYPE:-local}
-      - STORAGE_PATH=/app/data/voice-recordings
-      
-      # S3 storage (optional - leave empty for local storage)
-      - S3_BUCKET=${S3_BUCKET:-}
-      - S3_REGION=${S3_REGION:-us-east-1}
-      - S3_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID:-}
-      - S3_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY:-}
-      - S3_ENDPOINT=${S3_ENDPOINT:-}
-      
-      # Log verbosity
+      # Runtime
       - LOG_LEVEL=info
+      
+      # Note: AI model and storage config come from database via Settings UI
     depends_on:
       - aicos-redis
       - aicos-postgres

@@ -156,3 +156,68 @@ def get_max_tokens() -> int:
     except Exception as e:
         logger.warning(f"Failed to fetch max tokens from database: {e}. Using default: 4096")
         return 4096
+
+
+def get_storage_config() -> dict:
+    """
+    Get voice recording storage configuration from database
+    
+    Returns:
+        Dict with storage_type ('local' or 's3') and related config
+    """
+    defaults = {
+        "storage_type": "local",
+        "storage_path": "/app/data/voice-recordings",
+        "s3_bucket": "",
+        "s3_region": "us-east-1",
+        "s3_access_key_id": "",
+        "s3_secret_access_key": "",
+        "s3_endpoint": ""
+    }
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Fetch all storage-related config keys
+        keys = [
+            "storageType",
+            "storagePath", 
+            "s3Bucket",
+            "s3Region",
+            "s3AccessKeyId",
+            "s3SecretAccessKey",
+            "s3Endpoint"
+        ]
+        
+        cursor.execute(
+            "SELECT key, value FROM config WHERE key = ANY(%s)",
+            (keys,)
+        )
+        
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        # Build config dict from database values
+        config = defaults.copy()
+        key_mapping = {
+            "storageType": "storage_type",
+            "storagePath": "storage_path",
+            "s3Bucket": "s3_bucket",
+            "s3Region": "s3_region",
+            "s3AccessKeyId": "s3_access_key_id",
+            "s3SecretAccessKey": "s3_secret_access_key",
+            "s3Endpoint": "s3_endpoint"
+        }
+        
+        for key, value in rows:
+            if key in key_mapping and value:
+                config[key_mapping[key]] = value.strip()
+        
+        logger.info(f"Loaded storage config from database: type={config['storage_type']}")
+        return config
+        
+    except Exception as e:
+        logger.warning(f"Failed to fetch storage config from database: {e}. Using defaults")
+        return defaults

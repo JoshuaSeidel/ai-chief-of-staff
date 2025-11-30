@@ -126,6 +126,13 @@ function Configuration() {
     postgresDb: '',
     postgresUser: '',
     postgresPassword: '',
+    storageType: 'local',
+    storagePath: '/app/data/voice-recordings',
+    s3Bucket: '',
+    s3Region: 'us-east-1',
+    s3AccessKeyId: '',
+    s3SecretAccessKey: '',
+    s3Endpoint: '',
   });
   
   // Track which fields have been loaded from server (to know which ones to skip on save)
@@ -1046,6 +1053,115 @@ function Configuration() {
                   )}
                 </select>
               </div>
+            </div>
+            
+            {/* Voice Storage Configuration */}
+            <div style={{ borderTop: '1px solid rgba(161, 161, 170, 0.2)', paddingTop: '1rem', marginTop: '1rem' }}>
+              <h5 style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '1rem' }}>💾 Storage Configuration</h5>
+              <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                Configure where voice recordings are stored
+              </p>
+              
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  Storage Type
+                </label>
+                <select
+                  value={config.storageType || 'local'}
+                  onChange={(e) => handleChange('storageType', e.target.value)}
+                  style={{ width: '100%' }}
+                >
+                  <option value="local">Local Filesystem</option>
+                  <option value="s3">S3 Compatible (AWS S3, MinIO, etc.)</option>
+                </select>
+              </div>
+              
+              {config.storageType === 'local' && (
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    Local Storage Path
+                  </label>
+                  <input
+                    type="text"
+                    value={config.storagePath || '/app/data/voice-recordings'}
+                    onChange={(e) => handleChange('storagePath', e.target.value)}
+                    placeholder="/app/data/voice-recordings"
+                    style={{ width: '100%', fontFamily: 'monospace' }}
+                  />
+                </div>
+              )}
+              
+              {config.storageType === 's3' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Bucket Name
+                    </label>
+                    <input
+                      type="text"
+                      value={config.s3Bucket || ''}
+                      onChange={(e) => handleChange('s3Bucket', e.target.value)}
+                      placeholder="my-voice-recordings"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Region
+                    </label>
+                    <input
+                      type="text"
+                      value={config.s3Region || 'us-east-1'}
+                      onChange={(e) => handleChange('s3Region', e.target.value)}
+                      placeholder="us-east-1"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Access Key ID
+                    </label>
+                    <input
+                      type="password"
+                      value={config.s3AccessKeyId || ''}
+                      onChange={(e) => handleChange('s3AccessKeyId', e.target.value)}
+                      placeholder="AKIA..."
+                      style={{ width: '100%', fontFamily: 'monospace' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Secret Access Key
+                    </label>
+                    <input
+                      type="password"
+                      value={config.s3SecretAccessKey || ''}
+                      onChange={(e) => handleChange('s3SecretAccessKey', e.target.value)}
+                      placeholder="..."
+                      style={{ width: '100%', fontFamily: 'monospace' }}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                      S3 Endpoint (Optional - for MinIO or custom S3)
+                    </label>
+                    <input
+                      type="url"
+                      value={config.s3Endpoint || ''}
+                      onChange={(e) => handleChange('s3Endpoint', e.target.value)}
+                      placeholder="https://minio.example.com"
+                      style={{ width: '100%' }}
+                    />
+                    <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                      Leave empty for AWS S3
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           

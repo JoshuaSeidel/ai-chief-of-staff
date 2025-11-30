@@ -4,11 +4,15 @@ Supports local filesystem and S3-compatible storage (AWS S3, MinIO, etc.)
 """
 
 import os
+import sys
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
 import boto3
 from botocore.exceptions import ClientError
+
+# Add shared directory to path for db_config
+sys.path.insert(0, '/app/shared')
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +21,32 @@ class StorageManager:
     """Manages voice recording storage with local and S3 support"""
     
     def __init__(self):
-        self.storage_type = os.getenv('STORAGE_TYPE', 'local').lower()
-        self.storage_path = os.getenv('STORAGE_PATH', '/app/data/voice-recordings')
+        # Get storage configuration from database
+        try:
+            from db_config import get_storage_config
+            config = get_storage_config()
+            
+            self.storage_type = config.get('storage_type', 'local').lower()
+            self.storage_path = config.get('storage_path', '/app/data/voice-recordings')
+            
+            # S3 configuration
+            self.s3_bucket = config.get('s3_bucket', '')
+            self.s3_region = config.get('s3_region', 'us-east-1')
+            self.s3_access_key_id = config.get('s3_access_key_id', '')
+            self.s3_secret_access_key = config.get('s3_secret_access_key', '')
+            self.s3_endpoint = config.get('s3_endpoint', '')
+            
+            logger.info(f"Loaded storage config from database: type={self.storage_type}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to load storage config from database: {e}. Using defaults.")
+            self.storage_type = 'local'
+            self.storage_path = '/app/data/voice-recordings'
+            self.s3_bucket = ''
+            self.s3_region = 'us-east-1'
+            self.s3_access_key_id = ''
+            self.s3_secret_access_key = ''
+            self.s3_endpoint = ''
         
         logger.info(f"Initializing StorageManager with type: {self.storage_type}")
         
@@ -33,28 +61,23 @@ class StorageManager:
     
     def _init_s3(self):
         """Initialize S3 client"""
-        self.s3_bucket = os.getenv('S3_BUCKET')
         if not self.s3_bucket:
-            raise ValueError("S3_BUCKET environment variable required for S3 storage")
+            raise ValueError("S3 bucket not configured in database - please configure in Settings")
         
         # S3 client configuration
         s3_config = {
-            'region_name': os.getenv('S3_REGION', 'us-east-1'),
+            'region_name': self.s3_region,
         }
         
         # AWS credentials
-        aws_access_key = os.getenv('S3_ACCESS_KEY_ID')
-        aws_secret_key = os.getenv('S3_SECRET_ACCESS_KEY')
-        
-        if aws_access_key and aws_secret_key:
-            s3_config['aws_access_key_id'] = aws_access_key
-            s3_config['aws_secret_access_key'] = aws_secret_key
+        if self.s3_access_key_id and self.s3_secret_access_key:
+            s3_config['aws_access_key_id'] = self.s3_access_key_id
+            s3_config['aws_secret_access_key'] = self.s3_secret_access_key
         
         # Custom endpoint (for MinIO or other S3-compatible services)
-        s3_endpoint = os.getenv('S3_ENDPOINT')
-        if s3_endpoint:
-            s3_config['endpoint_url'] = s3_endpoint
-            logger.info(f"Using custom S3 endpoint: {s3_endpoint}")
+        if self.s3_endpoint:
+            s3_config['endpoint_url'] = self.s3_endpoint
+            logger.info(f"Using custom S3 endpoint: {self.s3_endpoint}")
         
         try:
             self.s3_client = boto3.client('s3', **s3_config)
