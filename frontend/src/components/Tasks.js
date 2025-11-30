@@ -229,13 +229,33 @@ function Commitments() {
       const tasks = pendingTasks.map((c, i) => ({
         id: i + 1,
         description: c.description,
-        deadline: c.deadline
+        deadline: c.deadline,
+        commitment_id: c.id  // Keep track of actual DB ID
       }));
       
       const response = await intelligenceAPI.clusterTasks(tasks);
       if (response.data && response.data.clusters) {
         setClusters(response.data);
         setShowClusters(true);
+        
+        // Save cluster assignments to database
+        for (const cluster of response.data.clusters) {
+          for (const taskIndex of cluster.task_indices) {
+            const task = tasks[taskIndex - 1];  // task_indices are 1-based
+            if (task && task.commitment_id) {
+              try {
+                await commitmentsAPI.update(task.commitment_id, { 
+                  cluster_group: cluster.name 
+                });
+              } catch (updateErr) {
+                console.error(`Failed to update cluster for task ${task.commitment_id}:`, updateErr);
+              }
+            }
+          }
+        }
+        
+        // Reload commitments to show updated groups
+        await loadCommitments();
       } else {
         alert('No clusters identified');
       }
@@ -430,7 +450,7 @@ function Commitments() {
               }}
               title="AI-powered task grouping"
             >
-              {clusteringTasks ? '⏳ Grouping...' : '🤖 Smart Group'}
+              {clusteringTasks ? '⏳ Grouping...' : '🤖 Smart Grouping...'}
             </button>
             {microsoftConnected && (
               <button 
@@ -686,6 +706,20 @@ function Commitments() {
                   <div>👤 Assignee: <strong>{commitment.assignee || 'Unknown'}</strong></div>
                   {commitment.deadline && (
                     <div>📅 Deadline: {formatDate(commitment.deadline)}</div>
+                  )}
+                  {commitment.cluster_group && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.25rem 0.5rem', 
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: '600'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    </div>
                   )}
                   {commitment.suggested_approach && (
                     <div style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>

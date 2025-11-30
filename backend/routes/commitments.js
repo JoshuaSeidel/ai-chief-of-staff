@@ -144,6 +144,11 @@ router.put('/:id', async (req, res) => {
       params.push(description);
     }
     
+    if (req.body.cluster_group !== undefined) {
+      updates.push('cluster_group = ?');
+      params.push(req.body.cluster_group);
+    }
+    
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }

@@ -243,11 +243,19 @@ function initDatabaseTables() {
           deadline TEXT,
           assignee TEXT,
           status TEXT DEFAULT 'pending',
+          cluster_group TEXT,
           created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
           completed_date DATETIME,
           FOREIGN KEY (transcript_id) REFERENCES transcripts(id)
         )
       `);
+      
+      // Add cluster_group column if it doesn't exist (for existing databases)
+      db.run(`ALTER TABLE commitments ADD COLUMN cluster_group TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding cluster_group column:', err);
+        }
+      });
 
       // Briefs table - stores generated daily briefs
       db.run(`
@@ -344,10 +352,20 @@ async function initDatabaseTablesPostgres() {
         deadline TEXT,
         assignee TEXT,
         status TEXT DEFAULT 'pending',
+        cluster_group TEXT,
         created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_date TIMESTAMP
       )
     `);
+    
+    // Add cluster_group column if it doesn't exist (for existing databases)
+    await pool.query(`
+      ALTER TABLE commitments ADD COLUMN IF NOT EXISTS cluster_group TEXT
+    `).catch(err => {
+      if (!err.message.includes('already exists')) {
+        console.error('Error adding cluster_group column:', err);
+      }
+    });
 
     // Briefs table
     await pool.query(`
