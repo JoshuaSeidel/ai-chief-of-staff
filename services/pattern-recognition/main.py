@@ -513,18 +513,17 @@ Return as JSON array with format:
 ]
 """
                 
-]
-\"\"\"
-                
                 # Get model from database configuration
-                model = get_ai_model(provider=\"anthropic\")
+                model = get_ai_model(provider="anthropic")
                 
                 response = anthropic_client.messages.create(
                     model=model,
-                    max_tokens=800,  # Reduced for faster JSON responses
-                    temperature=0.5,  # More focused for structured output
-                    messages=[{\"role\": \"user\", \"content\": prompt}]
-                )                ai_content = response.content[0].text
+                    max_tokens=800,
+                    temperature=0.5,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                
+                ai_content = response.content[0].text
                 # Try to parse JSON from response
                 import re
                 json_match = re.search(r'\[[\s\S]*\]', ai_content)

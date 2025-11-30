@@ -148,6 +148,7 @@ function Configuration() {
   const [jiraConnected, setJiraConnected] = useState(false);
   const [checkingJira, setCheckingJira] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [microservicesExpanded, setMicroservicesExpanded] = useState(false);
   const [notificationMaxRepeat, setNotificationMaxRepeat] = useState(3);
   const [notificationRepeatIntervalHours, setNotificationRepeatIntervalHours] = useState(24);
   const [microsoftTaskLists, setMicrosoftTaskLists] = useState([]);
@@ -915,12 +916,30 @@ function Configuration() {
             </div>
           </div>
           
-          <h4 style={{ marginTop: '2rem', marginBottom: '1rem', fontSize: '1rem', color: '#a1a1aa' }}>
-            Microservices Configuration (Optional)
-          </h4>
+          <div style={{ marginTop: '2rem', marginBottom: '1rem' }}>
+            <h4 
+              onClick={() => setMicroservicesExpanded(!microservicesExpanded)}
+              style={{ 
+                fontSize: '1rem', 
+                color: '#a1a1aa',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                userSelect: 'none'
+              }}
+            >
+              <span style={{ transform: microservicesExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                ▶
+              </span>
+              Microservices Configuration (Optional)
+            </h4>
+          </div>
           
-          {/* AI Intelligence Service */}
-          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+          {microservicesExpanded && (
+            <>
+              {/* AI Intelligence Service */}
+              <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
             <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🧠 AI Intelligence Service</h4>
             <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
               Task effort estimation, energy classification, and task clustering
@@ -1149,6 +1168,8 @@ function Configuration() {
               </div>
             </div>
           </div>
+            </>
+          )}
           
           {/* API Keys Section */}
           <div className="glass-panel">

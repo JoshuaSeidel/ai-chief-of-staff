@@ -378,29 +378,17 @@ Respond in JSON format:
             logger.info("Using direct Anthropic client for clustering")
             import anthropic
             
-            # Always use the global ai_client if it's properly initialized
-            if isinstance(ai_client, anthropic.Anthropic):
-                logger.info("Using existing Anthropic client")
-                # Get model from database configuration
-                model = get_ai_model(provider="anthropic")
-                
-                # Try with shared AI client first
-                try:
-                    response = ai_client.messages.create(
-                        model=model,
-                        max_tokens=1024,
-            else:
-                # Re-initialize if needed
-                logger.warning(f"AI client type mismatch: {type(ai_client)}, re-initializing")
-                # Get model from database configuration
-                model = get_ai_model(provider="anthropic")
-                anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-                message = anthropic_client.messages.create(
-                    model=model,
-                    max_tokens=1000,
-                    temperature=0.4,
-                    messages=[{"role": "user", "content": prompt}]
-                )
+            # Get model from database configuration
+            model = get_ai_model(provider="anthropic")
+            
+            # Use Anthropic client
+            anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            message = anthropic_client.messages.create(
+                model=model,
+                max_tokens=1024,
+                temperature=0.4,
+                messages=[{"role": "user", "content": prompt}]
+            )
             
             # Extract JSON from response (Claude may wrap it in text)
             response_text = message.content[0].text.strip()
