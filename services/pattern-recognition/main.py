@@ -294,7 +294,7 @@ async def analyze_patterns(request: dict):
         # Parse time range
         days_match = time_range.rstrip('d')
         days = int(days_match) if days_match.isdigit() else 30
-        start_date = (datetime.utcnow() - timedelta(days=days)).isoformat()
+        start_date = datetime.utcnow() - timedelta(days=days)
         
         async with db_pool.acquire() as conn:
             # Get all tasks
@@ -316,7 +316,7 @@ async def analyze_patterns(request: dict):
             )
             
             # Get overdue tasks
-            now = datetime.utcnow().isoformat()
+            now = datetime.utcnow()
             overdue_tasks = await conn.fetch(
                 "SELECT * FROM commitments WHERE status != $1 AND deadline < $2 AND deadline IS NOT NULL",
                 'completed', now

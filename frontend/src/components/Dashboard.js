@@ -21,11 +21,16 @@ function Dashboard({ setActiveTab }) {
     setLoadingInsights(true);
     try {
       const response = await intelligenceAPI.analyzePatterns(null, '7d');
+      console.log('Pattern analysis response:', response.data);
       if (response.data && response.data.success) {
         setProductivityInsights(response.data);
+      } else if (response.data) {
+        // Set error state with response data
+        setProductivityInsights({ error: true, message: response.data.note || response.data.error || 'No data available' });
       }
     } catch (err) {
-      console.log('Productivity insights unavailable:', err.message);
+      console.error('Productivity insights error:', err);
+      setProductivityInsights({ error: true, message: 'Failed to load insights' });
     } finally {
       setLoadingInsights(false);
     }
@@ -326,6 +331,19 @@ function Dashboard({ setActiveTab }) {
             marginBottom: '1rem'
           }}>
             <div>🔄 Loading productivity insights...</div>
+          </div>
+        )}
+        {productivityInsights && productivityInsights.error && (
+          <div style={{ 
+            padding: '1rem', 
+            color: '#fbbf24', 
+            fontSize: '0.85rem',
+            backgroundColor: '#18181b',
+            border: '1px solid #fbbf24',
+            borderRadius: '8px',
+            marginBottom: '1rem'
+          }}>
+            <div>⚠️ {productivityInsights.message}</div>
           </div>
         )}
 
