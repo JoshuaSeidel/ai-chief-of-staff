@@ -65,6 +65,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - backend-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
@@ -396,6 +397,8 @@ networks:
     name: aicos-network
 
 volumes:
+  backend-data:
+    driver: local
   postgres-data:
     driver: local
   redis-data:
