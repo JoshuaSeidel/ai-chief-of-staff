@@ -11,12 +11,15 @@ version: '3.8'
 #
 # WHAT'S IN ENVIRONMENT VARIABLES:
 # ✓ Infrastructure URLs (DATABASE_URL, REDIS_URL, service discovery)
-# ✓ External API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY - sensitive!)
 # ✓ Runtime settings (NODE_ENV, LOG_LEVEL)
-# ✓ Storage configuration (S3 credentials if using cloud storage)
 #
 # WHAT'S IN DATABASE (configured via Settings UI):
-# ✓ AI model selection (Claude Sonnet 4.5, GPT-4, etc.)
+# ✓ External API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY)
+#   - Stored encrypted in database, retrieved by microservices
+#   - Environment variable fallback for backward compatibility
+# ✓ AI model selection (claude-sonnet-4-5-20250929, gpt-4o, etc.)
+# ✓ AI provider selection (anthropic, openai, ollama)
+# ✓ Storage configuration (storageType: local/s3, S3 bucket, credentials)
 # ✓ Calendar credentials (Google OAuth tokens, Microsoft OAuth, CalDAV)
 # ✓ Jira/Planner integration settings
 # ✓ User preferences and dashboard settings
@@ -25,11 +28,10 @@ version: '3.8'
 # ✓ Calendar IDs (with 'primary' fallback)
 #
 # BENEFITS:
-# - Changes to AI models don't require container restart
-# - Calendar integration configured through UI, not YAML
-# - Per-user settings without environment variables
-# - Safer: API keys encrypted at rest in PostgreSQL
-# - Easier: Settings UI is more user-friendly than editing .env files
+# - Change AI models without container restart (just update DB)
+# - Change storage config without container restart (just update DB)
+# - Settings UI is more user-friendly than editing .env files
+# - Microservices read provider/model choice from database at runtime
 #
 # ==============================================================================
 
@@ -85,17 +87,7 @@ services:
       - CONTEXT_SERVICE_URL=http://aicos-context-service:8005
       
       # ============================================
-      # EXTERNAL API KEYS (Required - sensitive)
-      # ============================================
-      
-      # Anthropic Claude API key for AI operations
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      
-      # OpenAI API key for Whisper transcription
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      
-      # ============================================
-      # RUNTIME CONFIGURATION (Reasonable as env)
+      # RUNTIME CONFIGURATION
       # ============================================
       
       # Runtime environment (development/production)
@@ -147,14 +139,14 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - REDIS_URL=redis://aicos-redis:6379
       
-      # API Keys (still needed for API calls)
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      
       # Runtime
       - LOG_LEVEL=info
       
-      # Note: AI model selection comes from database via Settings UI
+      # All configuration from database via Settings UI:
+      # - API keys (anthropicApiKey, openaiApiKey)
+      # - AI provider selection (anthropic, openai, ollama, bedrock)
+      # - AI model selection (claude-sonnet-4-5-20250929, gpt-4o, mistral:latest, etc.)
+      # - Ollama base URL, AWS Bedrock credentials
     depends_on:
       - aicos-redis
     networks:
@@ -187,14 +179,14 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - REDIS_URL=redis://aicos-redis:6379
       
-      # API Keys
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      
       # Runtime
       - LOG_LEVEL=info
       
-      # Note: AI model selection comes from database via Settings UI
+      # All configuration from database via Settings UI:
+      # - API keys (anthropicApiKey, openaiApiKey)
+      # - AI provider selection (anthropic, openai, ollama, bedrock)
+      # - AI model selection (claude-sonnet-4-5-20250929, gpt-4o, mistral:latest, etc.)
+      # - Ollama base URL, AWS Bedrock credentials
     depends_on:
       - aicos-postgres
       - aicos-redis
@@ -228,16 +220,17 @@ services:
       - "8003:8003"
     environment:
       # Infrastructure
+      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - REDIS_URL=redis://aicos-redis:6379
-      
-      # API Keys
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
       
       # Runtime
       - LOG_LEVEL=info
       
-      # Note: AI model selection comes from database via Settings UI
+      # All configuration from database via Settings UI:
+      # - API keys (anthropicApiKey, openaiApiKey)
+      # - AI provider selection (anthropic, openai, ollama, bedrock)
+      # - AI model selection (claude-sonnet-4-5-20250929, gpt-4o, mistral:latest, etc.)
+      # - Ollama base URL, AWS Bedrock credentials
     depends_on:
       - aicos-redis
     networks:
@@ -270,16 +263,17 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
       - REDIS_URL=redis://aicos-redis:6379
       
-      # API Keys
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      
       # Runtime
       - LOG_LEVEL=info
       
-      # Note: AI model and storage config come from database via Settings UI
+      # All configuration from database via Settings UI:
+      # - API keys (openaiApiKey)
+      # - AI provider selection (openai, ollama)
+      # - AI model selection (whisper-1, whisper:medium, etc.)
+      # - Storage configuration (storageType, s3Bucket, s3 credentials, etc.)
+      # - Ollama base URL
     depends_on:
       - aicos-redis
-      - aicos-postgres
     networks:
       - aicos-network
     volumes:

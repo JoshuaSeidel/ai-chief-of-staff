@@ -258,7 +258,7 @@ function Dashboard({ setActiveTab }) {
         )}
         
         {/* Productivity Insights Widget */}
-        {productivityInsights && productivityInsights.success && (
+        {productivityInsights && !productivityInsights.error && productivityInsights.success && (
           <div style={{
             marginBottom: '1.5rem',
             padding: '1rem',
@@ -344,6 +344,21 @@ function Dashboard({ setActiveTab }) {
             marginBottom: '1rem'
           }}>
             <div>⚠️ {productivityInsights.message}</div>
+          </div>
+        )}
+        {productivityInsights && !productivityInsights.success && !productivityInsights.error && (
+          <div style={{ 
+            padding: '1.5rem', 
+            textAlign: 'center',
+            color: '#a1a1aa', 
+            fontSize: '0.9rem',
+            backgroundColor: '#18181b',
+            border: '1px solid #3f3f46',
+            borderRadius: '8px',
+            marginBottom: '1rem'
+          }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
+            <div>{productivityInsights.note || productivityInsights.message || 'Complete some tasks to see pattern analysis'}</div>
           </div>
         )}
 

@@ -19,7 +19,7 @@ sys.path.insert(0, '/app/shared')
 
 try:
     from ai_providers import get_ai_client, get_best_available_provider
-    from db_config import get_ai_model, get_ai_provider
+    from db_config import get_ai_model, get_ai_provider, get_api_key, get_ollama_config, get_bedrock_config
     USE_SHARED_LIBS = True
     logger = logging.getLogger(__name__)
     logger.info("✓ Using shared AI provider abstraction")
@@ -74,18 +74,37 @@ try:
         model = get_ai_model(provider=provider)
         
         try:
-            # Get API key from environment based on provider
-            api_key = None
-            if provider == "anthropic":
+            # Get configuration from database (with environment variable fallback)
+            api_key = get_api_key(provider)
+            if not api_key and provider == "anthropic":
                 api_key = os.getenv("ANTHROPIC_API_KEY")
-            elif provider == "openai":
+                if api_key:
+                    logger.info("Using ANTHROPIC_API_KEY from environment (fallback)")
+            elif not api_key and provider == "openai":
                 api_key = os.getenv("OPENAI_API_KEY")
-            # Ollama doesn't need API key
+                if api_key:
+                    logger.info("Using OPENAI_API_KEY from environment (fallback)")
+            
+            # Build provider-specific kwargs
+            kwargs = {"api_key": api_key} if api_key else {}
+            
+            # Add provider-specific configuration
+            if provider == "ollama":
+                ollama_config = get_ollama_config()
+                kwargs["base_url"] = ollama_config["base_url"]
+                logger.info(f"Using Ollama at {ollama_config['base_url']}")
+            elif provider == "bedrock":
+                bedrock_config = get_bedrock_config()
+                if bedrock_config["access_key_id"]:
+                    kwargs["access_key_id"] = bedrock_config["access_key_id"]
+                    kwargs["secret_access_key"] = bedrock_config["secret_access_key"]
+                    kwargs["region"] = bedrock_config["region"]
+                    logger.info(f"Using AWS Bedrock in {bedrock_config['region']}")
             
             ai_client = get_ai_client(
                 provider=provider,
                 model=model,
-                api_key=api_key
+                **kwargs
             )
             logger.info(f"✓ Using AI provider: {provider} with model {model}")
             logger.info(f"AI client type: {type(ai_client)}")

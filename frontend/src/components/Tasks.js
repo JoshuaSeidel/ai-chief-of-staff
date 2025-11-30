@@ -236,9 +236,9 @@ function Commitments() {
       const response = await intelligenceAPI.clusterTasks(tasks);
       if (response.data && response.data.clusters) {
         setClusters(response.data);
-        setShowClusters(true);
         
         // Save cluster assignments to database
+        let updatedCount = 0;
         for (const cluster of response.data.clusters) {
           for (const taskIndex of cluster.task_indices) {
             const task = tasks[taskIndex - 1];  // task_indices are 1-based
@@ -247,6 +247,8 @@ function Commitments() {
                 await commitmentsAPI.update(task.commitment_id, { 
                   cluster_group: cluster.name 
                 });
+                updatedCount++;
+                console.log(`Updated task ${task.commitment_id} with cluster: ${cluster.name}`);
               } catch (updateErr) {
                 console.error(`Failed to update cluster for task ${task.commitment_id}:`, updateErr);
               }
@@ -256,8 +258,12 @@ function Commitments() {
         
         // Reload commitments to show updated groups
         await loadCommitments();
+        
+        // Show success message with cluster info
+        setShowClusters(true);
+        alert(`✅ Grouped ${updatedCount} tasks into ${response.data.clusters.length} clusters!\n\nCheck the task list to see group labels.`);
       } else {
-        alert('No clusters identified');
+        alert('No clusters identified - tasks are too different to group');
       }
     } catch (err) {
       console.error('Clustering failed:', err);
@@ -450,7 +456,7 @@ function Commitments() {
               }}
               title="AI-powered task grouping"
             >
-              {clusteringTasks ? '⏳ Grouping...' : '🤖 Smart Grouping...'}
+              {clusteringTasks ? '⏳ Analyzing Tasks...' : '🤖 Analyze & Group Tasks'}
             </button>
             {microsoftConnected && (
               <button 
@@ -694,9 +700,24 @@ function Commitments() {
                   border: '1px solid #f59e0b40'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
+                    {commitment.cluster_group && (
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.35rem 0.65rem', 
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fbbf24', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
@@ -706,20 +727,6 @@ function Commitments() {
                   <div>👤 Assignee: <strong>{commitment.assignee || 'Unknown'}</strong></div>
                   {commitment.deadline && (
                     <div>📅 Deadline: {formatDate(commitment.deadline)}</div>
-                  )}
-                  {commitment.cluster_group && (
-                    <div style={{ marginTop: '0.5rem' }}>
-                      <span style={{ 
-                        backgroundColor: '#3b82f6', 
-                        color: 'white', 
-                        padding: '0.25rem 0.5rem', 
-                        borderRadius: '4px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600'
-                      }}>
-                        📁 {commitment.cluster_group}
-                      </span>
-                    </div>
                   )}
                   {commitment.suggested_approach && (
                     <div style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
@@ -783,8 +790,23 @@ function Commitments() {
             >
               <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
+                    {commitment.cluster_group && (
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.35rem 0.65rem', 
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fca5a5', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
@@ -829,8 +851,23 @@ function Commitments() {
             >
               <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
+                    {commitment.cluster_group && (
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.35rem 0.65rem', 
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
@@ -876,8 +913,23 @@ function Commitments() {
             >
               <div className="task-card-layout" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                 <div className="task-card-content" style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
+                    {commitment.cluster_group && (
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.35rem 0.65rem', 
+                        borderRadius: '6px',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    )}
                   </div>
                   <p style={{ fontSize: '1rem', marginBottom: '0.5rem', textDecoration: 'line-through', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
                     {commitment.description}
