@@ -36,6 +36,7 @@ WORKDIR /app
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache \
     python3 \
+    py3-setuptools \
     make \
     g++ \
     && ln -sf python3 /usr/bin/python
