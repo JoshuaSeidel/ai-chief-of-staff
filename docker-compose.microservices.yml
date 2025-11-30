@@ -138,8 +138,8 @@ services:
   aicos-ai-intelligence:
     container_name: aicos-ai-intelligence
     build:
-      context: ./services/ai-intelligence
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: ai-intelligence/Dockerfile
     ports:
       - "8001:8001"
     environment:
@@ -171,8 +171,8 @@ services:
   aicos-pattern-recognition:
     container_name: aicos-pattern-recognition
     build:
-      context: ./services/pattern-recognition
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: pattern-recognition/Dockerfile
     ports:
       - "8002:8002"
     environment:
@@ -208,8 +208,8 @@ services:
   aicos-nl-parser:
     container_name: aicos-nl-parser
     build:
-      context: ./services/nl-parser
-      dockerfile: Dockerfile
+      context: ./services
+      dockerfile: nl-parser/Dockerfile
     ports:
       - "8003:8003"
     environment:
