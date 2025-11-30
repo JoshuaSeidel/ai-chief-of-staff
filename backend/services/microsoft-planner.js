@@ -62,14 +62,15 @@ async function getOAuthClient() {
 
 /**
  * Generate OAuth URL for user to authorize
+ * Includes both Calendar and Tasks scopes for unified Microsoft integration
  */
 async function getAuthUrl() {
   const { clientId, redirectUri } = await getOAuthClient();
   
   // Microsoft OAuth2 authorization endpoint - using /common for multi-tenant support
-  // This allows users from any organization or personal accounts to sign in
-  // Using Microsoft To Do API, not Planner API
+  // Includes both Calendar and Tasks scopes for unified Microsoft integration
   const scopes = [
+    'Calendars.ReadWrite',
     'Tasks.ReadWrite',
     'User.Read'
   ].join(' ');
@@ -80,15 +81,14 @@ async function getAuthUrl() {
     redirect_uri: redirectUri,
     response_mode: 'query',
     scope: scopes,
-    state: 'microsoft-planner-auth',
+    state: 'microsoft-integration-auth',
     prompt: 'select_account' // Allow user to choose which account to use
   });
   
   // Use /common for multi-tenant support (works with any org or personal accounts)
-  // Alternative: use /organizations for work/school accounts only
   const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
   
-  logger.info('Generated Microsoft OAuth URL (multi-tenant)');
+  logger.info('Generated Microsoft OAuth URL (Calendar + Tasks)');
   return url;
 }
 
@@ -108,7 +108,7 @@ async function getTokenFromCode(code) {
     code: code,
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
-    scope: 'Tasks.ReadWrite User.Read'
+    scope: 'Calendars.ReadWrite Tasks.ReadWrite User.Read'
   });
   
   const response = await fetch(tokenUrl, {
@@ -132,26 +132,26 @@ async function getTokenFromCode(code) {
     tokens.expires_at = Math.floor(Date.now() / 1000) + tokens.expires_in;
   }
   
-  // Store tokens in database (including tenant info if provided)
+  // Store tokens in database (shared token for both Calendar and Planner)
   const db = getDb();
   await db.run(
     'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-    ['microsoftPlannerToken', JSON.stringify(tokens)]
+    ['microsoftToken', JSON.stringify(tokens)]
   );
   
-  logger.info('Microsoft Planner tokens stored successfully');
+  logger.info('Microsoft tokens stored successfully (Calendar + Tasks)');
   return tokens;
 }
 
 /**
- * Get Microsoft Graph client with stored tokens
+ * Get Microsoft Graph client with stored tokens (shared token for Calendar and Planner)
  */
 async function getGraphClient() {
   const db = getDb();
-  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftPlannerToken']);
+  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftToken']);
   
   if (!tokenRow || !tokenRow.value) {
-    throw new Error('Microsoft Planner not connected. Please connect in Configuration.');
+    throw new Error('Microsoft not connected. Please connect in Configuration.');
   }
   
   let tokens;
@@ -169,7 +169,7 @@ async function getGraphClient() {
     const db = getDb();
     await db.run(
       'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-      ['microsoftPlannerToken', JSON.stringify(tokens)]
+      ['microsoftToken', JSON.stringify(tokens)]
     );
   }
   
@@ -198,7 +198,7 @@ async function refreshToken(refreshTokenValue) {
     client_secret: clientSecret,
     refresh_token: refreshTokenValue,
     grant_type: 'refresh_token',
-    scope: 'Tasks.ReadWrite User.Read'
+    scope: 'Calendars.ReadWrite Tasks.ReadWrite User.Read'
   });
   
   const response = await fetch(tokenUrl, {
@@ -222,33 +222,33 @@ async function refreshToken(refreshTokenValue) {
     tokens.expires_at = Math.floor(Date.now() / 1000) + tokens.expires_in;
   }
   
-  // Store updated tokens
+  // Store updated tokens (shared token for Calendar and Planner)
   const db = getDb();
   await db.run(
     'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-    ['microsoftPlannerToken', JSON.stringify(tokens)]
+    ['microsoftToken', JSON.stringify(tokens)]
   );
   
-  logger.info('Microsoft Planner tokens refreshed successfully');
+  logger.info('Microsoft tokens refreshed successfully (Calendar + Tasks)');
   return tokens;
 }
 
 /**
- * Check if user has connected Microsoft Planner
+ * Check if user has connected Microsoft (shared token for Calendar and Planner)
  */
 async function isConnected() {
   const db = getDb();
-  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftPlannerToken']);
+  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftToken']);
   return !!(tokenRow && tokenRow.value);
 }
 
 /**
- * Disconnect Microsoft Planner
+ * Disconnect Microsoft (removes shared token for Calendar and Planner)
  */
 async function disconnect() {
   const db = getDb();
-  await db.run('DELETE FROM config WHERE key = ?', ['microsoftPlannerToken']);
-  logger.info('Microsoft Planner disconnected');
+  await db.run('DELETE FROM config WHERE key = ?', ['microsoftToken']);
+  logger.info('Microsoft disconnected (Calendar + Planner)');
 }
 
 /**

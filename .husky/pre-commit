@@ -13,24 +13,35 @@ fi
 # Stage the updated package.json files
 git add backend/package.json frontend/package.json
 
-echo "🔍 Running ESLint on JavaScript files..."
+echo "🔍 Running ESLint on changed JavaScript files..."
 
-# Check if we're in the frontend directory or root
-if [ -d "frontend" ]; then
+# Get list of staged JS/JSX files in frontend
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^frontend/src/.*\.(js|jsx)$' || true)
+
+if [ -n "$STAGED_FILES" ]; then
+  echo "Checking files:"
+  echo "$STAGED_FILES"
+  
+  # Run ESLint on staged files only
   cd frontend
-  npm run lint -- --max-warnings=0
-  LINT_EXIT_CODE=$?
+  
+  # Convert paths to be relative to frontend directory
+  FILES_TO_LINT=$(echo "$STAGED_FILES" | sed 's|^frontend/||' | tr '\n' ' ')
+  
+  if [ -n "$FILES_TO_LINT" ]; then
+    npx eslint $FILES_TO_LINT --max-warnings=0
+    LINT_EXIT_CODE=$?
+    
+    if [ $LINT_EXIT_CODE -ne 0 ]; then
+      echo "❌ ESLint found errors in changed files. Please fix them before committing."
+      cd ..
+      exit 1
+    fi
+  fi
+  
   cd ..
+  echo "✅ ESLint passed on changed files!"
 else
-  # If already in frontend directory
-  npm run lint -- --max-warnings=0
-  LINT_EXIT_CODE=$?
+  echo "ℹ️  No JavaScript files changed, skipping ESLint"
 fi
-
-if [ $LINT_EXIT_CODE -ne 0 ]; then
-  echo "❌ ESLint found errors. Please fix them before committing."
-  exit 1
-fi
-
-echo "✅ ESLint passed!"
 

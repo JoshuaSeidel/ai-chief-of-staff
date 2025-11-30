@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { briefAPI } from '../services/api';
+import { briefAPI, intelligenceAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import { PullToRefresh } from './PullToRefresh';
 
@@ -9,10 +9,32 @@ function Dashboard({ setActiveTab }) {
   const [error, setError] = useState(null);
   const [lastGenerated, setLastGenerated] = useState(null);
   const [stats, setStats] = useState(null);
+  const [productivityInsights, setProductivityInsights] = useState(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   useEffect(() => {
     loadTodaysBrief();
+    loadProductivityInsights();
   }, []);
+
+  const loadProductivityInsights = async () => {
+    setLoadingInsights(true);
+    try {
+      const response = await intelligenceAPI.analyzePatterns(null, '7d');
+      console.log('Pattern analysis response:', response.data);
+      if (response.data && response.data.success) {
+        setProductivityInsights(response.data);
+      } else if (response.data) {
+        // Set error state with response data
+        setProductivityInsights({ error: true, message: response.data.note || response.data.error || 'No data available' });
+      }
+    } catch (err) {
+      console.error('Productivity insights error:', err);
+      setProductivityInsights({ error: true, message: 'Failed to load insights' });
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
 
   const loadTodaysBrief = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -21,8 +43,10 @@ function Dashboard({ setActiveTab }) {
       setBrief(response.data.content);
       setLastGenerated(response.data.created_date);
     } catch (err) {
-      // No brief for today yet, that's okay
-      console.log('No brief for today yet');
+      // No brief for today yet - this is normal, don't log as error
+      if (err.response?.status !== 404) {
+        console.error('Error loading brief:', err);
+      }
     }
   };
 
@@ -167,15 +191,11 @@ function Dashboard({ setActiveTab }) {
           <button 
             onClick={generateBrief} 
             disabled={loading}
+            className="glass-button-primary"
             style={{
               padding: '0.75rem 1.25rem',
-              backgroundColor: '#3f3f46',
-              color: '#e4e4e7',
-              border: '1px solid #52525b',
-              borderRadius: '8px',
               cursor: loading ? 'not-allowed' : 'pointer',
               fontSize: '0.9375rem',
-              fontWeight: '500',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',
@@ -234,6 +254,96 @@ function Dashboard({ setActiveTab }) {
               </div>
               <div style={{ fontSize: '0.85rem', color: '#6e6e73' }}>Transcripts</div>
             </div>
+          </div>
+        )}
+        
+        {/* Productivity Insights Widget */}
+        {productivityInsights && productivityInsights.success && (
+          <div style={{
+            marginBottom: '1.5rem',
+            padding: '1rem',
+            backgroundColor: '#1a2e1a',
+            border: '1px solid #22c55e',
+            borderRadius: '8px'
+          }}>
+            <h3 style={{ margin: 0, marginBottom: '0.75rem', color: '#22c55e', fontSize: '1.1rem' }}>
+              📊 Productivity Insights ({productivityInsights.time_range})
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
+              <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#22c55e' }}>
+                  {productivityInsights.stats.completion_rate}%
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Completion Rate</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>
+                  {productivityInsights.stats.completed}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Completed</div>
+              </div>
+              {productivityInsights.stats.overdue > 0 && (
+                <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' }}>
+                    {productivityInsights.stats.overdue}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Overdue</div>
+                </div>
+              )}
+              {productivityInsights.stats.most_productive_day && (
+                <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#fbbf24' }}>
+                    {productivityInsights.stats.most_productive_day}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Best Day</div>
+                </div>
+              )}
+            </div>
+            {productivityInsights.insights && (
+              <details open style={{ marginTop: '0.5rem' }}>
+                <summary style={{ cursor: 'pointer', color: '#a1a1aa', fontSize: '0.85rem' }}>
+                  {productivityInsights.insights === 'Generating AI insights...' ? '🤖 Generating AI insights...' : 'View AI insights'}
+                </summary>
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#e5e5e7', lineHeight: '1.5', maxHeight: '200px', overflow: 'auto' }}>
+                  {productivityInsights.insights === 'Generating AI insights...' ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#22c55e' }}>
+                      <span>🔄</span>
+                      <span>Analyzing your patterns with AI...</span>
+                    </div>
+                  ) : (
+                    productivityInsights.insights.length > 500 
+                      ? `${productivityInsights.insights.substring(0, 500)}...` 
+                      : productivityInsights.insights
+                  )}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
+        {loadingInsights && !productivityInsights && (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '1rem', 
+            color: '#22c55e', 
+            fontSize: '0.85rem',
+            backgroundColor: '#18181b',
+            borderRadius: '8px',
+            marginBottom: '1rem'
+          }}>
+            <div>🔄 Loading productivity insights...</div>
+          </div>
+        )}
+        {productivityInsights && productivityInsights.error && (
+          <div style={{ 
+            padding: '1rem', 
+            color: '#fbbf24', 
+            fontSize: '0.85rem',
+            backgroundColor: '#18181b',
+            border: '1px solid #fbbf24',
+            borderRadius: '8px',
+            marginBottom: '1rem'
+          }}>
+            <div>⚠️ {productivityInsights.message}</div>
           </div>
         )}
 

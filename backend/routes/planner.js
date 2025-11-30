@@ -7,11 +7,13 @@ const jira = require('../services/jira');
 const logger = createModuleLogger('PLANNER');
 
 /**
- * Microsoft OAuth - Get authorization URL
+ * Microsoft OAuth - Get authorization URL (shared for Calendar and Planner)
  */
 router.get('/microsoft/auth', async (req, res) => {
   try {
-    const authUrl = await microsoftPlanner.getAuthUrl();
+    // Use microsoft-calendar service for auth (includes both Calendar and Tasks scopes)
+    const microsoftCalendar = require('../services/microsoft-calendar');
+    const authUrl = await microsoftCalendar.getAuthUrl();
     res.json({ authUrl });
   } catch (error) {
     logger.error('Error generating Microsoft auth URL', error);
@@ -55,9 +57,11 @@ router.get('/microsoft/callback', async (req, res) => {
   }
   
   try {
-    await microsoftPlanner.getTokenFromCode(code);
-    logger.info('Microsoft Planner connected successfully');
-    res.redirect('/#config?success=microsoft_planner_connected');
+    // Use microsoft-calendar service for token exchange (shared token for Calendar and Planner)
+    const microsoftCalendar = require('../services/microsoft-calendar');
+    await microsoftCalendar.getTokenFromCode(code);
+    logger.info('Microsoft connected successfully (Calendar + Planner)');
+    res.redirect('/#config?success=microsoft_integration_connected');
   } catch (error) {
     logger.error('Error exchanging code for token', error);
     res.redirect('/#config?error=microsoft_oauth_exchange_failed');

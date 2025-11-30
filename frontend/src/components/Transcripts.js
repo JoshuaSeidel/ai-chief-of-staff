@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { transcriptsAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
@@ -8,6 +8,13 @@ function Transcripts() {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [showPasteForm, setShowPasteForm] = useState(false);
+  const [showRecording, setShowRecording] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const timerRef = useRef(null);
   const [pasteData, setPasteData] = useState({
     filename: '',
     content: '',
@@ -190,6 +197,112 @@ function Transcripts() {
     }
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { 
+          type: mediaRecorder.mimeType 
+        });
+        setAudioBlob(audioBlob);
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      setError('Failed to access microphone. Please check permissions.');
+      console.error('Recording error:', err);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    }
+  };
+
+  const cancelRecording = () => {
+    stopRecording();
+    setAudioBlob(null);
+    setRecordingTime(0);
+    setShowRecording(false);
+    audioChunksRef.current = [];
+  };
+
+  const handleRecordingUpload = async () => {
+    if (!audioBlob) return;
+
+    setUploading(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    const formData = new FormData();
+    const filename = `recording-${new Date().toISOString()}.${audioBlob.type.includes('webm') ? 'webm' : 'mp4'}`;
+    formData.append('transcript', audioBlob, filename);
+    if (fileMeetingDate) {
+      formData.append('meetingDate', fileMeetingDate);
+    }
+
+    try {
+      const response = await transcriptsAPI.upload(formData);
+      const data = response.data;
+      
+      if (data.success && data.status === 'processing') {
+        setSuccessMessage(`✓ Recording uploaded!\n⏳ Transcribing with AI...`);
+        setProcessingTranscriptId(data.transcriptId);
+        setProcessingProgress(0);
+        setAudioBlob(null);
+        setRecordingTime(0);
+        setShowRecording(false);
+        setFileMeetingDate('');
+        loadTranscripts();
+        setUploading(false);
+        setTimeout(() => pollProcessingStatus(data.transcriptId), 1000);
+      } else {
+        setSuccessMessage(`Successfully uploaded recording`);
+        setAudioBlob(null);
+        setRecordingTime(0);
+        setShowRecording(false);
+        setFileMeetingDate('');
+        loadTranscripts();
+        setUploading(false);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload recording');
+      setUploading(false);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this transcript?')) {
       return;
@@ -299,14 +412,29 @@ function Transcripts() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="transcripts">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <h2>Upload Transcript</h2>
-          <button 
-            onClick={() => setShowPasteForm(!showPasteForm)}
-            className="secondary"
-          >
-            {showPasteForm ? 'Upload File' : '📝 Paste Text'}
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button 
+              onClick={() => {
+                setShowRecording(!showRecording);
+                setShowPasteForm(false);
+              }}
+              className="secondary glass-button"
+              style={{ fontSize: '1.2rem' }}
+            >
+              {showRecording ? '📁' : '🎤'}
+            </button>
+            <button 
+              onClick={() => {
+                setShowPasteForm(!showPasteForm);
+                setShowRecording(false);
+              }}
+              className="secondary glass-button"
+            >
+              {showPasteForm ? '📁 File' : '📝 Text'}
+            </button>
+          </div>
         </div>
         
         {error && (
@@ -371,7 +499,95 @@ function Transcripts() {
           </div>
         )}
 
-        {!showPasteForm ? (
+        {showRecording ? (
+          <div className="recording-panel glass-panel">
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <div className="recording-visualizer">
+                {isRecording && (
+                  <>
+                    <div className="pulse-ring"></div>
+                    <div className="pulse-ring" style={{ animationDelay: '0.5s' }}></div>
+                    <div className="pulse-ring" style={{ animationDelay: '1s' }}></div>
+                  </>
+                )}
+                <div className={`recording-icon ${isRecording ? 'recording' : ''}`}>
+                  🎤
+                </div>
+              </div>
+              
+              <div style={{ fontSize: '2rem', fontWeight: '600', color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem' }}>
+                {formatTime(recordingTime)}
+              </div>
+              
+              {!isRecording && !audioBlob && (
+                <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
+                  Record your meeting notes or voice memo
+                </p>
+              )}
+              
+              {audioBlob && !isRecording && (
+                <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
+                  <p style={{ color: '#34d399', marginBottom: '0.5rem', fontWeight: '500' }}>
+                    ✓ Recording complete ({formatTime(recordingTime)})
+                  </p>
+                  <audio 
+                    controls 
+                    src={URL.createObjectURL(audioBlob)}
+                    style={{ 
+                      width: '100%', 
+                      marginTop: '1rem',
+                      borderRadius: '8px' 
+                    }}
+                  />
+                </div>
+              )}
+              
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+                {!isRecording && !audioBlob && (
+                  <button 
+                    onClick={startRecording}
+                    className="primary glass-button-primary"
+                    style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+                  >
+                    <span style={{ fontSize: '1.2rem', marginRight: '0.5rem' }}>⏺</span>
+                    Start Recording
+                  </button>
+                )}
+                
+                {isRecording && (
+                  <button 
+                    onClick={stopRecording}
+                    className="glass-button-stop"
+                    style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+                  >
+                    <span style={{ fontSize: '1.2rem', marginRight: '0.5rem' }}>⏹</span>
+                    Stop
+                  </button>
+                )}
+                
+                {audioBlob && !isRecording && (
+                  <>
+                    <button 
+                      onClick={handleRecordingUpload}
+                      disabled={uploading}
+                      className="primary glass-button-primary"
+                      style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+                    >
+                      {uploading ? '⏳ Processing...' : '✓ Upload & Transcribe'}
+                    </button>
+                    <button 
+                      onClick={cancelRecording}
+                      className="secondary glass-button"
+                      style={{ padding: '0.75rem 1.5rem' }}
+                    >
+                      ✕ Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : !showPasteForm ? (
           <>
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>

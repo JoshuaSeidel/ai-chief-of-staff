@@ -8,17 +8,25 @@ const logger = createModuleLogger('NOTIFICATIONS-API');
 /**
  * Get VAPID public key for client
  */
-router.get('/vapid-public-key', (req, res) => {
-  const publicKey = pushService.getPublicKey();
-  
-  if (!publicKey) {
-    return res.status(503).json({ 
-      error: 'Push notifications not configured',
-      message: 'VAPID keys are not set on the server'
+router.get('/vapid-public-key', async (req, res) => {
+  try {
+    const publicKey = await pushService.getPublicKey();
+    
+    if (!publicKey) {
+      return res.status(503).json({ 
+        error: 'Push notifications not configured',
+        message: 'VAPID keys are not set on the server'
+      });
+    }
+    
+    res.json({ publicKey });
+  } catch (error) {
+    logger.error('Failed to get VAPID public key:', error);
+    res.status(500).json({ 
+      error: 'Failed to retrieve VAPID key',
+      message: error.message
     });
   }
-  
-  res.json({ publicKey });
 });
 
 /**
@@ -91,6 +99,53 @@ router.post('/test', async (req, res) => {
     logger.error('Error sending test notification:', error);
     res.status(500).json({ 
       error: 'Failed to send test notification',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Dismiss a notification to prevent future sends
+ */
+router.post('/dismiss', async (req, res) => {
+  try {
+    const { notificationTag } = req.body;
+    
+    if (!notificationTag) {
+      return res.status(400).json({ error: 'notificationTag required' });
+    }
+    
+    await pushService.dismissNotification(notificationTag);
+    logger.info(`Notification dismissed: ${notificationTag}`);
+    
+    res.json({ message: 'Notification dismissed successfully' });
+  } catch (error) {
+    logger.error('Error dismissing notification:', error);
+    res.status(500).json({ 
+      error: 'Failed to dismiss notification',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Regenerate VAPID keys (will invalidate all existing subscriptions)
+ */
+router.post('/regenerate-vapid', async (req, res) => {
+  try {
+    const { regenerateVapidKeys } = require('../utils/vapid-manager');
+    const keys = await regenerateVapidKeys();
+    
+    logger.info('VAPID keys regenerated - all existing subscriptions invalidated');
+    res.json({ 
+      message: 'VAPID keys regenerated successfully',
+      publicKey: keys.publicKey,
+      note: 'All users will need to re-enable notifications'
+    });
+  } catch (error) {
+    logger.error('Error regenerating VAPID keys:', error);
+    res.status(500).json({ 
+      error: 'Failed to regenerate VAPID keys',
       message: error.message
     });
   }

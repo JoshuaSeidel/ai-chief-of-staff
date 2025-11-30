@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { commitmentsAPI } from '../services/api';
+import { commitmentsAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
 function Commitments() {
@@ -22,6 +22,9 @@ function Commitments() {
     deadline: '',
     priority: 'medium'
   });
+  const [showClusters, setShowClusters] = useState(false);
+  const [clusters, setClusters] = useState(null);
+  const [clusteringTasks, setClusteringTasks] = useState(false);
 
   useEffect(() => {
     loadCommitments();
@@ -214,6 +217,56 @@ function Commitments() {
     await loadCommitments();
   };
 
+  const handleSmartGroup = async () => {
+    const pendingTasks = filteredCommitments.filter(c => c.status !== 'completed');
+    if (pendingTasks.length < 2) {
+      alert('Need at least 2 pending tasks to group');
+      return;
+    }
+    
+    setClusteringTasks(true);
+    try {
+      const tasks = pendingTasks.map((c, i) => ({
+        id: i + 1,
+        description: c.description,
+        deadline: c.deadline,
+        commitment_id: c.id  // Keep track of actual DB ID
+      }));
+      
+      const response = await intelligenceAPI.clusterTasks(tasks);
+      if (response.data && response.data.clusters) {
+        setClusters(response.data);
+        setShowClusters(true);
+        
+        // Save cluster assignments to database
+        for (const cluster of response.data.clusters) {
+          for (const taskIndex of cluster.task_indices) {
+            const task = tasks[taskIndex - 1];  // task_indices are 1-based
+            if (task && task.commitment_id) {
+              try {
+                await commitmentsAPI.update(task.commitment_id, { 
+                  cluster_group: cluster.name 
+                });
+              } catch (updateErr) {
+                console.error(`Failed to update cluster for task ${task.commitment_id}:`, updateErr);
+              }
+            }
+          }
+        }
+        
+        // Reload commitments to show updated groups
+        await loadCommitments();
+      } else {
+        alert('No clusters identified');
+      }
+    } catch (err) {
+      console.error('Clustering failed:', err);
+      alert('Smart grouping unavailable: ' + err.message);
+    } finally {
+      setClusteringTasks(false);
+    }
+  };
+
   const updateStatus = async (id, newStatus) => {
     try {
       await commitmentsAPI.update(id, { status: newStatus });
@@ -314,6 +367,28 @@ function Commitments() {
     };
   };
 
+  // Apply filters to get filtered commitments
+  const getFilteredCommitments = () => {
+    let filtered = commitments;
+    
+    // Apply status filter
+    if (filter === 'overdue') {
+      filtered = filtered.filter(c => isOverdue(c));
+    } else if (filter === 'pending') {
+      filtered = filtered.filter(c => c.status === 'pending' && !isOverdue(c));
+    } else if (filter === 'completed') {
+      filtered = filtered.filter(c => c.status === 'completed');
+    }
+    
+    // Apply type filter
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(c => (c.task_type || 'commitment') === typeFilter);
+    }
+    
+    return filtered;
+  };
+
+  const filteredCommitments = getFilteredCommitments();
   const grouped = groupByStatus();
   const byType = groupByType();
   
@@ -336,9 +411,9 @@ function Commitments() {
     <>
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="commitments">
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <h2>📋 Tasks</h2>
+            <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
+          <h2 style={{ margin: 0 }}>Task Management</h2>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
               onClick={() => setShowCreateModal(true)}
@@ -357,6 +432,25 @@ function Commitments() {
               title="Create a new task"
             >
               ➕ Create Task
+            </button>
+            <button
+              onClick={handleSmartGroup}
+              disabled={clusteringTasks || loading || filteredCommitments.filter(c => c.status !== 'completed').length < 2}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: clusteringTasks ? '#6e6e73' : '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: clusteringTasks || filteredCommitments.filter(c => c.status !== 'completed').length < 2 ? 'not-allowed' : 'pointer',
+                fontSize: '0.9rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              title="AI-powered task grouping"
+            >
+              {clusteringTasks ? '⏳ Grouping...' : '🤖 Smart Grouping...'}
             </button>
             {microsoftConnected && (
               <button 
@@ -612,6 +706,20 @@ function Commitments() {
                   <div>👤 Assignee: <strong>{commitment.assignee || 'Unknown'}</strong></div>
                   {commitment.deadline && (
                     <div>📅 Deadline: {formatDate(commitment.deadline)}</div>
+                  )}
+                  {commitment.cluster_group && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <span style={{ 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        padding: '0.25rem 0.5rem', 
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: '600'
+                      }}>
+                        📁 {commitment.cluster_group}
+                      </span>
+                    </div>
                   )}
                   {commitment.suggested_approach && (
                     <div style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
@@ -989,6 +1097,103 @@ function Commitments() {
                 {creating ? 'Creating...' : 'Create Task'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Smart Groups Modal */}
+      {showClusters && clusters && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            backgroundColor: '#18181b',
+            borderRadius: '12px',
+            padding: '2rem',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflow: 'auto',
+            color: '#e5e5e7'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, color: '#e5e5e7' }}>🤖 AI-Grouped Tasks</h3>
+              <button
+                onClick={() => setShowClusters(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  color: '#a1a1aa'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            {clusters.clusters && clusters.clusters.map((cluster, idx) => (
+              <div key={idx} style={{
+                marginBottom: '1rem',
+                padding: '1rem',
+                backgroundColor: '#09090b',
+                borderRadius: '8px',
+                border: '1px solid #3f3f46'
+              }}>
+                <h4 style={{ color: '#3b82f6', marginTop: 0, marginBottom: '0.5rem' }}>{cluster.name}</h4>
+                {cluster.reasoning && (
+                  <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{cluster.reasoning}</p>
+                )}
+                {cluster.suggested_order && (
+                  <p style={{ color: '#22c55e', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+                    <strong>Order:</strong> {cluster.suggested_order}
+                  </p>
+                )}
+                <p style={{ color: '#71717a', fontSize: '0.85rem', margin: 0 }}>
+                  Tasks: {(cluster.tasks || cluster.task_indices || []).join(', ')}
+                </p>
+              </div>
+            ))}
+            
+            {clusters.recommendations && (
+              <div style={{
+                marginTop: '1.5rem',
+                padding: '1rem',
+                backgroundColor: '#1a2e1a',
+                borderRadius: '8px',
+                border: '1px solid #22c55e'
+              }}>
+                <h4 style={{ color: '#22c55e', marginTop: 0, marginBottom: '0.5rem' }}>💡 Recommendations</h4>
+                <p style={{ color: '#e5e5e7', fontSize: '0.9rem', margin: 0 }}>{clusters.recommendations}</p>
+              </div>
+            )}
+            
+            <button
+              onClick={() => setShowClusters(false)}
+              style={{
+                marginTop: '1.5rem',
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                width: '100%',
+                fontSize: '1rem'
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

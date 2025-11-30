@@ -164,7 +164,8 @@ self.addEventListener('push', (event) => {
     body: 'New notification',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
-    tag: 'ai-chief-of-staff'
+    tag: 'ai-chief-of-staff',
+    actions: []
   };
   
   // Parse the JSON payload from the server
@@ -177,7 +178,8 @@ self.addEventListener('push', (event) => {
         icon: payload.icon || '/icon-192.png',
         badge: payload.badge || '/icon-192.png',
         tag: payload.tag || 'ai-chief-of-staff',
-        data: payload.data || {}
+        data: payload.data || {},
+        actions: payload.actions || []
       };
     } catch (e) {
       console.error('[Service Worker] Failed to parse notification data:', e);
@@ -191,7 +193,8 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200],
     tag: notificationData.tag,
     requireInteraction: false,
-    data: notificationData.data
+    data: notificationData.data,
+    actions: notificationData.actions
   };
 
   event.waitUntil(
@@ -204,6 +207,33 @@ self.addEventListener('notificationclick', (event) => {
   console.log('[Service Worker] Notification click:', event);
   
   event.notification.close();
+  
+  // Handle notification actions (dismiss vs open)
+  if (event.action === 'dismiss') {
+    // Call API to dismiss this notification
+    const notificationTag = event.notification.data?.notificationTag || event.notification.tag;
+    
+    event.waitUntil(
+      fetch('/api/notifications/dismiss', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ notificationTag })
+      })
+        .then((response) => {
+          if (response.ok) {
+            console.log('[Service Worker] Notification dismissed:', notificationTag);
+          } else {
+            console.error('[Service Worker] Failed to dismiss notification');
+          }
+        })
+        .catch((error) => {
+          console.error('[Service Worker] Error dismissing notification:', error);
+        })
+    );
+    return;
+  }
 
   // Get the URL from notification data, or default to home
   const urlToOpen = event.notification.data?.url || '/';

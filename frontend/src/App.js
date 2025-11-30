@@ -4,12 +4,13 @@ import Configuration from './components/Configuration';
 import Transcripts from './components/Transcripts';
 import Calendar from './components/Calendar';
 import Tasks from './components/Tasks';
+import Intelligence from './components/Intelligence';
 
 function App() {
   // Get initial tab from URL hash or default to dashboard
   const getInitialTab = () => {
     const hash = window.location.hash.replace('#', '');
-    const validTabs = ['dashboard', 'transcripts', 'tasks', 'calendar', 'config'];
+    const validTabs = ['dashboard', 'transcripts', 'tasks', 'calendar', 'intelligence', 'config'];
     return validTabs.includes(hash) ? hash : 'dashboard';
   };
 
@@ -32,7 +33,7 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      const validTabs = ['dashboard', 'transcripts', 'tasks', 'calendar', 'config'];
+      const validTabs = ['dashboard', 'transcripts', 'tasks', 'calendar', 'intelligence', 'config'];
       if (validTabs.includes(hash)) {
         setActiveTab(hash);
       }
@@ -74,6 +75,7 @@ function App() {
     { id: 'transcripts', label: 'Transcripts', icon: '📝' },
     { id: 'tasks', label: 'Tasks', icon: '📋' },
     { id: 'calendar', label: 'Calendar', icon: '📅' },
+    { id: 'intelligence', label: 'AI Tools', icon: '🤖' },
     { id: 'config', label: 'Settings', icon: '⚙️' }
   ];
 
@@ -164,6 +166,7 @@ function App() {
         {activeTab === 'transcripts' && <Transcripts />}
         {activeTab === 'tasks' && <Tasks />}
         {activeTab === 'calendar' && <Calendar />}
+        {activeTab === 'intelligence' && <Intelligence />}
         {activeTab === 'config' && <Configuration />}
       </main>
     </div>

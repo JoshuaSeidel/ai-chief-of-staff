@@ -144,6 +144,11 @@ router.put('/:id', async (req, res) => {
       params.push(description);
     }
     
+    if (req.body.cluster_group !== undefined) {
+      updates.push('cluster_group = ?');
+      params.push(req.body.cluster_group);
+    }
+    
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
@@ -353,6 +358,48 @@ router.post('/', async (req, res) => {
       urgency: finalPriority,
       suggested_approach: suggested_approach || null
     };
+    
+    // Auto-enhance task with AI intelligence (async, don't block)
+    (async () => {
+      try {
+        const axios = require('axios');
+        const baseURL = process.env.API_BASE_URL || 'http://localhost:3001';
+        
+        // Get effort estimation
+        try {
+          const effortResponse = await axios.post(`${baseURL}/api/intelligence/estimate-effort`, {
+            description,
+            context: `Task type: ${taskType}, Priority: ${finalPriority}`
+          }, { timeout: 5000 });
+          
+          if (effortResponse.data && effortResponse.data.estimated_time) {
+            await db.run(
+              'UPDATE commitments SET suggested_approach = ? WHERE id = ?',
+              [`AI Estimate: ${effortResponse.data.estimated_time}. ${effortResponse.data.reasoning || ''}`.substring(0, 500), insertedId]
+            );
+            logger.info(`Auto-estimated effort for task ${insertedId}: ${effortResponse.data.estimated_time}`);
+          }
+        } catch (effortErr) {
+          logger.debug('Effort estimation unavailable:', effortErr.message);
+        }
+        
+        // Get energy classification
+        try {
+          const energyResponse = await axios.post(`${baseURL}/api/intelligence/classify-energy`, {
+            description
+          }, { timeout: 5000 });
+          
+          if (energyResponse.data && energyResponse.data.energy_level) {
+            logger.info(`Auto-classified energy for task ${insertedId}: ${energyResponse.data.energy_level}`);
+            // Could store this in a new column or in metadata
+          }
+        } catch (energyErr) {
+          logger.debug('Energy classification unavailable:', energyErr.message);
+        }
+      } catch (err) {
+        logger.debug('AI enhancement failed:', err.message);
+      }
+    })();
     
     // Create calendar event if applicable (only for user tasks with deadlines, not risks)
     if (taskType !== 'risk' && deadline && isUserTask && !requiresConfirmation) {

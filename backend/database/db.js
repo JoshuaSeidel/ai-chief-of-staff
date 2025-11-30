@@ -243,11 +243,19 @@ function initDatabaseTables() {
           deadline TEXT,
           assignee TEXT,
           status TEXT DEFAULT 'pending',
+          cluster_group TEXT,
           created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
           completed_date DATETIME,
           FOREIGN KEY (transcript_id) REFERENCES transcripts(id)
         )
       `);
+      
+      // Add cluster_group column if it doesn't exist (for existing databases)
+      db.run(`ALTER TABLE commitments ADD COLUMN cluster_group TEXT`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+          console.error('Error adding cluster_group column:', err);
+        }
+      });
 
       // Briefs table - stores generated daily briefs
       db.run(`
@@ -290,6 +298,19 @@ function initDatabaseTables() {
           endpoint TEXT UNIQUE NOT NULL,
           keys TEXT NOT NULL,
           created_date DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      // Notification history to prevent spam
+      db.run(`
+        CREATE TABLE IF NOT EXISTS notification_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          notification_tag TEXT NOT NULL,
+          task_id INTEGER,
+          notification_type TEXT NOT NULL,
+          sent_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+          dismissed BOOLEAN DEFAULT 0,
+          dismissed_date DATETIME
         )
       `, (err) => {
         if (err) {
@@ -344,10 +365,20 @@ async function initDatabaseTablesPostgres() {
         deadline TEXT,
         assignee TEXT,
         status TEXT DEFAULT 'pending',
+        cluster_group TEXT,
         created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         completed_date TIMESTAMP
       )
     `);
+    
+    // Add cluster_group column if it doesn't exist (for existing databases)
+    await pool.query(`
+      ALTER TABLE commitments ADD COLUMN IF NOT EXISTS cluster_group TEXT
+    `).catch(err => {
+      if (!err.message.includes('already exists')) {
+        console.error('Error adding cluster_group column:', err);
+      }
+    });
 
     // Briefs table
     await pool.query(`
@@ -391,6 +422,21 @@ async function initDatabaseTablesPostgres() {
         created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Notification history to prevent spam
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS notification_history (
+        id SERIAL PRIMARY KEY,
+        notification_tag TEXT NOT NULL,
+        task_id INTEGER,
+        notification_type TEXT NOT NULL,
+        sent_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        dismissed BOOLEAN DEFAULT FALSE,
+        dismissed_date TIMESTAMP
+      )
+    `);
+    
+    dbLogger.info('✓ PostgreSQL tables initialized');
 
   } catch (err) {
     dbLogger.error('Error initializing PostgreSQL tables:', err);

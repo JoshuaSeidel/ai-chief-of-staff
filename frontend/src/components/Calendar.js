@@ -126,18 +126,23 @@ function Calendar() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="calendar">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2>📅 Calendar</h2>
-          <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <h2 style={{ margin: 0 }}>📅 Calendar</h2>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button 
               onClick={loadEvents} 
               disabled={loading}
-              className="secondary"
+              className="glass-button"
+              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
             >
-              {loading ? 'Loading...' : '🔄 Refresh'}
+              {loading ? '⏳' : '🔄'}
             </button>
-            <button onClick={() => setShowCreateForm(!showCreateForm)}>
-              {showCreateForm ? 'Cancel' : '➕ Create Time Block'}
+            <button 
+              onClick={() => setShowCreateForm(!showCreateForm)}
+              className="glass-button-primary"
+              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+            >
+              {showCreateForm ? '✕' : '➕'}
             </button>
           </div>
         </div>

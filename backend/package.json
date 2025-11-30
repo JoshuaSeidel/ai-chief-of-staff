@@ -1,7 +1,7 @@
 {
   "name": "ai-chief-of-staff-backend",
-  "version": "1.0.10",
-  "description": "Backend API for AI Chief of Staff Application",
+  "version": "1.5.0",
+  "description": "AI-powered personal productivity assistant backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -18,10 +18,12 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "axios": "^1.6.7",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "form-data": "^4.0.0",
     "googleapis": "^166.0.0",
     "multer": "^2.0.2",
     "node-ical": "^0.22.1",

@@ -63,6 +63,32 @@ router.post('/generate', async (req, res) => {
       };
 
       logger.info('Calling Claude API to generate brief...');
+      
+      // Get pattern insights to enhance brief
+      let patternInsights = null;
+      try {
+        const axios = require('axios');
+        const baseURL = process.env.API_BASE_URL || 'http://localhost:3001';
+        const patternResponse = await axios.post(`${baseURL}/api/intelligence/analyze-patterns`, {
+          time_range: '7d'
+        }, { timeout: 10000 });
+        
+        if (patternResponse.data && patternResponse.data.success) {
+          patternInsights = patternResponse.data;
+          logger.info('Pattern analysis added to brief context');
+        }
+      } catch (patternErr) {
+        logger.debug('Pattern analysis unavailable for brief:', patternErr.message);
+      }
+      
+      // Add pattern insights to context if available
+      if (patternInsights && patternInsights.insights) {
+        contextData.productivity_patterns = {
+          insights: patternInsights.insights,
+          stats: patternInsights.stats
+        };
+      }
+      
       const brief = await generateDailyBrief(contextData);
       logger.info('Brief generated successfully');
 

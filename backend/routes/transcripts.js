@@ -61,7 +61,37 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
 
   // Save commitments
   if (extracted.commitments && extracted.commitments.length > 0) {
+    // Auto-enhance commitments with AI parsing (batch process)
+    const enhancedCommitments = [];
     for (const item of extracted.commitments) {
+      let enhanced = { ...item };
+      
+      // Try to parse task for better deadline/priority extraction
+      try {
+        const axios = require('axios');
+        const baseURL = process.env.API_BASE_URL || 'http://localhost:3001';
+        const parseResponse = await axios.post(`${baseURL}/api/intelligence/parse-task`, {
+          text: item.description
+        }, { timeout: 3000 });
+        
+        if (parseResponse.data && parseResponse.data.success) {
+          // Use parsed data to enhance commitment
+          if (parseResponse.data.deadline && parseResponse.data.deadline !== 'none' && !enhanced.deadline) {
+            enhanced.deadline = parseResponse.data.deadline;
+            logger.info(`Auto-parsed deadline for commitment: ${parseResponse.data.deadline}`);
+          }
+          if (parseResponse.data.priority && !enhanced.urgency) {
+            enhanced.urgency = parseResponse.data.priority.toLowerCase();
+          }
+        }
+      } catch (parseErr) {
+        logger.debug('NL parsing unavailable for commitment:', parseErr.message);
+      }
+      
+      enhancedCommitments.push(enhanced);
+    }
+    
+    for (const item of enhancedCommitments) {
       const assignee = item.assignee || null;
       const requiresConfirmation = needsConfirmation(assignee);
       const isUserTask = isAssignedToUser(assignee);

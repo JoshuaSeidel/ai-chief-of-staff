@@ -7,3 +7,37 @@ frontend/build/
 *.log
 dev-data/
 dev-uploads/
+
+# Planning documents (keep local, don't commit to open source repo)
+*PLANNING*.md
+*ROADMAP*.md
+*FEATURE_IMPLEMENTATION*.py
+*ARCHITECTURE_DIAGRAM*.md
+*ENHANCED_FEATURES*.md
+*SUMMARY*.md
+*QUICK_START*.md
+MICROSERVICES_SUMMARY.md
+MICROSERVICES_ARCHITECTURE.md
+MICROSERVICES_DEPLOYMENT.md
+IMPLEMENTATION_ROADMAP.md
+PLANNING_SUMMARY.md
+ARCHITECTURE_DIAGRAM.md
+ENHANCED_FEATURES_INDEX.md
+FEATURE_IMPLEMENTATION_PLAN.py
+QUICK_START_GUIDE.md
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv

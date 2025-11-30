@@ -196,35 +196,22 @@ router.put('/', async (req, res) => {
 });
 
 /**
- * Get version information (commit hash, build date, etc.)
+ * Get version information (versions of all services)
  * MUST be before /:key route to avoid route conflict
  */
-router.get('/version', (req, res) => {
+router.get('/version', async (req, res) => {
   try {
-    let commitHash = null;
     let backendVersion = null;
     let frontendVersion = null;
     let buildDate = null;
+    const microservicesVersions = {};
     
     // Priority 1: Environment variables (set during Docker build)
     backendVersion = process.env.VERSION || null;
-    commitHash = process.env.COMMIT_HASH || null;
+    frontendVersion = process.env.FRONTEND_VERSION || null; // Set in microservices mode
     buildDate = process.env.BUILD_DATE || null;
     
-    // Priority 2: Try to get commit hash from git (for local development)
-    if (!commitHash) {
-      try {
-        commitHash = execSync('git rev-parse --short HEAD', { 
-          cwd: path.join(__dirname, '..', '..'),
-          encoding: 'utf8',
-          timeout: 2000
-        }).trim();
-      } catch (gitError) {
-        // Git not available or not in a git repo
-      }
-    }
-    
-    // Priority 3: Get versions from package.json files (always read from source of truth)
+    // Priority 2: Get versions from package.json files (always read from source of truth)
     try {
       const backendPackagePath = path.join(__dirname, '..', 'package.json');
       if (fs.existsSync(backendPackagePath)) {
@@ -237,24 +224,51 @@ router.get('/version', (req, res) => {
     
     // Get frontend version
     // Try multiple paths: Docker container path, local dev path, or environment variable
-    try {
-      // Priority 1: Docker container path (frontend-package.json copied during build)
-      let frontendPackagePath = path.join(__dirname, '..', 'frontend-package.json');
-      
-      // Priority 2: Local development path
-      if (!fs.existsSync(frontendPackagePath)) {
-        frontendPackagePath = path.join(__dirname, '..', '..', 'frontend', 'package.json');
+    if (!frontendVersion) {
+      try {
+        // Priority 1: Docker container path (frontend-package.json copied during build)
+        let frontendPackagePath = path.join(__dirname, '..', 'frontend-package.json');
+        
+        // Priority 2: Local development path
+        if (!fs.existsSync(frontendPackagePath)) {
+          frontendPackagePath = path.join(__dirname, '..', '..', 'frontend', 'package.json');
+        }
+        
+        if (fs.existsSync(frontendPackagePath)) {
+          const frontendPackageJson = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
+          frontendVersion = frontendPackageJson.version || null;
+        } else {
+          logger.debug('Frontend package.json not found in Docker build, using backend version');
+          // Fallback: use backend version if frontend not found (same version in most cases)
+          frontendVersion = backendVersion;
+        }
+      } catch (pkgError) {
+        logger.warn('Failed to read frontend package.json', pkgError);
+        frontendVersion = backendVersion; // Use backend version as fallback
       }
-      
-      if (fs.existsSync(frontendPackagePath)) {
-        const frontendPackageJson = JSON.parse(fs.readFileSync(frontendPackagePath, 'utf8'));
-        frontendVersion = frontendPackageJson.version || null;
-      } else {
-        logger.warn('Frontend package.json not found at any expected location');
-      }
-    } catch (pkgError) {
-      logger.warn('Failed to read frontend package.json', pkgError);
     }
+    
+    // Get microservices versions by querying their health endpoints
+    const axios = require('axios');
+    const microservices = {
+      'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'http://aicos-ai-intelligence:8001',
+      'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'http://aicos-pattern-recognition:8002',
+      'nl-parser': process.env.NL_PARSER_URL || 'http://aicos-nl-parser:8003',
+      'voice-processor': process.env.VOICE_PROCESSOR_URL || 'http://aicos-voice-processor:8004',
+      'context-service': process.env.CONTEXT_SERVICE_URL || 'http://aicos-context-service:8005'
+    };
+    
+    // Query each microservice for version (with timeout to avoid hanging)
+    const versionPromises = Object.entries(microservices).map(async ([name, url]) => {
+      try {
+        const response = await axios.get(`${url}/health`, { timeout: 2000 });
+        microservicesVersions[name] = response.data.version || 'unknown';
+      } catch (error) {
+        microservicesVersions[name] = 'unavailable';
+      }
+    });
+    
+    await Promise.allSettled(versionPromises);
     
     // Build date fallback
     if (!buildDate) {
@@ -265,7 +279,7 @@ router.get('/version', (req, res) => {
       version: backendVersion || 'unknown', // Keep for backward compatibility
       backendVersion: backendVersion || 'unknown',
       frontendVersion: frontendVersion || 'unknown',
-      commitHash: commitHash || 'unknown',
+      microservices: microservicesVersions,
       buildDate
     });
   } catch (err) {
@@ -278,11 +292,71 @@ router.get('/version', (req, res) => {
 });
 
 /**
+ * Get AI provider configuration for a specific microservice
+ * /api/config/ai-provider/:serviceName
+ */
+router.get('/ai-provider/:serviceName', async (req, res) => {
+  try {
+    const { serviceName } = req.params;
+    const validServices = ['aiIntelligence', 'voiceProcessor', 'patternRecognition', 'nlParser'];
+    
+    if (!validServices.includes(serviceName)) {
+      return res.status(400).json({ 
+        error: 'Invalid service name',
+        validServices 
+      });
+    }
+    
+    logger.info(`Fetching AI provider config for service: ${serviceName}`);
+    const db = getDb();
+    
+    // Get provider and model for this service
+    const providerRow = await db.get('SELECT value FROM config WHERE key = ?', [`${serviceName}Provider`]);
+    const modelRow = await db.get('SELECT value FROM config WHERE key = ?', [`${serviceName}Model`]);
+    
+    // Get API keys
+    const anthropicKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
+    const openaiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['openaiApiKey']);
+    const ollamaUrlRow = await db.get('SELECT value FROM config WHERE key = ?', ['ollamaBaseUrl']);
+    const awsKeyIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['awsAccessKeyId']);
+    const awsSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['awsSecretAccessKey']);
+    
+    const provider = providerRow?.value || 'anthropic';
+    const model = modelRow?.value || 'claude-sonnet-4-5-20250929';
+    
+    res.json({
+      service: serviceName,
+      provider,
+      model,
+      apiKeys: {
+        anthropic: anthropicKeyRow?.value,
+        openai: openaiKeyRow?.value,
+        ollamaBaseUrl: ollamaUrlRow?.value || 'http://localhost:11434',
+        awsAccessKeyId: awsKeyIdRow?.value,
+        awsSecretAccessKey: awsSecretRow?.value
+      }
+    });
+  } catch (err) {
+    logger.error(`Error fetching AI provider config for ${req.params.serviceName}`, err);
+    res.status(500).json({ 
+      error: 'Error fetching AI provider configuration',
+      message: err.message 
+    });
+  }
+});
+
+/**
  * Get specific config value from database
  */
 router.get('/:key', async (req, res) => {
   try {
     const key = req.params.key;
+    
+    // Prevent AI provider route conflict
+    if (key === 'ai-provider') {
+      return res.status(400).json({ error: 'Use /ai-provider/:serviceName endpoint instead' });
+    }
+    
     logger.info(`Fetching config key: ${key}`);
     
     const db = getDb();
