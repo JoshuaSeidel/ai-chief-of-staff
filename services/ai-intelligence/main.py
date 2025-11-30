@@ -396,11 +396,31 @@ Respond in JSON format:
                     temperature=0.4,
                     messages=[{"role": "user", "content": prompt}]
                 )
-            result = json.loads(message.content[0].text)
+            
+            # Extract JSON from response (Claude may wrap it in text)
+            response_text = message.content[0].text.strip()
+            logger.info(f"Raw response preview: {response_text[:200]}...")
+            
+            # Try to extract JSON from markdown code blocks or plain text
+            import re
+            json_match = re.search(r'```(?:json)?\s*(\{[\s\S]*?\})\s*```', response_text)
+            if json_match:
+                response_text = json_match.group(1)
+            else:
+                # Look for first { to last }
+                json_match = re.search(r'\{[\s\S]*\}', response_text)
+                if json_match:
+                    response_text = json_match.group(0)
+            
+            result = json.loads(response_text)
         
         logger.info(f"✓ Created {len(result['clusters'])} clusters")
         return result
         
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSON parsing failed: {e}")
+        logger.error(f"Response text: {response_text[:500] if 'response_text' in locals() else 'N/A'}")
+        return {"clusters": []}
     except Exception as e:
         logger.error(f"❌ Task clustering failed: {e}", exc_info=True)
         return {"clusters": []}
