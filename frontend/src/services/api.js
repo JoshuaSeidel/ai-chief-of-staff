@@ -46,6 +46,7 @@ export const configAPI = {
   update: (key, value) => api.post('/config', { key, value }),
   bulkUpdate: (config) => api.put('/config', config),
   getByKey: (key) => api.get(`/config/${key}`),
+  getModels: (provider) => api.get(`/config/models/${provider}`),
 };
 
 // Calendar API

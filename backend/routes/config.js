@@ -465,4 +465,143 @@ router.get('/debug/raw/:key', async (req, res) => {
   }
 });
 
+/**
+ * Get available models from AI providers
+ * GET /api/config/models/:provider
+ * Queries the actual API endpoints to get current model lists
+ */
+router.get('/models/:provider', async (req, res) => {
+  try {
+    const { provider } = req.params;
+    const axios = require('axios');
+    const db = getDb();
+    
+    logger.info(`Fetching available models for provider: ${provider}`);
+    
+    if (provider === 'anthropic') {
+      // Get API key from database
+      const apiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
+      const apiKey = apiKeyRow?.value;
+      
+      if (!apiKey) {
+        return res.status(400).json({ 
+          error: 'Anthropic API key not configured',
+          models: []
+        });
+      }
+      
+      try {
+        const response = await axios.get('https://api.anthropic.com/v1/models', {
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          timeout: 10000
+        });
+        
+        const models = response.data.data.map(model => ({
+          id: model.id,
+          name: model.display_name || model.id,
+          created: model.created_at
+        }));
+        
+        logger.info(`Retrieved ${models.length} Anthropic models`);
+        res.json({ provider: 'anthropic', models });
+      } catch (apiError) {
+        logger.error('Error fetching Anthropic models:', apiError.message);
+        res.status(500).json({ 
+          error: 'Failed to fetch Anthropic models',
+          message: apiError.response?.data?.error?.message || apiError.message,
+          models: []
+        });
+      }
+      
+    } else if (provider === 'openai') {
+      // Get API key from database
+      const apiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['openaiApiKey']);
+      const apiKey = apiKeyRow?.value;
+      
+      if (!apiKey) {
+        return res.status(400).json({ 
+          error: 'OpenAI API key not configured',
+          models: []
+        });
+      }
+      
+      try {
+        const response = await axios.get('https://api.openai.com/v1/models', {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
+          },
+          timeout: 10000
+        });
+        
+        // Filter to only chat/completion models (exclude embedding, audio, etc.)
+        const models = response.data.data
+          .filter(model => model.id.includes('gpt') || model.id.includes('o1'))
+          .map(model => ({
+            id: model.id,
+            name: model.id,
+            created: model.created
+          }))
+          .sort((a, b) => b.created - a.created); // Newest first
+        
+        logger.info(`Retrieved ${models.length} OpenAI models`);
+        res.json({ provider: 'openai', models });
+      } catch (apiError) {
+        logger.error('Error fetching OpenAI models:', apiError.message);
+        res.status(500).json({ 
+          error: 'Failed to fetch OpenAI models',
+          message: apiError.response?.data?.error?.message || apiError.message,
+          models: []
+        });
+      }
+      
+    } else if (provider === 'ollama') {
+      // Get Ollama base URL from database
+      const baseUrlRow = await db.get('SELECT value FROM config WHERE key = ?', ['ollamaBaseUrl']);
+      const baseUrl = baseUrlRow?.value || 'http://localhost:11434';
+      
+      try {
+        const response = await axios.get(`${baseUrl}/api/tags`, {
+          timeout: 10000
+        });
+        
+        const models = response.data.models.map(model => ({
+          id: model.name,
+          name: model.name,
+          size: model.size,
+          modified: model.modified_at
+        }));
+        
+        logger.info(`Retrieved ${models.length} Ollama models from ${baseUrl}`);
+        res.json({ provider: 'ollama', models, baseUrl });
+      } catch (apiError) {
+        logger.error('Error fetching Ollama models:', apiError.message);
+        res.status(500).json({ 
+          error: 'Failed to fetch Ollama models',
+          message: apiError.code === 'ECONNREFUSED' 
+            ? `Cannot connect to Ollama server at ${baseUrl}` 
+            : apiError.message,
+          models: [],
+          baseUrl
+        });
+      }
+      
+    } else {
+      return res.status(400).json({ 
+        error: 'Invalid provider',
+        message: 'Provider must be one of: anthropic, openai, ollama'
+      });
+    }
+    
+  } catch (err) {
+    logger.error('Error in models endpoint:', err);
+    res.status(500).json({ 
+      error: 'Error fetching models',
+      message: err.message 
+    });
+  }
+});
+
 module.exports = router;

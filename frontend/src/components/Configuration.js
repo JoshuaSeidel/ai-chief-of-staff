@@ -165,6 +165,18 @@ function Configuration() {
   const [editingPrompt, setEditingPrompt] = useState(null);
   const [servicesHealth, setServicesHealth] = useState(null);
   const [showServicesHealth, setShowServicesHealth] = useState(false);
+  
+  // Model lists from API providers
+  const [availableModels, setAvailableModels] = useState({
+    anthropic: [],
+    openai: [],
+    ollama: []
+  });
+  const [loadingModels, setLoadingModels] = useState({
+    anthropic: false,
+    openai: false,
+    ollama: false
+  });
 
   useEffect(() => {
     loadConfig();
@@ -401,6 +413,32 @@ function Configuration() {
   const handleRefresh = async () => {
     await loadConfig();
     await checkGoogleCalendarStatus();
+  };
+
+  const loadModelsForProvider = async (provider) => {
+    if (!provider) return;
+    
+    setLoadingModels(prev => ({ ...prev, [provider]: true }));
+    
+    try {
+      const response = await configAPI.getModels(provider);
+      const models = response.data.models || [];
+      
+      setAvailableModels(prev => ({
+        ...prev,
+        [provider]: models
+      }));
+      
+      console.log(`Loaded ${models.length} models for ${provider}:`, models);
+    } catch (err) {
+      console.error(`Failed to load ${provider} models:`, err);
+      setAvailableModels(prev => ({
+        ...prev,
+        [provider]: []
+      }));
+    } finally {
+      setLoadingModels(prev => ({ ...prev, [provider]: false }));
+    }
   };
 
   const checkGoogleCalendarStatus = async () => {
@@ -834,7 +872,14 @@ function Configuration() {
                 </label>
                 <select
                   value={config.aiProvider || 'anthropic'}
-                  onChange={(e) => handleChange('aiProvider', e.target.value)}
+                  onChange={(e) => {
+                    const newProvider = e.target.value;
+                    handleChange('aiProvider', newProvider);
+                    // Load models for new provider if API key is configured
+                    if (newProvider === 'anthropic' || newProvider === 'openai' || newProvider === 'ollama') {
+                      loadModelsForProvider(newProvider);
+                    }
+                  }}
                   style={{ width: '100%' }}
                 >
                   <option value="anthropic">Anthropic Claude</option>
@@ -847,32 +892,85 @@ function Configuration() {
               <div>
                 <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
                   Model
+                  {['anthropic', 'openai', 'ollama'].includes(config.aiProvider || 'anthropic') && (
+                    <button
+                      type="button"
+                      onClick={() => loadModelsForProvider(config.aiProvider || 'anthropic')}
+                      disabled={loadingModels[config.aiProvider || 'anthropic']}
+                      style={{
+                        marginLeft: '0.5rem',
+                        padding: '0.2rem 0.5rem',
+                        fontSize: '0.75rem',
+                        background: '#3b82f6',
+                        border: 'none',
+                        borderRadius: '4px',
+                        color: 'white',
+                        cursor: loadingModels[config.aiProvider || 'anthropic'] ? 'not-allowed' : 'pointer',
+                        opacity: loadingModels[config.aiProvider || 'anthropic'] ? 0.6 : 1
+                      }}
+                    >
+                      {loadingModels[config.aiProvider || 'anthropic'] ? '⏳' : '🔄'} Refresh
+                    </button>
+                  )}
                 </label>
                 <select
                   value={config.claudeModel || 'claude-sonnet-4-5-20250929'}
                   onChange={(e) => handleChange('claudeModel', e.target.value)}
                   style={{ width: '100%' }}
+                  disabled={loadingModels[config.aiProvider || 'anthropic']}
                 >
                   {(config.aiProvider || 'anthropic') === 'anthropic' && (
                     <>
-                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
-                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                      <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                      {availableModels.anthropic.length > 0 ? (
+                        availableModels.anthropic.map(model => (
+                          <option key={model.id} value={model.id}>
+                            {model.name}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
+                          <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                          <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                          <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                        </>
+                      )}
                     </>
                   )}
                   {(config.aiProvider || 'anthropic') === 'openai' && (
                     <>
-                      <option value="gpt-4">GPT-4</option>
-                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                      {availableModels.openai.length > 0 ? (
+                        availableModels.openai.map(model => (
+                          <option key={model.id} value={model.id}>
+                            {model.name}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="gpt-4o">GPT-4o</option>
+                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                          <option value="gpt-4">GPT-4</option>
+                          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        </>
+                      )}
                     </>
                   )}
                   {(config.aiProvider || 'anthropic') === 'ollama' && (
                     <>
-                      <option value="mistral:latest">Mistral Latest</option>
-                      <option value="llama2:latest">Llama 2 Latest</option>
-                      <option value="codellama:latest">Code Llama Latest</option>
+                      {availableModels.ollama.length > 0 ? (
+                        availableModels.ollama.map(model => (
+                          <option key={model.id} value={model.id}>
+                            {model.name}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="mistral:latest">Mistral Latest</option>
+                          <option value="llama3.1:latest">Llama 3.1 Latest</option>
+                          <option value="llama2:latest">Llama 2 Latest</option>
+                          <option value="codellama:latest">Code Llama Latest</option>
+                        </>
+                      )}
                     </>
                   )}
                   {(config.aiProvider || 'anthropic') === 'bedrock' && (
@@ -882,6 +980,16 @@ function Configuration() {
                     </>
                   )}
                 </select>
+                {loadingModels[config.aiProvider || 'anthropic'] && (
+                  <p style={{ fontSize: '0.75rem', color: '#60a5fa', marginTop: '0.25rem', marginBottom: 0 }}>
+                    Loading models from API...
+                  </p>
+                )}
+                {!loadingModels[config.aiProvider || 'anthropic'] && availableModels[config.aiProvider || 'anthropic']?.length === 0 && ['anthropic', 'openai', 'ollama'].includes(config.aiProvider || 'anthropic') && (
+                  <p style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.25rem', marginBottom: 0 }}>
+                    Click Refresh to load available models
+                  </p>
+                )}
               </div>
             </div>
             
