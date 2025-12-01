@@ -992,6 +992,12 @@ function Transcripts() {
                 </div>
               </div>
             </div>
+            
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={handleCloseTranscriptView}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

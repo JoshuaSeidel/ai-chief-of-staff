@@ -2849,12 +2849,12 @@ body.modal-open {
 }
 
 .modal-close-btn {
-  background: #3f3f46;
+  background: #dc2626;
   border: none;
   color: white;
   font-size: 1.5rem;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   cursor: pointer;
   display: flex;
@@ -2862,10 +2862,11 @@ body.modal-open {
   justify-content: center;
   transition: all 0.2s;
   flex-shrink: 0;
+  font-weight: bold;
 }
 
 .modal-close-btn:hover {
-  background: #52525b;
+  background: #ef4444;
   transform: scale(1.05);
 }
 
@@ -2874,6 +2875,16 @@ body.modal-open {
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #3f3f46;
+  flex-shrink: 0;
+  background-color: #18181b;
 }
 
 .transcript-meta {
