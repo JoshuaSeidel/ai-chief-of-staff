@@ -450,7 +450,8 @@ function Commitments() {
                 borderRadius: '6px',
                 cursor: clusteringTasks || filteredCommitments.filter(c => c.status !== 'completed').length < 2 ? 'not-allowed' : 'pointer',
                 fontSize: '0.9rem',
-                whiteSpace: 'nowrap'
+                textAlign: 'center',
+                wordBreak: 'break-word'
               }}
               title="AI-powered task grouping"
             >

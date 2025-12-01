@@ -133,14 +133,32 @@ function Calendar() {
               onClick={loadEvents} 
               disabled={loading}
               className="glass-button"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              style={{ 
+                minWidth: '44px',
+                width: '44px',
+                height: '44px',
+                padding: '0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem'
+              }}
             >
               {loading ? '⏳' : '🔄'}
             </button>
             <button 
               onClick={() => setShowCreateForm(!showCreateForm)}
               className="glass-button-primary"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+              style={{ 
+                minWidth: '44px',
+                width: '44px',
+                height: '44px',
+                padding: '0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem'
+              }}
             >
               {showCreateForm ? '✕' : '➕'}
             </button>

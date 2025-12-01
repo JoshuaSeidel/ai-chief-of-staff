@@ -8,10 +8,8 @@ import axios from 'axios';
 // Note: In Docker microservices, REACT_APP_API_URL should be set to http://aicos-backend:3001/api
 // However, since the browser can't resolve Docker container names, this typically needs to be
 // proxied through nginx or use the host's exposed port
-const API_BASE_URL = process.env.REACT_APP_API_URL || 
-                     (window.location.hostname === 'localhost' && window.location.port === '3000' 
-                       ? 'http://localhost:3001/api' 
-                       : '/api');
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (window.location.hostname === 'localhost' ? 'http://localhost:3001' : '')
 
 const api = axios.create({
   baseURL: API_BASE_URL,

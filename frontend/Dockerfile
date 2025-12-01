@@ -1,4 +1,4 @@
-# Frontend Dockerfile for Microservices Architecture
+# Frontend Dockerfile for Microservices Architecture (Vite Build)
 FROM node:20-alpine AS build
 
 # Update Alpine packages for security patches
@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm install
+RUN npm ci --only=production=false
 
 # Copy source code
 COPY . .
@@ -23,8 +23,8 @@ ENV VERSION=$VERSION
 ENV COMMIT_HASH=$COMMIT_HASH
 ENV BUILD_DATE=$BUILD_DATE
 
-# Build React app (prebuild script will inject version into service-worker.js)
-# REACT_APP_API_URL will be set at runtime via environment variable
+# Build with Vite (prebuild script will inject version)
+# VITE_API_URL can be set at build time if needed
 RUN npm run build
 
 # Production stage - serve with nginx
