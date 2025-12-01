@@ -1453,7 +1453,7 @@ table {
 
 @media (max-width: 768px) {
   .model-selector-container {
-    align-items: center !important;
+    align-items: stretch !important;
     display: flex !important;
     gap: 0.5rem !important;
   }
@@ -1478,10 +1478,13 @@ table {
     flex-shrink: 0 !important;
     flex-grow: 0 !important;
     margin: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
     padding: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    align-self: stretch !important;
   }
 }
 
