@@ -29,55 +29,48 @@ function VersionInfo() {
 
   if (loading) {
     return (
-      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
-        <p style={{ color: '#6e6e73', fontSize: '0.85rem' }}>Loading version...</p>
+      <div className="version-box">
+        <p className="version-loading">Loading version...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
-        <p style={{ color: '#ef4444', fontSize: '0.85rem' }}>Failed to load version: {error}</p>
+      <div className="version-box">
+        <p className="version-error">Failed to load version: {error}</p>
       </div>
     );
   }
 
   if (!version) {
     return (
-      <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
-        <p style={{ color: '#6e6e73', fontSize: '0.85rem' }}>Version information not available</p>
+      <div className="version-box">
+        <p className="version-loading">Version information not available</p>
       </div>
     );
   }
 
   return (
-    <div style={{ 
-      marginTop: '0', 
-      marginBottom: '1rem',
-      padding: '1rem', 
-      backgroundColor: '#18181b', 
-      borderRadius: '8px', 
-      border: '1px solid #3f3f46' 
-    }}>
-      <p style={{ color: '#e5e5e7', fontSize: '1rem', marginBottom: '0.75rem', fontWeight: '500' }}>
+    <div className="version-box mb-lg mt-0">
+      <p className="version-title">
         Application Version
       </p>
-      <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-        <strong style={{ color: '#e5e5e7' }}>Frontend:</strong> <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{version.frontendVersion || version.version || 'Unknown'}</span>
+      <p className="version-item">
+        <strong className="version-label">Frontend:</strong> <span className="version-value">{version.frontendVersion || version.version || 'Unknown'}</span>
       </p>
-      <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-        <strong style={{ color: '#e5e5e7' }}>Backend:</strong> <span style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{version.backendVersion || version.version || 'Unknown'}</span>
+      <p className="version-item">
+        <strong className="version-label">Backend:</strong> <span className="version-value">{version.backendVersion || version.version || 'Unknown'}</span>
       </p>
       {version.microservices && Object.keys(version.microservices).length > 0 && (
-        <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #3f3f46' }}>
-          <p style={{ color: '#e5e5e7', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: '500' }}>
+        <div className="version-divider">
+          <p className="version-subtitle">
             Microservices:
           </p>
           {Object.entries(version.microservices).map(([name, ver]) => (
-            <p key={name} style={{ color: '#a1a1aa', fontSize: '0.85rem', marginBottom: '0.25rem', marginLeft: '1rem' }}>
-              <strong style={{ color: '#e5e5e7' }}>{name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}:</strong>{' '}
-              <span style={{ color: ver === 'unavailable' ? '#ef4444' : '#60a5fa', fontFamily: 'monospace' }}>
+            <p key={name} className={ver === 'unavailable' ? 'version-dep-item version-dep-unavailable' : 'version-dep-item'}>
+              <strong className="version-label">{name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}:</strong>{' '}
+              <span className="text-mono">
                 {ver}
               </span>
             </p>
@@ -85,8 +78,8 @@ function VersionInfo() {
         </div>
       )}
       {version.buildDate && (
-        <p style={{ color: '#a1a1aa', fontSize: '0.85rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid #3f3f46' }}>
-          <strong style={{ color: '#e5e5e7' }}>Build Date:</strong> {new Date(version.buildDate).toLocaleString()}
+        <p className="version-build-date">
+          <strong className="version-label">Build Date:</strong> {new Date(version.buildDate).toLocaleString()}
         </p>
       )}
     </div>
@@ -451,18 +444,11 @@ function Configuration() {
     const supportsRefresh = ['anthropic', 'openai', 'ollama'].includes(provider);
     
     return (
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <div className="model-selector-container">
         <select
           value={currentModel}
           onChange={(e) => onModelChange(e.target.value)}
-          style={{ 
-            flex: 1, 
-            minWidth: 0,
-            height: '44px',
-            fontSize: '16px',
-            padding: '0.5rem',
-            boxSizing: 'border-box'
-          }}
+          className="model-selector"
           disabled={loadingModels[provider]}
         >
           {provider === 'anthropic' && (
@@ -534,23 +520,7 @@ function Configuration() {
             onClick={() => loadModelsForProvider(provider)}
             disabled={loadingModels[provider]}
             title="Refresh model list"
-            style={{
-              padding: '0',
-              fontSize: '0.9rem',
-              background: '#3b82f6',
-              border: 'none',
-              borderRadius: '4px',
-              color: 'white',
-              cursor: loadingModels[provider] ? 'not-allowed' : 'pointer',
-              opacity: loadingModels[provider] ? 0.6 : 1,
-              minWidth: '36px',
-              width: '36px',
-              height: '44px',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
+            className="model-refresh-button"
           >
             {loadingModels[provider] ? '⏳' : '🔄'}
           </button>
@@ -945,12 +915,12 @@ function Configuration() {
               placeholder="Your Plaud API key"
             />
             {config.plaudApiKey.includes('•') && (
-              <p style={{ fontSize: '0.85rem', color: '#22c55e', marginTop: '-0.5rem' }}>
+              <p className="text-sm text-success" style={{ marginTop: '-0.5rem' }}>
                 ✓ API key is configured (change to update)
               </p>
             )}
             
-            <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-muted mt-lg">
               Plaud API URL
             </label>
             <input
@@ -959,33 +929,33 @@ function Configuration() {
               onChange={(e) => handleChange('plaudApiUrl', e.target.value)}
               placeholder="https://api.plaud.ai"
             />
-            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '-0.5rem' }}>
+            <p className="text-sm text-muted" style={{ marginTop: '-0.5rem' }}>
               Configure to automatically pull transcripts from Plaud
             </p>
           </div>
         )}
 
         {/* AI Configuration - Per Service */}
-        <details open style={{ marginBottom: '2rem' }}>
-          <summary style={{ cursor: 'pointer', fontSize: '1.2rem', fontWeight: '600', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <details open className="mb-2xl">
+          <summary className="config-section-header">
             <span>🤖 AI Models & Providers</span>
           </summary>
-          <p style={{ fontSize: '0.9rem', color: '#a1a1aa', marginBottom: '1.5rem' }}>
+          <p className="config-section-description">
             Configure AI providers and models for the main application and each microservice. Each service can use a different provider/model combination.
           </p>
           
           {/* Main Application AI Configuration */}
-          <div className="glass-panel" style={{ marginBottom: '1.5rem', border: '2px solid #3b82f6' }}>
-            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem', color: '#60a5fa' }}>
+          <div className="glass-panel mb-xl border-primary">
+            <h4 className="config-subsection-title mt-0 text-primary">
               🏠 Main Application
             </h4>
-            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+            <p className="config-subsection-description">
               Primary AI provider for transcript processing, daily briefs, and task extraction
             </p>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid-2col mb-lg">
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Provider
                 </label>
                 <select
@@ -998,7 +968,7 @@ function Configuration() {
                       loadModelsForProvider(newProvider);
                     }
                   }}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   <option value="anthropic">Anthropic Claude</option>
                   <option value="openai">OpenAI GPT</option>
