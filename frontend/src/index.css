@@ -1386,23 +1386,25 @@ table {
   font-size: 16px;
   padding: 0.5rem;
   box-sizing: border-box;
+  line-height: 1.5;
 }
 
 .model-refresh-button {
   padding: 0;
-  font-size: 0.9rem;
+  font-size: 1.25rem;
   background: #3b82f6;
   border: none;
   border-radius: 4px;
   color: white;
   cursor: pointer;
-  min-width: 36px;
-  width: 36px;
+  min-width: 44px;
+  width: 44px;
   height: 44px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .model-refresh-button:disabled {
@@ -1607,6 +1609,18 @@ table {
   border-radius: 8px;
   cursor: pointer;
   min-height: 44px;
+}
+
+.btn-icon-square {
+  min-width: 44px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-sizing: border-box;
 }
 
 /* === TASK BADGES === */
@@ -1849,12 +1863,26 @@ summary {
     font-size: 16px; /* Prevent iOS auto-zoom */
     min-height: 44px;
     -webkit-appearance: none;
+    box-sizing: border-box;
   }
   
-  /* All buttons - proper touch targets */
-  button,
+  /* Ensure model selector maintains height */
+  .model-selector {
+    height: 44px;
+    font-size: 16px;
+  }
+  
+  /* All buttons - proper touch targets but don't override specific sizes */
+  button:not(.model-refresh-button),
   .btn {
-    font-size: 16px; /* Prevent iOS zoom */
+    min-height: 44px;
+  }
+  
+  /* Keep model refresh button square */
+  .model-refresh-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
     min-height: 44px;
   }
   

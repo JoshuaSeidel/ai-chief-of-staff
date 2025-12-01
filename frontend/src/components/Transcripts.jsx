@@ -420,17 +420,7 @@ function Transcripts() {
                 setShowRecording(!showRecording);
                 setShowPasteForm(false);
               }}
-              className="secondary glass-button"
-              style={{ 
-                minWidth: '44px',
-                width: '44px',
-                height: '44px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.2rem'
-              }}
+              className="secondary glass-button btn-icon-square"
             >
               {showRecording ? '📁' : '🎤'}
             </button>
@@ -439,17 +429,7 @@ function Transcripts() {
                 setShowPasteForm(!showPasteForm);
                 setShowRecording(false);
               }}
-              className="secondary glass-button"
-              style={{ 
-                minWidth: '44px',
-                width: '44px',
-                height: '44px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.2rem'
-              }}
+              className="secondary glass-button btn-icon-square"
             >
               {showPasteForm ? '📁' : '📝'}
             </button>

@@ -127,37 +127,19 @@ function Calendar() {
       <div className="calendar">
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0 }}>📅 Calendar</h2>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <h2 className="mt-0 mb-0">📅 Calendar</h2>
+          <div className="flex gap-sm" style={{ alignItems: 'center' }}>
             <button 
               onClick={loadEvents} 
               disabled={loading}
-              className="glass-button"
-              style={{ 
-                minWidth: '44px',
-                width: '44px',
-                height: '44px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.1rem'
-              }}
+              className="glass-button btn-icon-square"
             >
               {loading ? '⏳' : '🔄'}
             </button>
             <button 
               onClick={() => setShowCreateForm(!showCreateForm)}
-              className="glass-button-primary"
-              style={{ 
-                minWidth: '44px',
-                width: '44px',
-                height: '44px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.1rem'
+              className="glass-button-primary btn-icon-square"
+            >
               }}
             >
               {showCreateForm ? '✕' : '➕'}
