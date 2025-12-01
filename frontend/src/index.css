@@ -1453,7 +1453,7 @@ table {
 
 @media (max-width: 768px) {
   .model-selector-container {
-    align-items: stretch !important;
+    align-items: center !important;
     display: flex !important;
     gap: 0.5rem !important;
   }
@@ -1465,6 +1465,7 @@ table {
     padding: 0.5rem !important;
     line-height: 1.5 !important;
     display: block !important;
+    align-self: center !important;
   }
   
   .model-refresh-btn,
@@ -1478,13 +1479,11 @@ table {
     flex-shrink: 0 !important;
     flex-grow: 0 !important;
     margin: 0 !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
     padding: 0 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    align-self: stretch !important;
+    align-self: center !important;
   }
 }
 
