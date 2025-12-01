@@ -2816,16 +2816,19 @@ table {
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.8);
   display: flex;
-  align-items: flex-start; /* start, then offset with padding to clear nav */
+  align-items: center; /* center content vertically */
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
-  padding-top: 88px; /* ensure clear of navbar incl. shadow */
+  padding-top: 64px; /* offset below navbar but keep within viewport */
 }
 
 @media (max-width: 768px) {
   .modal-overlay {
-    padding-top: 1rem;
+    padding-top: 16px;
+  }
+  .modal-content {
+    max-height: calc(100vh - 96px);
   }
 }
 
@@ -2841,7 +2844,7 @@ body.modal-open {
   border-radius: 12px;
   max-width: 900px;
   width: 100%;
-  max-height: 90vh;
+  max-height: calc(100vh - 128px); /* ensure fits within window below navbar */
   display: flex;
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
