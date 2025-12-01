@@ -927,7 +927,7 @@ function Configuration() {
               onChange={(e) => handleChange('plaudApiUrl', e.target.value)}
               placeholder="https://api.plaud.ai"
             />
-            <p className="text-sm text-muted" className="mt-neg-sm">
+            <p className="text-sm text-muted mt-neg-sm">
               Configure to automatically pull transcripts from Plaud
             </p>
           </div>
@@ -2356,8 +2356,7 @@ function Configuration() {
               alert('Failed to send test notification. Server may need VAPID keys configured.');
             }
           }}
-          className="secondary"
-          className="mr-sm"
+          className="secondary mr-sm"
         >
           🧪 Send Test Notification
         </button>

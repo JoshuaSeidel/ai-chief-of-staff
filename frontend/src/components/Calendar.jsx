@@ -140,8 +140,6 @@ function Calendar() {
               onClick={() => setShowCreateForm(!showCreateForm)}
               className="glass-button-primary btn-icon-square"
             >
-              }}
-            >
               {showCreateForm ? '✕' : '➕'}
             </button>
           </div>

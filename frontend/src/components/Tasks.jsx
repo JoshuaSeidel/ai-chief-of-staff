@@ -451,8 +451,7 @@ function Commitments() {
           <div className="flex gap-sm flex-wrap">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="btn btn-success"
-              className="text-nowrap"
+              className="btn btn-success text-nowrap"
               title="Create a new task"
             >
               ➕ Create Task
@@ -618,8 +617,7 @@ function Commitments() {
               <button
                 key={status}
                 onClick={() => setFilter(status)}
-                className={filter === status ? '' : 'secondary'}
-                className="btn-filter"
+                className={filter === status ? 'btn-filter' : 'secondary btn-filter'}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </button>
@@ -635,8 +633,7 @@ function Commitments() {
               <button
                 key={type}
                 onClick={() => setTypeFilter(type)}
-                className={typeFilter === type ? '' : 'secondary'}
-                className="btn-filter"
+                className={typeFilter === type ? 'btn-filter' : 'secondary btn-filter'}
               >
                 {typeEmojis[type]} {type === 'all' ? 'All Types' : typeLabels[type]}
               </button>
@@ -735,8 +732,8 @@ function Commitments() {
                 border: '2px solid #ff3b30'
               }}
             >
-              <div className="task-card-layout" className="task-layout">
-                <div className="task-card-content" className="task-content-flex">
+              <div className="task-card-layout task-layout">
+                <div className="task-card-content task-content-flex">
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
                     {commitment.cluster_group && (
@@ -808,8 +805,8 @@ function Commitments() {
               key={commitment.id}
               className="task-card-dark"
             >
-              <div className="task-card-layout" className="task-layout">
-                <div className="task-card-content" className="task-content-flex">
+              <div className="task-card-layout task-layout">
+                <div className="task-card-content task-content-flex">
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
                     {commitment.cluster_group && (
@@ -888,8 +885,8 @@ function Commitments() {
                 opacity: 0.7
               }}
             >
-              <div className="task-card-layout" className="task-layout">
-                <div className="task-card-content" className="task-content-flex">
+              <div className="task-card-layout task-layout">
+                <div className="task-card-content task-content-flex">
                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
                     {renderTaskTypeBadge(commitment.task_type)}
                     {commitment.cluster_group && (
@@ -1123,8 +1120,7 @@ function Commitments() {
                   });
                 }}
                 disabled={creating}
-                className="secondary"
-                className="btn-padding-lg"
+                className="secondary btn-padding-lg"
               >
                 Cancel
               </button>
