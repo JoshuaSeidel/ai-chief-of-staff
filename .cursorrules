@@ -201,10 +201,14 @@ If you need to bump major or minor version (not just patch), manually edit both 
 - Default prompts stored in `backend/config/default-prompts.js`
 - Use the AI service (`services/ai-service.js`) for all Claude API calls
 
-### Styling
-- Use inline styles for component-specific styling
-- Global styles in `frontend/src/index.css`
-- Responsive design: mobile-first, desktop enhancements
+### Styling Convention
+- **USE CSS CLASSES ONLY** - No inline styles in JSX components
+- All styling belongs in `frontend/src/index.css`
+- Mobile-first approach: base styles for mobile, `@media (min-width: 769px)` for desktop
+- Semantic class names (`.model-selector`, `.task-card`, `.refresh-button`)
+- NO `!important` declarations - fix specificity instead
+- Touch targets minimum 44px for iOS (Apple HIG)
+- Font-size minimum 16px on inputs to prevent iOS zoom
 - Dark theme throughout (#1a1a1a background, #27272a cards)
 
 ## Important Notes

@@ -1,4 +1,6 @@
-# AI Chief of Staff Application
+# VS Code Development Instructions
+
+## AI Chief of Staff Application
 
 This is a React-based web application with Node.js/Express backend that automates personal productivity by:
 - Ingesting meeting transcripts and emails
