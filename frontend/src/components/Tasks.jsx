@@ -449,22 +449,13 @@ function Commitments() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="commitments">
             <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h2 style={{ margin: 0 }}>Task Management</h2>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="flex-between mb-lg flex-wrap gap-lg">
+          <h2 className="mt-0 mb-0">Task Management</h2>
+          <div className="flex gap-sm flex-wrap">
             <button
               onClick={() => setShowCreateModal(true)}
-              style={{
-                padding: '0.625rem 1rem',
-                minHeight: '44px',
-                backgroundColor: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '0.9rem',
-                whiteSpace: 'nowrap'
-              }}
+              className="btn btn-success"
+              style={{ whiteSpace: 'nowrap' }}
               title="Create a new task"
             >
               ➕ Create Task
@@ -472,15 +463,11 @@ function Commitments() {
             <button
               onClick={handleSmartGroup}
               disabled={clusteringTasks || loading || filteredCommitments.filter(c => c.status !== 'completed').length < 2}
+              className="btn"
               style={{
-                padding: '0.625rem 1rem',
-                minHeight: '44px',
                 backgroundColor: clusteringTasks ? '#6e6e73' : '#8b5cf6',
                 color: 'white',
-                border: 'none',
-                borderRadius: '6px',
                 cursor: clusteringTasks || filteredCommitments.filter(c => c.status !== 'completed').length < 2 ? 'not-allowed' : 'pointer',
-                fontSize: '0.9rem',
                 textAlign: 'center',
                 wordBreak: 'break-word'
               }}
@@ -492,15 +479,11 @@ function Commitments() {
               <button 
                 onClick={handleSyncToMicrosoft} 
                 disabled={syncingMicrosoft || loading}
+                className="btn"
                 style={{
-                  padding: '0.625rem 1rem',
-                  minHeight: '44px',
                   backgroundColor: syncingMicrosoft ? '#6e6e73' : '#0078d4',
                   color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
                   cursor: syncingMicrosoft ? 'not-allowed' : 'pointer',
-                  fontSize: '0.9rem',
                   whiteSpace: 'nowrap'
                 }}
                 title="Sync tasks to Microsoft Planner"
@@ -513,15 +496,11 @@ function Commitments() {
                 <button 
                   onClick={handleSyncToJira} 
                   disabled={syncingJira || loading}
+                  className="btn"
                   style={{
-                    padding: '0.625rem 1rem',
-                    minHeight: '44px',
                     backgroundColor: syncingJira ? '#6e6e73' : '#0052CC',
                     color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
                     cursor: syncingJira ? 'not-allowed' : 'pointer',
-                    fontSize: '0.9rem',
                     whiteSpace: 'nowrap'
                   }}
                   title="Sync tasks to Jira"
@@ -532,15 +511,10 @@ function Commitments() {
                   <button 
                     onClick={handleSyncFailedToJira} 
                     disabled={syncingJira || loading}
+                    className="btn btn-warning"
                     style={{
-                      padding: '0.625rem 1rem',
-                      minHeight: '44px',
-                      backgroundColor: syncingJira ? '#6e6e73' : '#f59e0b',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
+                      backgroundColor: syncingJira ? '#6e6e73' : undefined,
                       cursor: syncingJira ? 'not-allowed' : 'pointer',
-                      fontSize: '0.9rem',
                       whiteSpace: 'nowrap'
                     }}
                     title="Retry syncing failed/pending tasks to Jira"
@@ -727,83 +701,49 @@ function Commitments() {
                   border: '1px solid #f59e0b40'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="task-header">
+                  <div className="task-badges">
                     {renderTaskTypeBadge(commitment.task_type)}
                     {commitment.cluster_group && (
-                      <span style={{ 
-                        backgroundColor: '#3b82f6', 
-                        color: 'white', 
-                        padding: '0.35rem 0.65rem', 
-                        borderRadius: '6px',
-                        fontSize: '0.8rem',
-                        fontWeight: '600',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.25rem'
-                      }}>
+                      <span className="task-badge">
                         📁 {commitment.cluster_group}
                       </span>
                     )}
                   </div>
                 </div>
-                <p style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#fbbf24', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
+                <p className="task-description">
                   {commitment.description}
                 </p>
-                <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
+                <div className="task-metadata">
                   <div>👤 Assignee: <strong>{commitment.assignee || 'Unknown'}</strong></div>
                   {commitment.deadline && (
                     <div>📅 Deadline: {formatDate(commitment.deadline)}</div>
                   )}
                   {commitment.suggested_approach && (
-                    <div style={{ marginTop: '0.5rem', fontStyle: 'italic' }}>
+                    <div className="task-metadata-row">
                       💡 {commitment.suggested_approach}
                     </div>
                   )}
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <div className="task-actions">
                   <button
                     onClick={() => confirmTask(commitment.id, true)}
-                    style={{ 
-                      padding: '0.5rem 1rem', 
-                      fontSize: '0.85rem',
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      flex: 1,
-                      minWidth: '100px'
-                    }}
+                    className="btn btn-success btn-full"
                   >
                     ✅ Confirm
                   </button>
                   <button
                     onClick={() => confirmTask(commitment.id, false)}
-                    style={{ 
-                      padding: '0.5rem 1rem', 
-                      fontSize: '0.85rem',
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      flex: 1,
-                      minWidth: '100px'
-                    }}
+                    className="btn btn-error btn-full"
                   >
                     ❌ Reject
                   </button>
                   <button
                     onClick={() => deleteTask(commitment.id, commitment.description)}
+                    className="btn"
                     style={{ 
-                      padding: '0.5rem 1rem', 
-                      fontSize: '0.85rem',
                       backgroundColor: '#71717a',
                       color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
                       minWidth: '80px'
                     }}
                   >
