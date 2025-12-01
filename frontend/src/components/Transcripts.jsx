@@ -33,6 +33,13 @@ function Transcripts() {
     loadTranscripts();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Cleanup: Remove body scroll lock on unmount
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, []);
+
   const loadTranscripts = async () => {
     try {
       const response = await transcriptsAPI.getAll();
@@ -361,6 +368,7 @@ function Transcripts() {
       const response = await transcriptsAPI.getById(id);
       const transcript = response.data;
       setViewingTranscript(transcript);
+      document.body.classList.add('modal-open');
       
       // Load meeting notes if available
       loadMeetingNotes(id);
@@ -387,6 +395,7 @@ function Transcripts() {
   const handleCloseTranscriptView = () => {
     setViewingTranscript(null);
     setMeetingNotes(null);
+    document.body.classList.remove('modal-open');
   };
 
   return (
@@ -913,7 +922,7 @@ function Transcripts() {
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="mt-0 mb-0">📄 {viewingTranscript.filename}</h2>
-              <button className="btn-secondary" onClick={handleCloseTranscriptView}>
+              <button className="modal-close-btn" onClick={handleCloseTranscriptView}>
                 ✕
               </button>
             </div>

@@ -1404,6 +1404,7 @@ table {
   align-items: center;
 }
 
+.model-dropdown,
 .model-selector {
   flex: 1;
   min-width: 0;
@@ -1414,6 +1415,7 @@ table {
   line-height: 1.5;
 }
 
+.model-refresh-btn,
 .model-refresh-button {
   padding: 0;
   font-size: 1.25rem;
@@ -1432,6 +1434,7 @@ table {
   box-sizing: border-box;
 }
 
+.model-refresh-btn:disabled,
 .model-refresh-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
@@ -2808,6 +2811,11 @@ table {
   overflow-y: auto;
 }
 
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden;
+}
+
 .modal-content {
   background-color: #1a1a1a;
   border-radius: 12px;
@@ -2830,12 +2838,35 @@ table {
   align-items: center;
   padding: 1.5rem;
   border-bottom: 1px solid #3f3f46;
+  flex-shrink: 0;
+}
+
+.modal-close-btn {
+  background: #3f3f46;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.modal-close-btn:hover {
+  background: #52525b;
+  transform: scale(1.05);
 }
 
 .modal-body {
   padding: 1.5rem;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
 }
 
 .transcript-meta {
