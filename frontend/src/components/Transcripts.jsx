@@ -412,9 +412,9 @@ function Transcripts() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="transcripts">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div className="flex-between-center-mb-md-wrap-gap-sm">
           <h2>Upload Transcript</h2>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <div className="flex gap-sm items-center">
             <button 
               onClick={() => {
                 setShowRecording(!showRecording);
@@ -469,30 +469,21 @@ function Transcripts() {
             borderRadius: '8px', 
             marginBottom: '1rem'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <span style={{ color: '#60a5fa', fontSize: '0.9rem', fontWeight: '500' }}>
+            <div className="flex-between-center-mb-sm">
+              <span className="text-primary-sm-medium">
                 ⏳ Processing transcript...
               </span>
-              <span style={{ color: '#a1a1aa', fontSize: '0.85rem' }}>
+              <span className="text-xs text-muted">
                 {processingProgress}%
               </span>
             </div>
-            <div style={{
-              width: '100%',
-              height: '8px',
-              backgroundColor: '#27272a',
-              borderRadius: '4px',
-              overflow: 'hidden'
-            }}>
-              <div style={{
-                width: `${processingProgress}%`,
-                height: '100%',
-                backgroundColor: '#60a5fa',
-                transition: 'width 0.3s ease',
-                borderRadius: '4px'
-              }} />
+            <div className="progress-bar-outer">
+              <div 
+                className="progress-bar-inner"
+                style={{ width: `${processingProgress}%` }}
+              />
             </div>
-            <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '0.5rem', marginBottom: 0 }}>
+            <p className="text-hint">
               This may take 30-60 seconds. You can continue using the app.
             </p>
           </div>
@@ -500,7 +491,7 @@ function Transcripts() {
 
         {showRecording ? (
           <div className="recording-panel glass-panel">
-            <div style={{ textAlign: 'center', padding: '2rem' }}>
+            <div className="recording-container">
               <div className="recording-visualizer">
                 {isRecording && (
                   <>
@@ -514,19 +505,19 @@ function Transcripts() {
                 </div>
               </div>
               
-              <div style={{ fontSize: '2rem', fontWeight: '600', color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem' }}>
+              <div className="recording-time">
                 {formatTime(recordingTime)}
               </div>
               
               {!isRecording && !audioBlob && (
-                <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
+                <p className="text-muted-mb-lg">
                   Record your meeting notes or voice memo
                 </p>
               )}
               
               {audioBlob && !isRecording && (
-                <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
-                  <p style={{ color: '#34d399', marginBottom: '0.5rem', fontWeight: '500' }}>
+                <div className="mt-md-mb-md">
+                  <p className="text-success-mb-sm-medium">
                     ✓ Recording complete ({formatTime(recordingTime)})
                   </p>
                   <audio 
@@ -541,14 +532,14 @@ function Transcripts() {
                 </div>
               )}
               
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+              <div className="flex-center-gap-md-mt-lg">
                 {!isRecording && !audioBlob && (
                   <button 
                     onClick={startRecording}
                     className="primary glass-button-primary"
-                    style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+                    className="btn-large-padding"
                   >
-                    <span style={{ fontSize: '1.2rem', marginRight: '0.5rem' }}>⏺</span>
+                    <span className="recording-button-icon">⏺</span>
                     Start Recording
                   </button>
                 )}
@@ -557,9 +548,9 @@ function Transcripts() {
                   <button 
                     onClick={stopRecording}
                     className="glass-button-stop"
-                    style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+                    className="btn-large-padding"
                   >
-                    <span style={{ fontSize: '1.2rem', marginRight: '0.5rem' }}>⏹</span>
+                    <span className="recording-button-icon">⏹</span>
                     Stop
                   </button>
                 )}
@@ -570,14 +561,14 @@ function Transcripts() {
                       onClick={handleRecordingUpload}
                       disabled={uploading}
                       className="primary glass-button-primary"
-                      style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
+                      className="btn-large-padding"
                     >
                       {uploading ? '⏳ Processing...' : '✓ Upload & Transcribe'}
                     </button>
                     <button 
                       onClick={cancelRecording}
                       className="secondary glass-button"
-                      style={{ padding: '0.75rem 1.5rem' }}
+                      className="btn-padding-lg"
                     >
                       ✕ Cancel
                     </button>
@@ -588,18 +579,18 @@ function Transcripts() {
           </div>
         ) : !showPasteForm ? (
           <>
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <div className="mb-md">
+              <label className="form-label-block">
                 Meeting Date (Optional)
               </label>
               <input
                 type="date"
                 value={fileMeetingDate}
                 onChange={(e) => setFileMeetingDate(e.target.value)}
-                style={{ marginBottom: '1rem' }}
+                className="mb-md"
                 max={new Date().toISOString().split('T')[0]}
               />
-              <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+              <p className="text-sm-gray-mt-negative-mb-md">
                 Enter the date the meeting occurred (helps AI set accurate deadlines)
               </p>
             </div>
@@ -616,30 +607,25 @@ function Transcripts() {
                 disabled={uploading}
               />
               <div>
-                <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+                <p className="text-md-mb-sm">
                   {uploading ? '⏳ Uploading & Processing...' : '📁 Click to upload transcript file'}
                 </p>
-                <p style={{ fontSize: '0.9rem', color: '#6e6e73' }}>
+                <p className="text-sm-gray">
                   Supports .txt, .doc, .docx, .pdf files (max 10MB)
                 </p>
               </div>
             </div>
 
-            <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#6e6e73' }}>
+            <p className="text-sm-gray-mt-md">
               Upload meeting transcripts from Plaud, Microsoft Teams, or any other source. 
               The system will automatically extract commitments and action items using Claude AI.
             </p>
           </>
         ) : (
-          <form onSubmit={handlePasteSubmit} style={{ 
-            backgroundColor: '#18181b', 
-            padding: '1.5rem', 
-            borderRadius: '8px',
-            border: '1px solid #3f3f46'
-          }}>
-            <h3 style={{ marginTop: 0 }}>Paste Transcript Text</h3>
+          <form onSubmit={handlePasteSubmit} className="form-box">
+            <h3 className="mt-0">Paste Transcript Text</h3>
             
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-block">
               Meeting Title *
             </label>
             <input
@@ -650,7 +636,7 @@ function Transcripts() {
               required
             />
             
-            <label style={{ display: 'block', marginBottom: '0.5rem', marginTop: '1rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-block-mt-md">
               Meeting Date (Optional)
             </label>
             <input
@@ -658,19 +644,19 @@ function Transcripts() {
               value={pasteData.meetingDate}
               onChange={(e) => setPasteData({ ...pasteData, meetingDate: e.target.value })}
               max={new Date().toISOString().split('T')[0]}
-              style={{ marginBottom: '0.5rem' }}
+              className="mb-sm"
             />
-            <p style={{ fontSize: '0.85rem', color: '#6e6e73', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+            <p className="text-sm-gray-mt-negative-mb-md">
               Enter the date the meeting occurred (helps AI set accurate deadlines)
             </p>
 
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-block">
               Source
             </label>
             <select
               value={pasteData.source}
               onChange={(e) => setPasteData({ ...pasteData, source: e.target.value })}
-              style={{ marginBottom: '1rem' }}
+              className="mb-md"
             >
               <option value="manual">Manual Entry</option>
               <option value="plaud">Plaud Note</option>
@@ -679,7 +665,7 @@ function Transcripts() {
               <option value="other">Other</option>
             </select>
 
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-block">
               Transcript Content *
             </label>
             <textarea
@@ -688,14 +674,10 @@ function Transcripts() {
               placeholder="Paste your meeting transcript here..."
               rows="15"
               required
-              style={{ 
-                resize: 'vertical',
-                fontFamily: 'monospace',
-                fontSize: '0.9rem'
-              }}
+              className="textarea-mono"
             />
 
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+            <div className="flex-gap-md-mt-md">
               <button type="submit" disabled={uploading}>
                 {uploading ? '⏳ Processing...' : '💾 Save & Process'}
               </button>
@@ -718,25 +700,25 @@ function Transcripts() {
         <h2>Recent Transcripts</h2>
         
         {transcripts.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#6e6e73' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📝</div>
+          <div className="empty-state">
+            <div className="empty-icon">📝</div>
             <p>No transcripts uploaded yet.</p>
-            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+            <p className="text-sm-gray-mt-sm">
               Upload a file or paste transcript text to get started.
             </p>
           </div>
         ) : (
           <>
             {/* Desktop table view */}
-            <div className="transcripts-table-desktop" style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="transcripts-table-desktop" className="overflow-x-auto">
+              <table className="table-full">
                 <thead>
-                  <tr style={{ borderBottom: '2px solid #d2d2d7' }}>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Filename</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Upload Date</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Source</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'right' }}>Actions</th>
+                  <tr className="table-header-row">
+                    <th className="table-cell-left">Filename</th>
+                    <th className="table-cell-left">Upload Date</th>
+                    <th className="table-cell-left">Source</th>
+                    <th className="table-cell-left">Status</th>
+                    <th className="table-cell-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -744,12 +726,12 @@ function Transcripts() {
                     const isProcessing = transcript.processing_status === 'processing';
                     const isFailed = transcript.processing_status === 'failed';
                     return (
-                      <tr key={transcript.id} style={{ borderBottom: '1px solid #f5f5f7' }}>
-                        <td style={{ padding: '0.75rem' }}>{transcript.filename}</td>
-                        <td style={{ padding: '0.75rem' }}>
+                      <tr key={transcript.id} className="transcript-table-row">
+                        <td className="transcript-table-cell">{transcript.filename}</td>
+                        <td className="transcript-table-cell">
                           {new Date(transcript.upload_date).toLocaleDateString()}
                         </td>
-                        <td style={{ padding: '0.75rem' }}>
+                        <td className="transcript-table-cell">
                           <span style={{ 
                             padding: '0.25rem 0.5rem',
                             borderRadius: '4px',
@@ -760,10 +742,10 @@ function Transcripts() {
                             {transcript.source}
                           </span>
                         </td>
-                        <td style={{ padding: '0.75rem' }}>
+                        <td className="transcript-table-cell">
                           {isProcessing ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span style={{ color: '#60a5fa', fontSize: '0.85rem' }}>⏳ Processing</span>
+                              <span className="text-processing">⏳ Processing</span>
                               <div style={{
                                 width: '60px',
                                 height: '4px',
@@ -778,14 +760,14 @@ function Transcripts() {
                                   transition: 'width 0.3s ease'
                                 }} />
                               </div>
-                              <span style={{ color: '#a1a1aa', fontSize: '0.75rem' }}>
+                              <span className="text-muted-xs">
                                 {transcript.processing_progress || 0}%
                               </span>
                             </div>
                           ) : isFailed ? (
-                            <span style={{ color: '#ef4444', fontSize: '0.85rem' }}>❌ Failed</span>
+                            <span className="text-failed">❌ Failed</span>
                           ) : (
-                            <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓ Complete</span>
+                            <span className="text-complete">✓ Complete</span>
                           )}
                         </td>
                         <td style={{ padding: '0.75rem', textAlign: 'right' }}>
@@ -844,13 +826,13 @@ function Transcripts() {
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem', fontSize: '0.875rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#a1a1aa' }}>Upload Date:</span>
+                        <span className="text-muted">Upload Date:</span>
                         <span style={{ color: '#e5e5e7' }}>
                           {new Date(transcript.upload_date).toLocaleDateString()}
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#a1a1aa' }}>Source:</span>
+                        <span className="text-muted">Source:</span>
                         <span style={{ 
                           padding: '0.25rem 0.5rem',
                           borderRadius: '4px',
@@ -862,10 +844,10 @@ function Transcripts() {
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ color: '#a1a1aa' }}>Status:</span>
+                        <span className="text-muted">Status:</span>
                         {isProcessing ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end' }}>
-                            <span style={{ color: '#60a5fa', fontSize: '0.85rem' }}>⏳ Processing</span>
+                            <span className="text-processing">⏳ Processing</span>
                             <div style={{
                               width: '60px',
                               height: '4px',
@@ -880,14 +862,14 @@ function Transcripts() {
                                 transition: 'width 0.3s ease'
                               }} />
                             </div>
-                            <span style={{ color: '#a1a1aa', fontSize: '0.75rem' }}>
+                            <span className="text-muted-xs">
                               {transcript.processing_progress || 0}%
                             </span>
                           </div>
                         ) : isFailed ? (
-                          <span style={{ color: '#ef4444', fontSize: '0.85rem' }}>❌ Failed</span>
+                          <span className="text-failed">❌ Failed</span>
                         ) : (
-                          <span style={{ color: '#22c55e', fontSize: '0.85rem' }}>✓ Complete</span>
+                          <span className="text-complete">✓ Complete</span>
                         )}
                       </div>
                     </div>
@@ -904,7 +886,7 @@ function Transcripts() {
                       >
                         View
                       </button>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <div className="flex gap-sm">
                         <button
                           className="secondary"
                           style={{ 
