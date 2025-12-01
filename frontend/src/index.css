@@ -1401,7 +1401,7 @@ table {
 .model-selector-container {
   display: flex;
   gap: 0.5rem;
-  align-items: center;
+  align-items: stretch;
 }
 
 .model-dropdown,
@@ -1413,6 +1413,10 @@ table {
   padding: 0.5rem;
   box-sizing: border-box;
   line-height: 1.5;
+  border: 1px solid #3f3f46;
+  background: #18181b;
+  color: white;
+  border-radius: 4px;
 }
 
 .model-refresh-btn,
@@ -1649,6 +1653,8 @@ table {
   justify-content: center;
   font-size: 1.25rem;
   box-sizing: border-box;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 /* === TASK BADGES === */
@@ -2808,12 +2814,13 @@ table {
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
-  overflow-y: auto;
 }
 
 /* Prevent body scroll when modal is open */
 body.modal-open {
-  overflow: hidden;
+  overflow: hidden !important;
+  position: fixed;
+  width: 100%;
 }
 
 .modal-content {
