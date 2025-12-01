@@ -1215,7 +1215,7 @@ table {
   }
 }
 
-/* Mobile optimizations for glass effect */
+/* Mobile optimizations */
 @media (max-width: 768px) {
   .glass-card {
     backdrop-filter: blur(16px) saturate(150%) !important;
@@ -1228,59 +1228,119 @@ table {
     padding: 1rem;
   }
   
-  /* Fix button heights to be consistent */
-  button, 
-  select, 
+  /* === CORE MOBILE FIXES === */
+  
+  /* All form inputs - prevent iOS zoom and ensure touch targets */
   input[type="text"],
   input[type="email"],
   input[type="password"],
   input[type="url"],
   input[type="number"],
+  input[type="date"],
+  select,
   textarea {
-    min-height: 44px !important; /* iOS touch target minimum */
-    font-size: 16px !important; /* Prevent zoom on iOS */
+    font-size: 16px !important; /* Prevent iOS auto-zoom */
+    min-height: 44px;
+    -webkit-appearance: none;
   }
   
-  /* Fix model selector layout on mobile */
-  .glass-panel select {
-    flex: 1;
-    width: 100% !important;
+  /* All buttons - proper touch targets */
+  button {
+    font-size: 16px !important; /* Prevent iOS zoom */
+    min-height: 44px;
+  }
+  
+  /* === CONFIGURATION PAGE FIXES === */
+  
+  /* Model selector containers - proper flex layout */
+  .glass-panel div[style*="display: 'flex'"][style*="gap: '0.5rem'"] {
+    display: flex !important;
+    gap: 0.5rem !important;
+    align-items: stretch !important;
+  }
+  
+  /* Model dropdowns - take available space */
+  .glass-panel div[style*="display: 'flex'"][style*="gap: '0.5rem'"] select {
+    flex: 1 !important;
+    min-width: 0 !important;
     height: 44px !important;
   }
   
-  /* Ensure refresh buttons are proportional */
-  .glass-panel button[title="Refresh model list"] {
-    min-width: 44px !important;
+  /* Refresh buttons next to dropdowns - fixed size */
+  .glass-panel div[style*="display: 'flex'"][style*="gap: '0.5rem'"] button[title="Refresh model list"] {
+    flex: 0 0 44px !important;
     width: 44px !important;
     height: 44px !important;
-    flex-shrink: 0;
+    min-width: 44px !important;
     padding: 0 !important;
+    font-size: 1.2rem !important;
+  }
+  
+  /* === TASK MANAGEMENT PAGE FIXES === */
+  
+  /* Button container at top of Tasks */
+  .card > div[style*="display: 'flex'"][style*="justifyContent: 'space-between'"] {
+    flex-wrap: wrap !important;
+    gap: 0.75rem !important;
+  }
+  
+  /* All action buttons in task management */
+  .card button[style*="backgroundColor"] {
+    flex: 1 1 auto !important;
+    min-width: fit-content !important;
+    justify-content: center !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Make buttons wrap into multiple rows on narrow screens */
+  @media (max-width: 480px) {
+    .card button[style*="backgroundColor"] {
+      flex: 1 1 100% !important;
+    }
+  }
+  
+  /* === TRANSCRIPT PAGE FIXES === */
+  
+  /* Transcript upload buttons (mic and text) */
+  .transcripts .glass-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 0.5rem 1rem !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 1.25rem !important;
   }
   
-  /* Action buttons in cards - consistent sizing */
-  .card button[style*="padding: '0.5rem 1rem'"],
-  .card button[style*="padding: 0.5rem 1rem"] {
-    min-height: 44px !important;
-    padding: 0.75rem 1rem !important;
-  }
+  /* === CALENDAR PAGE FIXES === */
   
-  /* Button groups should wrap properly */
-  .card > div[style*="display: 'flex'"] {
-    flex-wrap: wrap;
-  }
-  
-  /* Calendar buttons */
-  .card button[style*="minWidth: '36px'"],
-  .card button[style*="min-width: 36px"] {
+  /* Calendar button row */
+  .card h2 + div[style*="display: 'flex'"] button {
     min-width: 44px !important;
-    width: 44px !important;
-    height: 44px !important;
-    padding: 0 !important;
+    min-height: 44px !important;
+    padding: 0.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
+  
+  /* === HAMBURGER MENU FIX === */
+  
+  .header {
+    padding-right: 1rem !important;
+    overflow: visible !important;
+  }
+  
+  .header-content {
+    overflow: visible !important;
+  }
+  
+  .mobile-menu-toggle {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  /* === OTHER MOBILE ELEMENTS === */
   
   .recording-visualizer {
     width: 120px;

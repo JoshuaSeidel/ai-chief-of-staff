@@ -451,11 +451,11 @@ function Configuration() {
     const supportsRefresh = ['anthropic', 'openai', 'ollama'].includes(provider);
     
     return (
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
         <select
           value={currentModel}
           onChange={(e) => onModelChange(e.target.value)}
-          style={{ flex: 1 }}
+          style={{ flex: 1, minWidth: 0 }}
           disabled={loadingModels[provider]}
         >
           {provider === 'anthropic' && (

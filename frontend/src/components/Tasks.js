@@ -432,9 +432,6 @@ function Commitments() {
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
                 whiteSpace: 'nowrap'
               }}
               title="Create a new task"
@@ -453,9 +450,6 @@ function Commitments() {
                 borderRadius: '6px',
                 cursor: clusteringTasks || filteredCommitments.filter(c => c.status !== 'completed').length < 2 ? 'not-allowed' : 'pointer',
                 fontSize: '0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
                 whiteSpace: 'nowrap'
               }}
               title="AI-powered task grouping"
@@ -475,9 +469,6 @@ function Commitments() {
                   borderRadius: '6px',
                   cursor: syncingMicrosoft ? 'not-allowed' : 'pointer',
                   fontSize: '0.9rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
                   whiteSpace: 'nowrap'
                 }}
                 title="Sync tasks to Microsoft Planner"
@@ -499,9 +490,6 @@ function Commitments() {
                     borderRadius: '6px',
                     cursor: syncingJira ? 'not-allowed' : 'pointer',
                     fontSize: '0.9rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
                     whiteSpace: 'nowrap'
                   }}
                   title="Sync tasks to Jira"
@@ -521,9 +509,6 @@ function Commitments() {
                       borderRadius: '6px',
                       cursor: syncingJira ? 'not-allowed' : 'pointer',
                       fontSize: '0.9rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
                       whiteSpace: 'nowrap'
                     }}
                     title="Retry syncing failed/pending tasks to Jira"
