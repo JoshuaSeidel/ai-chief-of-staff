@@ -905,7 +905,7 @@ function Configuration() {
         {false && (
           <div style={{ marginBottom: '2rem' }}>
             <h3>Plaud Integration</h3>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-muted">
               Plaud API Key (Optional)
             </label>
             <input
@@ -978,7 +978,7 @@ function Configuration() {
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Model
                 </label>
                 {renderModelSelector(
@@ -989,28 +989,28 @@ function Configuration() {
               </div>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+            <div className="grid-2col mt-lg">
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Max Tokens (Response Length)
                 </label>
                 <select
                   value={config.aiMaxTokens || '4096'}
                   onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   <option value="2048">2048 - Short meetings (cheaper)</option>
                   <option value="4096">4096 - Normal meetings (recommended)</option>
                   <option value="6144">6144 - Long meetings</option>
                   <option value="8192">8192 - Very long meetings (max)</option>
                 </select>
-                <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                <p className="form-hint">
                   Higher = longer/complete responses but more cost
                 </p>
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Your Name(s) (Comma-separated)
                 </label>
                 <input
@@ -1018,9 +1018,9 @@ function Configuration() {
                   value={config.userNames || ''}
                   onChange={(e) => handleChange('userNames', e.target.value)}
                   placeholder="John Smith, J. Smith"
-                  style={{ width: '100%' }}
+                  className="form-input"
                 />
-                <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                <p className="form-hint">
                   For automatic task assignment from transcripts
                 </p>
               </div>
@@ -1050,21 +1050,21 @@ function Configuration() {
           {microservicesExpanded && (
             <>
               {/* AI Intelligence Service */}
-              <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
-            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🧠 AI Intelligence Service</h4>
-            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              <div className="glass-panel mb-xl">
+            <h4 className="config-subsection-title mt-0">🧠 AI Intelligence Service</h4>
+            <p className="config-subsection-description">
               Task effort estimation, energy classification, and task clustering
             </p>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid-2col mb-lg">
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Provider
                 </label>
                 <select
                   value={config.aiIntelligenceProvider || 'anthropic'}
                   onChange={(e) => handleChange('aiIntelligenceProvider', e.target.value)}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   <option value="anthropic">Anthropic Claude</option>
                   <option value="openai">OpenAI GPT</option>
@@ -1074,7 +1074,7 @@ function Configuration() {
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Model
                 </label>
                 {renderModelSelector(
@@ -1087,21 +1087,21 @@ function Configuration() {
           </div>
           
           {/* Voice Processor Service */}
-          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
-            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🎤 Voice Processor Service</h4>
-            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+          <div className="glass-panel mb-xl">
+            <h4 className="config-subsection-title mt-0">🎤 Voice Processor Service</h4>
+            <p className="config-subsection-description">
               Audio transcription and voice-to-text
             </p>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid-2col mb-lg">
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Provider
                 </label>
                 <select
                   value={config.voiceProcessorProvider || 'openai'}
                   onChange={(e) => handleChange('voiceProcessorProvider', e.target.value)}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   <option value="openai">OpenAI Whisper</option>
                   <option value="ollama">Ollama Whisper</option>
@@ -1109,7 +1109,7 @@ function Configuration() {
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Model
                 </label>
                 {renderModelSelector(
@@ -1122,19 +1122,19 @@ function Configuration() {
             
             {/* Voice Storage Configuration */}
             <div style={{ borderTop: '1px solid rgba(161, 161, 170, 0.2)', paddingTop: '1rem', marginTop: '1rem' }}>
-              <h5 style={{ marginTop: 0, marginBottom: '0.75rem', fontSize: '1rem' }}>💾 Storage Configuration</h5>
-              <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+              <h5 className="config-subsection-subtitle mt-0">💾 Storage Configuration</h5>
+              <p className="config-subsection-hint">
                 Configure where voice recordings are stored
               </p>
               
               <div style={{ marginBottom: '1rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Storage Type
                 </label>
                 <select
                   value={config.storageType || 'local'}
                   onChange={(e) => handleChange('storageType', e.target.value)}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   <option value="local">Local Filesystem</option>
                   <option value="s3">S3 Compatible (AWS S3, MinIO, etc.)</option>
@@ -1143,7 +1143,7 @@ function Configuration() {
               
               {config.storageType === 'local' && (
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  <label className="form-label">
                     Local Storage Path
                   </label>
                   <input
@@ -1151,7 +1151,7 @@ function Configuration() {
                     value={config.storagePath || '/app/data/voice-recordings'}
                     onChange={(e) => handleChange('storagePath', e.target.value)}
                     placeholder="/app/data/voice-recordings"
-                    style={{ width: '100%', fontFamily: 'monospace' }}
+                    className="form-input-mono"
                   />
                 </div>
               )}
@@ -1159,7 +1159,7 @@ function Configuration() {
               {config.storageType === 's3' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    <label className="form-label">
                       S3 Bucket Name
                     </label>
                     <input
@@ -1167,12 +1167,12 @@ function Configuration() {
                       value={config.s3Bucket || ''}
                       onChange={(e) => handleChange('s3Bucket', e.target.value)}
                       placeholder="my-voice-recordings"
-                      style={{ width: '100%' }}
+                      className="form-input"
                     />
                   </div>
                   
                   <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    <label className="form-label">
                       S3 Region
                     </label>
                     <input
@@ -1180,12 +1180,12 @@ function Configuration() {
                       value={config.s3Region || 'us-east-1'}
                       onChange={(e) => handleChange('s3Region', e.target.value)}
                       placeholder="us-east-1"
-                      style={{ width: '100%' }}
+                      className="form-input"
                     />
                   </div>
                   
                   <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    <label className="form-label">
                       S3 Access Key ID
                     </label>
                     <input
@@ -1193,12 +1193,12 @@ function Configuration() {
                       value={config.s3AccessKeyId || ''}
                       onChange={(e) => handleChange('s3AccessKeyId', e.target.value)}
                       placeholder="AKIA..."
-                      style={{ width: '100%', fontFamily: 'monospace' }}
+                      className="form-input-mono"
                     />
                   </div>
                   
                   <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    <label className="form-label">
                       S3 Secret Access Key
                     </label>
                     <input
@@ -1206,12 +1206,12 @@ function Configuration() {
                       value={config.s3SecretAccessKey || ''}
                       onChange={(e) => handleChange('s3SecretAccessKey', e.target.value)}
                       placeholder="..."
-                      style={{ width: '100%', fontFamily: 'monospace' }}
+                      className="form-input-mono"
                     />
                   </div>
                   
                   <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                    <label className="form-label">
                       S3 Endpoint (Optional - for MinIO or custom S3)
                     </label>
                     <input
@@ -1219,9 +1219,9 @@ function Configuration() {
                       value={config.s3Endpoint || ''}
                       onChange={(e) => handleChange('s3Endpoint', e.target.value)}
                       placeholder="https://minio.example.com"
-                      style={{ width: '100%' }}
+                      className="form-input"
                     />
-                    <p style={{ fontSize: '0.75rem', color: '#a1a1aa', marginTop: '0.25rem' }}>
+                    <p className="form-hint">
                       Leave empty for AWS S3
                     </p>
                   </div>
@@ -1231,21 +1231,21 @@ function Configuration() {
           </div>
           
           {/* Pattern Recognition Service */}
-          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
-            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>📊 Pattern Recognition Service</h4>
-            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+          <div className="glass-panel mb-xl">
+            <h4 className="config-subsection-title mt-0">📊 Pattern Recognition Service</h4>
+            <p className="config-subsection-description">
               Behavioral patterns and productivity insights
             </p>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid-2col mb-lg">
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Provider
                 </label>
                 <select
                   value={config.patternRecognitionProvider || 'anthropic'}
                   onChange={(e) => handleChange('patternRecognitionProvider', e.target.value)}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   <option value="anthropic">Anthropic Claude</option>
                   <option value="openai">OpenAI GPT</option>
@@ -1255,13 +1255,13 @@ function Configuration() {
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Model
                 </label>
                 <select
                   value={config.patternRecognitionModel || 'claude-sonnet-4-5-20250929'}
                   onChange={(e) => handleChange('patternRecognitionModel', e.target.value)}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   {(config.patternRecognitionProvider || 'anthropic') === 'anthropic' && (
                     <>
@@ -1291,21 +1291,21 @@ function Configuration() {
           </div>
           
           {/* NL Parser Service */}
-          <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
-            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>💬 Natural Language Parser</h4>
-            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+          <div className="glass-panel mb-xl">
+            <h4 className="config-subsection-title mt-0">💬 Natural Language Parser</h4>
+            <p className="config-subsection-description">
               Parse natural language into structured tasks
             </p>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="grid-2col mb-lg">
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Provider
                 </label>
                 <select
                   value={config.nlParserProvider || 'anthropic'}
                   onChange={(e) => handleChange('nlParserProvider', e.target.value)}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   <option value="anthropic">Anthropic Claude</option>
                   <option value="openai">OpenAI GPT</option>
@@ -1315,13 +1315,13 @@ function Configuration() {
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Model
                 </label>
                 <select
                   value={config.nlParserModel || 'claude-sonnet-4-5-20250929'}
                   onChange={(e) => handleChange('nlParserModel', e.target.value)}
-                  style={{ width: '100%' }}
+                  className="form-input"
                 >
                   {(config.nlParserProvider || 'anthropic') === 'anthropic' && (
                     <>
@@ -1354,14 +1354,14 @@ function Configuration() {
           
           {/* API Keys Section */}
           <div className="glass-panel">
-            <h4 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.1rem' }}>🔑 API Keys</h4>
-            <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+            <h4 className="config-subsection-title mt-0">🔑 API Keys</h4>
+            <p className="config-subsection-description">
               Configure API keys for AI providers. Keys are stored securely and never displayed in full.
             </p>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Anthropic API Key
                 </label>
                 <input
@@ -1369,12 +1369,12 @@ function Configuration() {
                   value={config.anthropicApiKey || ''}
                   onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
                   placeholder="sk-ant-..."
-                  style={{ width: '100%', fontFamily: 'monospace' }}
+                  className="form-input-mono"
                 />
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   OpenAI API Key
                 </label>
                 <input
@@ -1382,12 +1382,12 @@ function Configuration() {
                   value={config.openaiApiKey || ''}
                   onChange={(e) => handleChange('openaiApiKey', e.target.value)}
                   placeholder="sk-..."
-                  style={{ width: '100%', fontFamily: 'monospace' }}
+                  className="form-input-mono"
                 />
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                <label className="form-label">
                   Ollama Base URL (for local deployment)
                 </label>
                 <input
@@ -1395,13 +1395,13 @@ function Configuration() {
                   value={config.ollamaBaseUrl || 'http://localhost:11434'}
                   onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
                   placeholder="http://localhost:11434"
-                  style={{ width: '100%' }}
+                  className="form-input"
                 />
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  <label className="form-label">
                     AWS Access Key ID (for Bedrock)
                   </label>
                   <input
@@ -1409,12 +1409,12 @@ function Configuration() {
                     value={config.awsAccessKeyId || ''}
                     onChange={(e) => handleChange('awsAccessKeyId', e.target.value)}
                     placeholder="AKIA..."
-                    style={{ width: '100%', fontFamily: 'monospace' }}
+                    className="form-input-mono"
                   />
                 </div>
                 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#e5e5e7' }}>
+                  <label className="form-label">
                     AWS Secret Access Key
                   </label>
                   <input
@@ -1422,7 +1422,7 @@ function Configuration() {
                     value={config.awsSecretAccessKey || ''}
                     onChange={(e) => handleChange('awsSecretAccessKey', e.target.value)}
                     placeholder="..."
-                    style={{ width: '100%', fontFamily: 'monospace' }}
+                    className="form-input-mono"
                   />
                 </div>
               </div>
@@ -1541,11 +1541,11 @@ function Configuration() {
                     Disconnect
                   </button>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                <p className="config-subsection-description">
                   Commitments with deadlines will automatically create calendar events. Events sync across all your devices.
                 </p>
                 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                <label className="form-label-muted">
                   Calendar ID (Optional)
                 </label>
                 <input
@@ -1571,7 +1571,7 @@ function Configuration() {
                       ⚠️ Setup required: Add your Google OAuth credentials below, then click Connect
                     </p>
                     
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                    <label className="form-label-muted">
                       Google Client ID
                     </label>
                     <input
@@ -1582,7 +1582,7 @@ function Configuration() {
                       style={{ marginBottom: '1rem' }}
                     />
                     
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                    <label className="form-label-muted">
                       Google Client Secret
                     </label>
                     <input
@@ -1598,7 +1598,7 @@ function Configuration() {
                       </p>
                     )}
                     
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                    <label className="form-label-muted">
                       Redirect URI (Optional)
                     </label>
                     <input
@@ -1707,11 +1707,11 @@ function Configuration() {
                     Disconnect
                   </button>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                <p className="config-subsection-description">
                   Commitments with deadlines will automatically create Outlook Calendar events and Microsoft To Do tasks. Both sync across all your devices.
                 </p>
                 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                <label className="form-label-muted">
                   Calendar ID (Optional)
                 </label>
                 <input
@@ -1725,7 +1725,7 @@ function Configuration() {
                   Leave blank to use your default Outlook calendar. To find calendar IDs, use the Microsoft Graph API or Outlook web interface.
                 </p>
                 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                <label className="form-label-muted">
                   Task List (Optional)
                 </label>
                 {loadingTaskLists ? (
@@ -1795,7 +1795,7 @@ function Configuration() {
                       ⚠️ Setup required: Add your Azure app registration details below, then click Connect
                     </p>
                     
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                    <label className="form-label-muted">
                       Azure Tenant ID
                     </label>
                     <input
@@ -1806,7 +1806,7 @@ function Configuration() {
                       style={{ marginBottom: '1rem' }}
                     />
                     
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                    <label className="form-label-muted">
                       Azure Client ID (Application ID)
                     </label>
                     <input
@@ -1817,7 +1817,7 @@ function Configuration() {
                       style={{ marginBottom: '1rem' }}
                     />
                     
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                    <label className="form-label-muted">
                       Azure Client Secret
                     </label>
                     <input
@@ -1833,7 +1833,7 @@ function Configuration() {
                       </p>
                     )}
                     
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                    <label className="form-label-muted">
                       Redirect URI (Optional)
                     </label>
                     <input
@@ -1951,7 +1951,7 @@ function Configuration() {
                     Disconnect
                   </button>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '1rem' }}>
+                <p className="config-subsection-description">
                   Tasks with deadlines will automatically create Jira issues (stories/tasks). Supports both Jira Cloud and on-premise.
                 </p>
               </div>
@@ -1962,7 +1962,7 @@ function Configuration() {
                   Supports both Jira Cloud (atlassian.net) and on-premise Jira servers.
                 </p>
                 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                <label className="form-label-muted">
                   Jira Base URL
                 </label>
                 <input
@@ -1977,7 +1977,7 @@ function Configuration() {
                   For on-premise: https://jira.yourcompany.com
                 </p>
                 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                <label className="form-label-muted">
                   Email / Username
                 </label>
                 <input
@@ -1998,7 +1998,7 @@ function Configuration() {
                   }}
                 />
                 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                <label className="form-label-muted">
                   API Token
                 </label>
                 <input
@@ -2017,7 +2017,7 @@ function Configuration() {
                   Create an API token: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer">Jira Cloud</a> or your on-premise Jira → Account Settings → Security → API Tokens
                 </p>
                 
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                <label className="form-label-muted">
                   Project Key
                 </label>
                 <input
@@ -2061,7 +2061,7 @@ function Configuration() {
               Perfect for privacy-focused local calendar synchronization and on-premise deployments.
             </p>
             
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-muted">
               CalDAV Server URL
             </label>
             <input
@@ -2085,7 +2085,7 @@ function Configuration() {
               Examples: http://localhost:5232 (Radicale), https://nextcloud.example.com/remote.php/dav (Nextcloud)
             </p>
             
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-muted">
               Username
             </label>
             <input
@@ -2106,7 +2106,7 @@ function Configuration() {
               }}
             />
             
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+            <label className="form-label-muted">
               Password
             </label>
             <input
@@ -2153,7 +2153,7 @@ function Configuration() {
             💾 Database Configuration
           </summary>
           <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+          <label className="form-label-muted">
             Database Type
           </label>
           <select
@@ -2177,7 +2177,7 @@ function Configuration() {
 
           {config.dbType === 'postgres' && (
             <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px', border: '1px solid #3f3f46' }}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              <label className="form-label-muted">
                 PostgreSQL Host
               </label>
               <input
@@ -2187,7 +2187,7 @@ function Configuration() {
                 placeholder="localhost"
               />
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              <label className="form-label-muted">
                 Port
               </label>
               <input
@@ -2197,7 +2197,7 @@ function Configuration() {
                 placeholder="5432"
               />
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              <label className="form-label-muted">
                 Database Name
               </label>
               <input
@@ -2207,7 +2207,7 @@ function Configuration() {
                 placeholder="ai_chief_of_staff"
               />
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              <label className="form-label-muted">
                 Username
               </label>
               <input
@@ -2217,7 +2217,7 @@ function Configuration() {
                 placeholder="postgres"
               />
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              <label className="form-label-muted">
                 Password
               </label>
               <input

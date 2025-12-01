@@ -245,7 +245,7 @@ function Intelligence() {
                   value={effortDescription}
                   onChange={(e) => setEffortDescription(e.target.value)}
                   placeholder="e.g., Write Q4 strategic plan"
-                  style={{ width: '100%', minHeight: '80px', marginBottom: '0.5rem', padding: '0.75rem', backgroundColor: '#09090b', color: '#fff', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                  className="form-textarea"
                 />
                 <input
                   type="text"
@@ -257,12 +257,12 @@ function Intelligence() {
                 <button 
                   onClick={handleEstimateEffort}
                   disabled={effortLoading || !effortDescription.trim()}
-                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  className="btn-icon"
                 >
                   {effortLoading ? 'Estimating...' : 'Estimate Effort'}
                 </button>
                 {effortResult && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: effortResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${effortResult.error ? '#ef4444' : '#22c55e'}` }}>
+                  <div className={`result-box ${effortResult.error ? 'result-box-error' : 'result-box-success'}`}>
                     {effortResult.error ? (
                       <p style={{ color: '#ef4444' }}>❌ {effortResult.error}</p>
                     ) : (
@@ -292,7 +292,7 @@ function Intelligence() {
                         {effortResult.raw_response && (
                           <details style={{ marginTop: '0.5rem' }}>
                             <summary style={{ cursor: 'pointer', color: '#71717a', fontSize: '0.85rem' }}>Show raw response</summary>
-                            <pre style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#09090b', borderRadius: '4px', fontSize: '0.75rem', color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>
+                            <pre className="result-metadata">
                               {effortResult.raw_response}
                             </pre>
                           </details>
@@ -313,17 +313,17 @@ function Intelligence() {
                   value={energyDescription}
                   onChange={(e) => setEnergyDescription(e.target.value)}
                   placeholder="e.g., Update team spreadsheet with Q3 numbers"
-                  style={{ width: '100%', minHeight: '80px', marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#09090b', color: '#fff', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                  className="form-textarea mb-lg"
                 />
                 <button 
                   onClick={handleClassifyEnergy}
                   disabled={energyLoading || !energyDescription.trim()}
-                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  className="btn-icon"
                 >
                   {energyLoading ? 'Classifying...' : 'Classify Energy'}
                 </button>
                 {energyResult && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: energyResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${energyResult.error ? '#ef4444' : '#22c55e'}` }}>
+                  <div className={`result-box ${energyResult.error ? 'result-box-error' : 'result-box-success'}`}>
                     {energyResult.error ? (
                       <p style={{ color: '#ef4444' }}>❌ {energyResult.error}</p>
                     ) : (
@@ -350,7 +350,7 @@ function Intelligence() {
                         {energyResult.raw_response && (
                           <details style={{ marginTop: '0.5rem' }}>
                             <summary style={{ cursor: 'pointer', color: '#71717a', fontSize: '0.85rem' }}>Show raw response</summary>
-                            <pre style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#09090b', borderRadius: '4px', fontSize: '0.75rem', color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>
+                            <pre className="result-metadata">
                               {energyResult.raw_response}
                             </pre>
                           </details>
@@ -371,24 +371,24 @@ function Intelligence() {
                   value={clusterTasks}
                   onChange={(e) => setClusterTasks(e.target.value)}
                   placeholder="Enter tasks, one per line:&#10;Review Q4 budget&#10;Prepare Q4 presentation&#10;Send weekly email"
-                  style={{ width: '100%', minHeight: '120px', marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#09090b', color: '#fff', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                  className="form-textarea-lg"
                 />
                 <button 
                   onClick={handleClusterTasks}
                   disabled={clusterLoading || !clusterTasks.trim()}
-                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  className="btn-icon"
                 >
                   {clusterLoading ? 'Clustering...' : 'Cluster Tasks'}
                 </button>
                 {clusterResult && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: clusterResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${clusterResult.error ? '#ef4444' : '#22c55e'}` }}>
+                  <div className={`result-box ${clusterResult.error ? 'result-box-error' : 'result-box-success'}`}>
                     {clusterResult.error ? (
                       <p style={{ color: '#ef4444' }}>❌ {clusterResult.error}</p>
                     ) : (
                       <div>
                         {clusterResult.clusters && clusterResult.clusters.length > 0 ? (
                           clusterResult.clusters.map((cluster, idx) => (
-                            <div key={idx} style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#09090b', borderRadius: '6px' }}>
+                            <div key={idx} className="cluster-item">
                               <p style={{ color: '#22c55e', fontWeight: 'bold' }}>{cluster.name}</p>
                               {cluster.reasoning && <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>{cluster.reasoning}</p>}
                               {cluster.description && <p style={{ color: '#a1a1aa', fontSize: '0.9rem' }}>{cluster.description}</p>}
@@ -406,7 +406,7 @@ function Intelligence() {
                           <p style={{ color: '#a1a1aa' }}>No clusters identified</p>
                         )}
                         {clusterResult.recommendations && (
-                          <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#09090b', borderRadius: '6px' }}>
+                          <div className="cluster-metadata">
                             <p style={{ color: '#e5e5e7', fontWeight: 'bold' }}>💡 Recommendations:</p>
                             <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginTop: '0.25rem' }}>{clusterResult.recommendations}</p>
                           </div>
@@ -414,7 +414,7 @@ function Intelligence() {
                         {clusterResult.raw_response && (
                           <details style={{ marginTop: '0.5rem' }}>
                             <summary style={{ cursor: 'pointer', color: '#71717a', fontSize: '0.85rem' }}>Show raw response</summary>
-                            <pre style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#09090b', borderRadius: '4px', fontSize: '0.75rem', color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>
+                            <pre className="result-metadata">
                               {clusterResult.raw_response}
                             </pre>
                           </details>
@@ -452,7 +452,7 @@ function Intelligence() {
                   value={parseText}
                   onChange={(e) => setParseText(e.target.value)}
                   placeholder="e.g., Write quarterly report by Friday 5pm #reports"
-                  style={{ width: '100%', minHeight: '80px', marginBottom: '0.5rem', padding: '0.75rem', backgroundColor: '#09090b', color: '#fff', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                  className="form-textarea"
                 />
                 <input
                   type="text"
@@ -464,7 +464,7 @@ function Intelligence() {
                 <button 
                   onClick={handleParseTask}
                   disabled={parseLoading || !parseText.trim()}
-                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  className="btn-icon"
                 >
                   {parseLoading ? 'Parsing...' : 'Parse Task'}
                 </button>
@@ -493,7 +493,7 @@ function Intelligence() {
                         {parseResult.raw_response && (
                           <details style={{ marginTop: '0.5rem' }}>
                             <summary style={{ cursor: 'pointer', color: '#71717a', fontSize: '0.85rem' }}>Show raw response</summary>
-                            <pre style={{ marginTop: '0.5rem', padding: '0.5rem', backgroundColor: '#09090b', borderRadius: '4px', fontSize: '0.75rem', color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>
+                            <pre className="result-metadata">
                               {parseResult.raw_response}
                             </pre>
                           </details>
@@ -520,7 +520,7 @@ function Intelligence() {
                 <button 
                   onClick={handleQuickAdd}
                   disabled={quickAddLoading || !quickAddText.trim()}
-                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  className="btn-icon"
                 >
                   {quickAddLoading ? 'Parsing...' : 'Quick Add'}
                 </button>
@@ -548,12 +548,12 @@ function Intelligence() {
                   value={extractText}
                   onChange={(e) => setExtractText(e.target.value)}
                   placeholder="Meeting notes: John will complete the proposal by Dec 1st. Sarah needs to review the design by next Tuesday."
-                  style={{ width: '100%', minHeight: '120px', marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#09090b', color: '#fff', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                  className="form-textarea-lg"
                 />
                 <button 
                   onClick={handleExtractCommitments}
                   disabled={extractLoading || !extractText.trim()}
-                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  className="btn-icon"
                 >
                   {extractLoading ? 'Extracting...' : 'Extract Commitments'}
                 </button>
@@ -608,7 +608,7 @@ function Intelligence() {
               <button 
                 onClick={handleTranscribe}
                 disabled={transcriptionLoading || !audioFile}
-                style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                className="btn-icon"
               >
                 {transcriptionLoading ? 'Transcribing...' : 'Transcribe Audio'}
               </button>
@@ -667,7 +667,7 @@ function Intelligence() {
                 <button 
                   onClick={handleGetContext}
                   disabled={contextLoading}
-                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  className="btn-icon"
                 >
                   {contextLoading ? 'Loading...' : 'Get Context'}
                 </button>
@@ -706,7 +706,7 @@ function Intelligence() {
                 <button 
                   onClick={handleSearchContext}
                   disabled={searchLoading || !searchQuery.trim()}
-                  style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                  className="btn-icon"
                 >
                   {searchLoading ? 'Searching...' : 'Search'}
                 </button>
@@ -752,7 +752,7 @@ function Intelligence() {
               <button 
                 onClick={handleAnalyzePatterns}
                 disabled={patternLoading}
-                style={{ padding: '0.75rem 1.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+                className="btn-icon"
               >
                 {patternLoading ? 'Analyzing...' : 'Analyze Patterns'}
               </button>
