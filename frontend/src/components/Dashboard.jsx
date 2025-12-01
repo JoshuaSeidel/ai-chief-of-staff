@@ -221,22 +221,14 @@ function Dashboard({ setActiveTab }) {
       <div className="dashboard">
       {/* Daily Brief Section */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h2 style={{ margin: 0 }}>Morning Dashboard</h2>
-          <button 
+        <div className="flex-between mb-lg flex-wrap gap-lg">
+          <h2 className="mt-0 mb-0">Morning Dashboard</h2>
+                    <button 
             onClick={generateBrief} 
             disabled={loading}
-            className="glass-button-primary"
+            className="glass-button-primary btn-generate"
             style={{
-              padding: '0.75rem 1.25rem',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '0.9375rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap',
-              opacity: loading ? 0.6 : 1
+              cursor: loading ? 'not-allowed' : 'pointer'
             }}
             onMouseEnter={(e) => {
               if (!loading) {
@@ -257,7 +249,7 @@ function Dashboard({ setActiveTab }) {
         </div>
 
         {lastGenerated && (
-          <p style={{ color: '#6e6e73', fontSize: '0.9rem', marginBottom: '1rem' }}>
+          <p className="text-base color-muted mb-lg">
             Last generated: {new Date(lastGenerated).toLocaleString()}
           </p>
         )}
@@ -271,77 +263,71 @@ function Dashboard({ setActiveTab }) {
             backgroundColor: '#f5f5f7', 
             borderRadius: '8px' 
           }}>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#007aff' }}>
+            <div className="stat-container">
+              <div className="stat-number-primary">
                 {stats.contextCount || 0}
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#6e6e73' }}>Context Items</div>
+              <div className="stat-label">Context Items</div>
             </div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff9500' }}>
+            <div className="stat-container">
+              <div className="stat-number-warning-lg">
                 {stats.commitmentCount || 0}
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#6e6e73' }}>Commitments</div>
+              <div className="stat-label">Commitments</div>
             </div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#34c759' }}>
+            <div className="stat-container">
+              <div className="stat-number-success-lg">
                 {stats.transcriptCount || 0}
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#6e6e73' }}>Transcripts</div>
+              <div className="stat-label">Transcripts</div>
             </div>
           </div>
         )}
         
         {/* Productivity Insights Widget */}
         {productivityInsights && !productivityInsights.error && productivityInsights.success && (
-          <div style={{
-            marginBottom: '1.5rem',
-            padding: '1rem',
-            backgroundColor: '#1a2e1a',
-            border: '1px solid #22c55e',
-            borderRadius: '8px'
-          }}>
-            <h3 style={{ margin: 0, marginBottom: '0.75rem', color: '#22c55e', fontSize: '1.1rem' }}>
+          <div className="insights-widget">
+            <h3 className="insights-title">
               📊 Productivity Insights ({productivityInsights.time_range})
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
-              <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#22c55e' }}>
+            <div className="grid-auto">
+              <div className="stat-card">
+                <div className="stat-number-success-xl">
                   {productivityInsights.stats.completion_rate}%
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Completion Rate</div>
+                <div className="stat-label-sm">Completion Rate</div>
               </div>
-              <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
-                <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>
+              <div className="stat-card">
+                <div className="stat-number-primary-xl">
                   {productivityInsights.stats.completed}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Completed</div>
+                <div className="stat-label-sm">Completed</div>
               </div>
               {productivityInsights.stats.overdue > 0 && (
-                <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' }}>
+                <div className="stat-card">
+                  <div className="stat-number-error-xl">
                     {productivityInsights.stats.overdue}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Overdue</div>
+                  <div className="stat-label-sm">Overdue</div>
                 </div>
               )}
               {productivityInsights.stats.most_productive_day && (
-                <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
-                  <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#fbbf24' }}>
+                <div className="stat-card">
+                  <div className="stat-number-warning-md">
                     {productivityInsights.stats.most_productive_day}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Best Day</div>
+                  <div className="stat-label-sm">Best Day</div>
                 </div>
               )}
             </div>
             {productivityInsights.insights && (
-              <details open style={{ marginTop: '0.5rem' }}>
-                <summary style={{ cursor: 'pointer', color: '#a1a1aa', fontSize: '0.85rem' }}>
+              <details open className="mt-sm">
+                <summary className="insights-summary">
                   {productivityInsights.insights === 'Generating AI insights...' ? '🤖 Generating AI insights...' : 'View AI insights'}
                 </summary>
-                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#e5e5e7', lineHeight: '1.5', maxHeight: '200px', overflow: 'auto' }}>
+                <div className="insights-content">
                   {productivityInsights.insights === 'Generating AI insights...' ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#22c55e' }}>
+                    <div className="insights-item-success">
                       <span>🔄</span>
                       <span>Analyzing your patterns with AI...</span>
                     </div>
@@ -392,7 +378,7 @@ function Dashboard({ setActiveTab }) {
             borderRadius: '8px',
             marginBottom: '1rem'
           }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
+            <div className="icon-xl-mb-sm">📊</div>
             <div>{productivityInsights.note || productivityInsights.message || 'Complete some tasks to see pattern analysis'}</div>
           </div>
         )}
@@ -407,7 +393,7 @@ function Dashboard({ setActiveTab }) {
           }}>
             <strong>Error:</strong> {error}
             {error.includes('API key') && (
-              <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+              <p className="text-md-mt-sm">
                 Please configure your Anthropic API key in the Configuration tab.
               </p>
             )}
@@ -429,18 +415,14 @@ function Dashboard({ setActiveTab }) {
               ⏳
             </div>
             <p>Generating your daily brief...</p>
-            <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+            <p className="text-sm-gray-mt-sm">
               This may take 10-15 seconds
             </p>
           </div>
         )}
 
         {brief && !loading && (
-          <div className="brief-content" style={{ 
-            lineHeight: '1.6',
-            color: '#e5e5e7',
-            overflowX: 'auto'
-          }}>
+          <div className="brief-content">
             {deliverablesData && deliverablesData.dataRows.length > 0 ? (
               <>
                 {/* Render brief with deliverables section replaced */}
@@ -453,15 +435,15 @@ function Dashboard({ setActiveTab }) {
                     return (
                       <ReactMarkdown key={index}
                         components={{
-                          h1: ({node, children, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h1>,
-                          h2: ({node, children, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h2>,
-                          h3: ({node, children, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h3>,
-                          strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
-                          em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
-                          ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                          ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                          li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
-                          p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />
+                          h1: ({node, children, ...props}) => <h1 className="md-h1" {...props}>{children || ''}</h1>,
+                          h2: ({node, children, ...props}) => <h2 className="md-h2" {...props}>{children || ''}</h2>,
+                          h3: ({node, children, ...props}) => <h3 className="md-h3" {...props}>{children || ''}</h3>,
+                          strong: ({node, ...props}) => <strong className="md-strong" {...props} />,
+                          em: ({node, ...props}) => <em className="md-em" {...props} />,
+                          ul: ({node, ...props}) => <ul className="md-list" {...props} />,
+                          ol: ({node, ...props}) => <ol className="md-list" {...props} />,
+                          li: ({node, ...props}) => <li className="md-li" {...props} />,
+                          p: ({node, ...props}) => <p className="md-p" {...props} />
                         }}
                       >
                         {section}
@@ -470,13 +452,8 @@ function Dashboard({ setActiveTab }) {
                   } else if (index === 1) {
                     return (
                       <div key={index}>
-                        <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}}>2. DELIVERABLES THIS WEEK</h2>
-                        <div style={{ 
-                          overflowX: 'auto', 
-                          marginTop: '1rem', 
-                          marginBottom: '1rem',
-                          WebkitOverflowScrolling: 'touch'
-                        }}>
+                        <h2 className="md-h2">2. DELIVERABLES THIS WEEK</h2>
+                        <div className="table-scroll">
                           <table style={{
                             width: '100%',
                             borderCollapse: 'collapse',
@@ -620,51 +597,25 @@ function Dashboard({ setActiveTab }) {
               // Fallback: Render entire brief with markdown (if table parsing failed)
               <ReactMarkdown
                 components={{
-                  h1: ({node, children, ...props}) => <h1 style={{color: '#fff', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h1>,
-                  h2: ({node, children, ...props}) => <h2 style={{color: '#60a5fa', marginTop: '1.5rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h2>,
-                  h3: ({node, children, ...props}) => <h3 style={{color: '#fbbf24', marginTop: '1rem', marginBottom: '0.5rem'}} {...props}>{children || ''}</h3>,
-                  strong: ({node, ...props}) => <strong style={{color: '#fbbf24'}} {...props} />,
-                  em: ({node, ...props}) => <em style={{color: '#a1a1aa'}} {...props} />,
-                  ul: ({node, ...props}) => <ul style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                  ol: ({node, ...props}) => <ol style={{marginLeft: '1.5rem', marginTop: '0.5rem', marginBottom: '0.5rem'}} {...props} />,
-                  li: ({node, ...props}) => <li style={{marginBottom: '0.25rem', color: '#e5e5e7'}} {...props} />,
-                  p: ({node, ...props}) => <p style={{marginBottom: '0.75rem', color: '#e5e5e7'}} {...props} />,
+                  h1: ({node, children, ...props}) => <h1 className="md-h1" {...props}>{children || ''}</h1>,
+                  h2: ({node, children, ...props}) => <h2 className="md-h2" {...props}>{children || ''}</h2>,
+                  h3: ({node, children, ...props}) => <h3 className="md-h3" {...props}>{children || ''}</h3>,
+                  strong: ({node, ...props}) => <strong className="md-strong" {...props} />,
+                  em: ({node, ...props}) => <em className="md-em" {...props} />,
+                  ul: ({node, ...props}) => <ul className="md-list" {...props} />,
+                  ol: ({node, ...props}) => <ol className="md-list" {...props} />,
+                  li: ({node, ...props}) => <li className="md-li" {...props} />,
+                  p: ({node, ...props}) => <p className="md-p" {...props} />,
                   table: ({node, ...props}) => (
-                    <div style={{ overflowX: 'auto', marginTop: '1rem', marginBottom: '1rem' }}>
-                      <table style={{
-                        width: '100%',
-                        borderCollapse: 'collapse',
-                        backgroundColor: '#18181b',
-                        border: '1px solid #3f3f46',
-                        minWidth: '600px'
-                      }} {...props} />
+                    <div className="md-table-wrapper">
+                      <table className="md-table" {...props} />
                     </div>
                   ),
-                  thead: ({node, ...props}) => <thead style={{ backgroundColor: '#27272a', borderBottom: '2px solid #60a5fa' }} {...props} />,
+                  thead: ({node, ...props}) => <thead className="md-thead" {...props} />,
                   tbody: ({node, ...props}) => <tbody {...props} />,
-                  tr: ({node, ...props}) => <tr style={{ borderBottom: '1px solid #3f3f46' }} {...props} />,
-                  th: ({node, ...props}) => (
-                    <th style={{
-                      padding: '0.875rem 1rem',
-                      textAlign: 'left',
-                      color: '#fff',
-                      fontWeight: '600',
-                      fontSize: '0.875rem',
-                      whiteSpace: 'nowrap',
-                      borderRight: '1px solid #3f3f46'
-                    }} {...props} />
-                  ),
-                  td: ({node, ...props}) => (
-                    <td style={{
-                      padding: '0.875rem 1rem',
-                      color: '#e5e5e7',
-                      fontSize: '0.875rem',
-                      verticalAlign: 'top',
-                      wordBreak: 'break-word',
-                      lineHeight: '1.5',
-                      borderRight: '1px solid #3f3f46'
-                    }} {...props} />
-                  )
+                  tr: ({node, ...props}) => <tr className="md-tr" {...props} />,
+                  th: ({node, ...props}) => <th className="md-th" {...props} />,
+                  td: ({node, ...props}) => <td className="md-td" {...props} />
                 }}
               >
                 {brief}
@@ -676,16 +627,16 @@ function Dashboard({ setActiveTab }) {
 
       {/* Quick Actions Section */}
       <div className="card">
-        <h2 style={{ marginBottom: '1rem' }}>Quick Actions</h2>
+        <h2 className="mb-md">Quick Actions</h2>
         <div className="quick-actions-grid">
           <button 
             onClick={() => setActiveTab('tasks')}
             className="quick-action-button"
           >
-            <span style={{ fontSize: '1.5rem' }}>📋</span>
+            <span className="stat-large-icon">📋</span>
             <div>
-              <div style={{ fontWeight: '600' }}>View All Tasks</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Manage commitments & actions</div>
+              <div className="quick-action-title">View All Tasks</div>
+              <div className="quick-action-subtitle">Manage commitments & actions</div>
             </div>
           </button>
 
@@ -693,10 +644,10 @@ function Dashboard({ setActiveTab }) {
             onClick={() => setActiveTab('transcripts')}
             className="quick-action-button"
           >
-            <span style={{ fontSize: '1.5rem' }}>📝</span>
+            <span className="stat-large-icon">📝</span>
             <div>
-              <div style={{ fontWeight: '600' }}>Upload Transcript</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Add meeting notes</div>
+              <div className="quick-action-title">Upload Transcript</div>
+              <div className="quick-action-subtitle">Add meeting notes</div>
             </div>
           </button>
 
@@ -704,10 +655,10 @@ function Dashboard({ setActiveTab }) {
             onClick={() => setActiveTab('calendar')}
             className="quick-action-button"
           >
-            <span style={{ fontSize: '1.5rem' }}>📅</span>
+            <span className="stat-large-icon">📅</span>
             <div>
-              <div style={{ fontWeight: '600' }}>View Calendar</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>See upcoming events</div>
+              <div className="quick-action-title">View Calendar</div>
+              <div className="quick-action-subtitle">See upcoming events</div>
             </div>
           </button>
 
@@ -715,10 +666,10 @@ function Dashboard({ setActiveTab }) {
             onClick={() => setActiveTab('config')}
             className="quick-action-button"
           >
-            <span style={{ fontSize: '1.5rem' }}>⚙️</span>
+            <span className="stat-large-icon">⚙️</span>
             <div>
-              <div style={{ fontWeight: '600' }}>Settings</div>
-              <div style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '0.25rem' }}>Configure app</div>
+              <div className="quick-action-title">Settings</div>
+              <div className="quick-action-subtitle">Configure app</div>
             </div>
           </button>
         </div>

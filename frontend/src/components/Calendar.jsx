@@ -126,38 +126,20 @@ function Calendar() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="calendar">
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
-          <h2 style={{ margin: 0 }}>📅 Calendar</h2>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div className="flex justify-between items-center mb-md gap-md flex-wrap">
+          <h2 className="mt-0 mb-0">📅 Calendar</h2>
+          <div className="flex gap-sm items-center">
             <button 
               onClick={loadEvents} 
               disabled={loading}
-              className="glass-button"
-              style={{ 
-                minWidth: '44px',
-                width: '44px',
-                height: '44px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.1rem'
-              }}
+              className="glass-button btn-icon-square"
             >
               {loading ? '⏳' : '🔄'}
             </button>
             <button 
               onClick={() => setShowCreateForm(!showCreateForm)}
-              className="glass-button-primary"
-              style={{ 
-                minWidth: '44px',
-                width: '44px',
-                height: '44px',
-                padding: '0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.1rem'
+              className="glass-button-primary btn-icon-square"
+            >
               }}
             >
               {showCreateForm ? '✕' : '➕'}
@@ -175,7 +157,7 @@ function Calendar() {
           }}>
             <strong>Error:</strong> {error}
             {error.includes('not configured') && (
-              <p style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+              <p className="text-md-mt-sm">
                 Go to Configuration tab to set up your iCloud calendar URL.
               </p>
             )}
@@ -202,9 +184,9 @@ function Calendar() {
             marginBottom: '1.5rem',
             border: '1px solid #3f3f46'
           }}>
-            <h3 style={{ marginTop: 0 }}>Create Time Block</h3>
+            <h3 className="mt-0">Create Time Block</h3>
             <form onSubmit={handleCreateBlock}>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              <label className="form-label-block">
                 Title *
               </label>
               <input
@@ -215,9 +197,9 @@ function Calendar() {
                 required
               />
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="grid-2col">
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  <label className="form-label-block">
                     Start Time *
                   </label>
                   <input
@@ -228,7 +210,7 @@ function Calendar() {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+                  <label className="form-label-block">
                     End Time *
                   </label>
                   <input
@@ -240,7 +222,7 @@ function Calendar() {
                 </div>
               </div>
 
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#a1a1aa' }}>
+              <label className="form-label-block">
                 Description (Optional)
               </label>
               <textarea
@@ -248,10 +230,10 @@ function Calendar() {
                 onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
                 placeholder="Add notes or context..."
                 rows="3"
-                style={{ resize: 'vertical' }}
+                className="resize-vertical"
               />
 
-              <button type="submit" style={{ marginTop: '0.5rem' }}>
+              <button type="submit" className="mt-sm">
                 Create & Download .ics File
               </button>
             </form>
@@ -263,21 +245,21 @@ function Calendar() {
         <h2>Upcoming Events</h2>
         
         {loading && (
-          <div style={{ textAlign: 'center', padding: '2rem', color: '#6e6e73' }}>
+          <div className="text-center p-xl text-gray">
             <p>Loading calendar events...</p>
           </div>
         )}
 
         {!loading && events.length === 0 && !error && (
-          <div style={{ textAlign: 'center', padding: '3rem', color: '#6e6e73' }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📅</div>
+          <div className="empty-state">
+            <div className="empty-icon">📅</div>
             <p>No upcoming events found.</p>
             {error && error.includes('not configured') ? (
-              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+              <p className="text-sm-gray-mt-sm">
                 Configure your calendar URL in the Configuration tab to see events.
               </p>
             ) : (
-              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+              <p className="text-sm-gray-mt-sm">
                 Create a time block or check your calendar configuration.
               </p>
             )}
@@ -287,7 +269,7 @@ function Calendar() {
         {!loading && events.length > 0 && (
           <div>
             {Object.keys(groupedEvents).map((dateKey) => (
-              <div key={dateKey} style={{ marginBottom: '2rem' }}>
+              <div key={dateKey} className="mb-xl">
                 <h3 style={{ 
                   fontSize: '1rem', 
                   color: '#60a5fa', 
@@ -309,8 +291,8 @@ function Calendar() {
                       border: '1px solid #3f3f46'
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div style={{ flex: 1 }}>
+                    <div className="task-layout">
+                      <div className="flex-1">
                         <h4 style={{ 
                           fontSize: '1rem', 
                           marginBottom: '0.25rem',
@@ -326,7 +308,7 @@ function Calendar() {
                           ⏰ {formatTime(event.start)} - {formatTime(event.end)}
                         </p>
                         {event.location && (
-                          <p style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
+                          <p className="text-sm text-muted">
                             📍 {event.location}
                           </p>
                         )}
@@ -352,7 +334,7 @@ function Calendar() {
 
       <div className="card">
         <h2>💡 Tips</h2>
-        <ul style={{ fontSize: '0.9rem', color: '#a1a1aa', lineHeight: '1.8' }}>
+        <ul className="text-sm text-muted" style={{ lineHeight: '1.8' }}>
           <li>Create time blocks for focus time, meetings, and deep work</li>
           <li>Download the .ics file and import it into any calendar app</li>
           <li>Configure your iCloud calendar URL to see upcoming events</li>
