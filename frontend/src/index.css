@@ -568,13 +568,26 @@ table {
   }
 
   button {
-    width: 100%;
+    min-height: 44px;
     padding: 0.875rem 1rem;
-    font-size: 0.9375rem;
+    font-size: 16px; /* Prevents iOS zoom */
+  }
+  
+  /* Full-width buttons in cards */
+  .card button:not(.quick-action-button) {
+    width: 100%;
   }
 
   button + button {
     margin-top: 0.5rem;
+  }
+  
+  /* Quick action buttons should maintain grid */
+  .quick-action-button {
+    width: auto !important;
+    min-height: 80px;
+    padding: 0.875rem;
+    font-size: 0.9rem;
   }
 
   input[type="text"],
@@ -1213,6 +1226,60 @@ table {
     backdrop-filter: blur(12px) saturate(140%) !important;
     -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
     padding: 1rem;
+  }
+  
+  /* Fix button heights to be consistent */
+  button, 
+  select, 
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="url"],
+  input[type="number"],
+  textarea {
+    min-height: 44px !important; /* iOS touch target minimum */
+    font-size: 16px !important; /* Prevent zoom on iOS */
+  }
+  
+  /* Fix model selector layout on mobile */
+  .glass-panel select {
+    flex: 1;
+    width: 100% !important;
+    height: 44px !important;
+  }
+  
+  /* Ensure refresh buttons are proportional */
+  .glass-panel button[title="Refresh model list"] {
+    min-width: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    flex-shrink: 0;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.25rem !important;
+  }
+  
+  /* Action buttons in cards - consistent sizing */
+  .card button[style*="padding: '0.5rem 1rem'"],
+  .card button[style*="padding: 0.5rem 1rem"] {
+    min-height: 44px !important;
+    padding: 0.75rem 1rem !important;
+  }
+  
+  /* Button groups should wrap properly */
+  .card > div[style*="display: 'flex'"] {
+    flex-wrap: wrap;
+  }
+  
+  /* Calendar buttons */
+  .card button[style*="minWidth: '36px'"],
+  .card button[style*="min-width: 36px"] {
+    min-width: 44px !important;
+    width: 44px !important;
+    height: 44px !important;
+    padding: 0 !important;
   }
   
   .recording-visualizer {
