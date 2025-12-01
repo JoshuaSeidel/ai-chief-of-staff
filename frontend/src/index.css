@@ -1662,24 +1662,25 @@ table {
   line-height: 1;
   vertical-align: middle;
 }
-/* Unified icon-only button style */
-.glass-button.btn-icon-square,
-.glass-button-primary.btn-icon-square,
-.secondary.btn-icon-square,
-.glass-button-stop.btn-icon-square,
-.btn-icon-square {
-  padding: 0 !important;
-  width: 44px !important;
-  height: 44px !important;
-  min-width: 44px !important;
-  min-height: 44px !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  line-height: 1 !important;
-}
 
 @media (max-width: 768px) {
+  /* Unified icon-only button style for mobile */
+  .glass-button.btn-icon-square,
+  .glass-button-primary.btn-icon-square,
+  .secondary.btn-icon-square,
+  .glass-button-stop.btn-icon-square,
+  .btn-icon-square {
+    padding: 0 !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+  }
+
   .flex.gap-sm.items-center > .glass-button.btn-icon-square,
   .flex.gap-sm.items-center > .glass-button-primary.btn-icon-square,
   .flex.gap-sm.items-center > .secondary.btn-icon-square {
