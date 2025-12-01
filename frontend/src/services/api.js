@@ -36,6 +36,8 @@ export const transcriptsAPI = {
   getById: (id) => api.get(`/transcripts/${id}`),
   delete: (id) => api.delete(`/transcripts/${id}`),
   reprocess: (id) => api.post(`/transcripts/${id}/reprocess`),
+  getMeetingNotes: (id, regenerate = false) => api.get(`/transcripts/${id}/meeting-notes${regenerate ? '?regenerate=true' : ''}`),
+  saveMeetingNotes: (id, notes) => api.post(`/transcripts/${id}/meeting-notes`, { notes }),
 };
 
 // Config API

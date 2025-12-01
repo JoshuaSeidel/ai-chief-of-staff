@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { transcriptsAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
@@ -24,6 +25,9 @@ function Transcripts() {
   const [fileMeetingDate, setFileMeetingDate] = useState('');
   const [processingTranscriptId, setProcessingTranscriptId] = useState(null);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [viewingTranscript, setViewingTranscript] = useState(null);
+  const [meetingNotes, setMeetingNotes] = useState(null);
+  const [loadingNotes, setLoadingNotes] = useState(false);
 
   useEffect(() => {
     loadTranscripts();
@@ -356,56 +360,33 @@ function Transcripts() {
     try {
       const response = await transcriptsAPI.getById(id);
       const transcript = response.data;
+      setViewingTranscript(transcript);
       
-      // Open in a modal/new window
-      const viewWindow = window.open('', '_blank', 'width=800,height=600');
-      viewWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>${transcript.filename}</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-              max-width: 800px;
-              margin: 2rem auto;
-              padding: 2rem;
-              background: #1a1a1a;
-              color: #e4e4e7;
-              line-height: 1.6;
-            }
-            h1 { color: #60a5fa; }
-            .meta {
-              color: #a1a1aa;
-              font-size: 0.9rem;
-              margin-bottom: 2rem;
-              padding-bottom: 1rem;
-              border-bottom: 1px solid #3f3f46;
-            }
-            pre {
-              white-space: pre-wrap;
-              word-wrap: break-word;
-              background: #27272a;
-              padding: 1.5rem;
-              border-radius: 8px;
-              line-height: 1.8;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>📄 ${transcript.filename}</h1>
-          <div class="meta">
-            <div>Uploaded: ${new Date(transcript.upload_date).toLocaleString()}</div>
-            <div>Source: ${transcript.source}</div>
-          </div>
-          <pre>${transcript.content}</pre>
-        </body>
-        </html>
-      `);
-      viewWindow.document.close();
+      // Load meeting notes if available
+      loadMeetingNotes(id);
     } catch (err) {
       setError('Failed to view transcript');
     }
+  };
+
+  const loadMeetingNotes = async (id, regenerate = false) => {
+    setLoadingNotes(true);
+    try {
+      const response = await transcriptsAPI.getMeetingNotes(id, regenerate);
+      if (response.data.success) {
+        setMeetingNotes(response.data.notes);
+      }
+    } catch (err) {
+      console.error('Failed to load meeting notes:', err);
+      setMeetingNotes(null);
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  const handleCloseTranscriptView = () => {
+    setViewingTranscript(null);
+    setMeetingNotes(null);
   };
 
   return (
@@ -920,6 +901,86 @@ function Transcripts() {
           </>
         )}
       </div>
+
+      {/* Transcript Viewer Modal */}
+      {viewingTranscript && (
+        <div className="modal-overlay" onClick={handleCloseTranscriptView}>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="mt-0 mb-0">📄 {viewingTranscript.filename}</h2>
+              <button className="btn-secondary" onClick={handleCloseTranscriptView}>
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* Metadata */}
+              <div className="transcript-meta mb-lg">
+                <span className="text-muted">Uploaded: {new Date(viewingTranscript.upload_date).toLocaleString()}</span>
+                <span className="mx-sm text-muted">•</span>
+                <span className="text-muted">Source: {viewingTranscript.source}</span>
+              </div>
+
+              {/* Meeting Notes Section */}
+              <div className="meeting-notes-section mb-xl">
+                <div className="flex justify-between items-center mb-md">
+                  <h3 className="mt-0 mb-0">📝 Meeting Recap</h3>
+                  <button 
+                    className="btn-secondary btn-sm"
+                    onClick={() => loadMeetingNotes(viewingTranscript.id, true)}
+                    disabled={loadingNotes}
+                  >
+                    {loadingNotes ? '⏳ Generating...' : '🔄 Regenerate'}
+                  </button>
+                </div>
+
+                {loadingNotes ? (
+                  <div className="loading-notes">
+                    <div className="pulse-icon">💭</div>
+                    <p className="text-muted">Generating meeting recap...</p>
+                  </div>
+                ) : meetingNotes ? (
+                  <div className="meeting-notes-content">
+                    <ReactMarkdown
+                      components={{
+                        h1: ({node, ...props}) => <h1 className="md-h1" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="md-h2" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="md-h3" {...props} />,
+                        strong: ({node, ...props}) => <strong className="md-strong" {...props} />,
+                        em: ({node, ...props}) => <em className="md-em" {...props} />,
+                        ul: ({node, ...props}) => <ul className="md-list" {...props} />,
+                        ol: ({node, ...props}) => <ol className="md-list" {...props} />,
+                        li: ({node, ...props}) => <li className="md-li" {...props} />,
+                        p: ({node, ...props}) => <p className="md-p" {...props} />,
+                      }}
+                    >
+                      {meetingNotes}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="empty-notes">
+                    <p className="text-muted">No meeting notes available.</p>
+                    <button 
+                      className="btn-primary btn-sm mt-md"
+                      onClick={() => loadMeetingNotes(viewingTranscript.id, true)}
+                    >
+                      Generate Meeting Recap
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Full Transcript */}
+              <div className="transcript-full">
+                <h3>Full Transcript</h3>
+                <div className="transcript-content">
+                  {viewingTranscript.content}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </PullToRefresh>
   );
