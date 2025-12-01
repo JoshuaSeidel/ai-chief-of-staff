@@ -1451,6 +1451,18 @@ table {
   opacity: 0.6;
 }
 
+@media (max-width: 768px) {
+  .model-refresh-btn,
+  .model-refresh-button {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+  }
+}
+
 /* === TEXT STYLES === */
 .text-xs { font-size: 0.75rem; }
 .text-sm { font-size: 0.85rem; }
@@ -1558,6 +1570,10 @@ table {
   font-size: 16px;
   padding: 0.5rem;
   box-sizing: border-box;
+}
+
+.form-input[type="date"] {
+  max-width: 300px;
 }
 
 .form-input-mono {
