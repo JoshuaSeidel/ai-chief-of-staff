@@ -221,8 +221,8 @@ function Dashboard({ setActiveTab }) {
       <div className="dashboard">
       {/* Daily Brief Section */}
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <h2 style={{ margin: 0 }}>Morning Dashboard</h2>
+        <div className="flex-between mb-lg flex-wrap gap-lg">
+          <h2 className="mt-0 mb-0">Morning Dashboard</h2>
           <button 
             onClick={generateBrief} 
             disabled={loading}
@@ -257,7 +257,7 @@ function Dashboard({ setActiveTab }) {
         </div>
 
         {lastGenerated && (
-          <p style={{ color: '#6e6e73', fontSize: '0.9rem', marginBottom: '1rem' }}>
+          <p className="text-base color-muted mb-lg">
             Last generated: {new Date(lastGenerated).toLocaleString()}
           </p>
         )}
@@ -271,23 +271,23 @@ function Dashboard({ setActiveTab }) {
             backgroundColor: '#f5f5f7', 
             borderRadius: '8px' 
           }}>
-            <div style={{ flex: 1, textAlign: 'center' }}>
+            <div className="stat-container">
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#007aff' }}>
                 {stats.contextCount || 0}
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#6e6e73' }}>Context Items</div>
+              <div className="stat-label">Context Items</div>
             </div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
+            <div className="stat-container">
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#ff9500' }}>
                 {stats.commitmentCount || 0}
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#6e6e73' }}>Commitments</div>
+              <div className="stat-label">Commitments</div>
             </div>
-            <div style={{ flex: 1, textAlign: 'center' }}>
+            <div className="stat-container">
               <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#34c759' }}>
                 {stats.transcriptCount || 0}
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#6e6e73' }}>Transcripts</div>
+              <div className="stat-label">Transcripts</div>
             </div>
           </div>
         )}
@@ -304,33 +304,33 @@ function Dashboard({ setActiveTab }) {
             <h3 style={{ margin: 0, marginBottom: '0.75rem', color: '#22c55e', fontSize: '1.1rem' }}>
               📊 Productivity Insights ({productivityInsights.time_range})
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.75rem', marginBottom: '0.75rem' }}>
-              <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+            <div className="grid-auto">
+              <div className="stat-card">
                 <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#22c55e' }}>
                   {productivityInsights.stats.completion_rate}%
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Completion Rate</div>
+                <div className="stat-label-sm">Completion Rate</div>
               </div>
-              <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+              <div className="stat-card">
                 <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#3b82f6' }}>
                   {productivityInsights.stats.completed}
                 </div>
-                <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Completed</div>
+                <div className="stat-label-sm">Completed</div>
               </div>
               {productivityInsights.stats.overdue > 0 && (
-                <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                <div className="stat-card">
                   <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#ef4444' }}>
                     {productivityInsights.stats.overdue}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Overdue</div>
+                  <div className="stat-label-sm">Overdue</div>
                 </div>
               )}
               {productivityInsights.stats.most_productive_day && (
-                <div style={{ textAlign: 'center', padding: '0.5rem', backgroundColor: '#18181b', borderRadius: '6px' }}>
+                <div className="stat-card">
                   <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#fbbf24' }}>
                     {productivityInsights.stats.most_productive_day}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Best Day</div>
+                  <div className="stat-label-sm">Best Day</div>
                 </div>
               )}
             </div>
