@@ -1,3 +1,49 @@
 {
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    
+    // CSS/Styling enforcement
+    "editor.codeActionsOnSave": {
+        "source.fixAll.stylelint": "explicit"
+    },
+    
+    // Highlight inline styles as warnings
+    "javascript.suggest.completePropertyWithSemicolon": false,
+    "editor.quickSuggestions": {
+        "strings": true
+    },
+    
+    // Format settings
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "[javascript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[javascriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[css]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    
+    // File associations
+    "files.associations": {
+        "*.jsx": "javascriptreact"
+    },
+    
+    // CSS IntelliSense
+    "css.lint.important": "error",
+    "css.lint.unknownAtRules": "warning",
+    
+    // React snippets
+    "emmet.includeLanguages": {
+        "javascript": "javascriptreact",
+        "typescript": "typescriptreact"
+    },
+    
+    // Workspace recommendations
+    "recommendations": [
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint",
+        "stylelint.vscode-stylelint"
+    ]
 }
