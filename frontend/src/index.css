@@ -1455,13 +1455,16 @@ table {
   .model-selector-container {
     align-items: center !important;
     display: flex !important;
+    gap: 0.5rem !important;
   }
   
   .model-dropdown,
   .model-selector {
     height: 44px !important;
     margin: 0 !important;
-    align-self: center !important;
+    padding: 0.5rem !important;
+    line-height: 1.5 !important;
+    display: block !important;
   }
   
   .model-refresh-btn,
@@ -1470,10 +1473,15 @@ table {
     height: 44px !important;
     min-width: 44px !important;
     max-width: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
     flex-shrink: 0 !important;
     flex-grow: 0 !important;
-    align-self: center !important;
     margin: 0 !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 }
 
