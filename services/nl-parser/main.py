@@ -282,7 +282,9 @@ async def parse_task(request: NLParseRequest):
         
         # Extract estimated hours
         estimated_hours = None
-        hours_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)', request.text, re.IGNORECASE)
+        # Limit input to prevent ReDoS and use bounded quantifiers
+        text_for_regex = request.text[:500]
+        hours_match = re.search(r'(\d{1,4}(?:\.\d{1,2})?)\s*(?:hours?|hrs?)', text_for_regex, re.IGNORECASE)
         if hours_match:
             estimated_hours = float(hours_match.group(1))
         
@@ -430,8 +432,9 @@ Return as JSON array:
 ]
 """
         
+        model = get_ai_model(provider='anthropic')
         response = anthropic_client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=model,
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}]
         )

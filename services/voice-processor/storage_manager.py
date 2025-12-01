@@ -6,7 +6,7 @@ Supports local filesystem and S3-compatible storage (AWS S3, MinIO, etc.)
 import os
 import sys
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 import boto3
 from botocore.exceptions import ClientError
@@ -106,7 +106,7 @@ class StorageManager:
             Storage path/key of saved file
         """
         # Generate timestamp-based path
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(timezone.utc)
         date_prefix = timestamp.strftime('%Y/%m/%d')
         storage_key = f"{date_prefix}/{filename}"
         
@@ -256,7 +256,7 @@ class StorageManager:
         Args:
             days: Number of days to retain recordings (default: 90)
         """
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         logger.info(f"Cleaning up recordings older than {days} days (before {cutoff_date})")
         
         deleted_count = 0

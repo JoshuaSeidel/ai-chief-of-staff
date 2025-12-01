@@ -99,8 +99,9 @@ class ConfigManager:
                 
                 if result and len(result) > 0:
                     row = result[0]
-                    value = row['config_value']
-                    config_type = row['config_type']
+                    # Handle both tuple and dict result types
+                    value = row[0] if isinstance(row, tuple) else row.get('value', row.get('config_value'))
+                    config_type = None  # Type casting handled below
                     
                     # Cast to appropriate type
                     typed_value = self._cast_type(value, config_type)
