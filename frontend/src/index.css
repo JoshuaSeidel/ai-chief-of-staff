@@ -1427,7 +1427,7 @@ table {
 
 .model-refresh-btn,
 .model-refresh-button {
-  padding: 0;
+  padding: 0 !important;
   font-size: 1.25rem;
   background: #3b82f6;
   border: none;
@@ -1443,6 +1443,7 @@ table {
   justify-content: center;
   box-sizing: border-box;
   line-height: 1;
+  margin: 0 !important;
 }
 
 .model-refresh-btn:disabled,
