@@ -288,6 +288,39 @@ async function generateResponse(prompt, systemPrompt = null, maxTokens = null) {
   return result.text;
 }
 
+/**
+ * Generate meeting notes/recap from transcript content
+ */
+async function generateMeetingNotes(transcriptContent) {
+  const systemPrompt = `You are an expert meeting analyst. Generate a comprehensive yet concise meeting recap that captures the key information from the transcript.
+
+Your recap should include:
+1. **Meeting Summary** - 2-3 sentence overview of the meeting's purpose and outcome
+2. **Key Discussion Points** - Main topics discussed with brief details
+3. **Decisions Made** - Any decisions or conclusions reached
+4. **Important Context** - Relevant background information, concerns raised, or constraints mentioned
+5. **Next Steps** - Actions to be taken (without listing every task - focus on strategic next steps)
+
+Format your response in clean markdown. Be concise but comprehensive. Focus on information someone would want to review later to remember what happened in the meeting.`;
+
+  const userPrompt = `Generate a meeting recap from this transcript:
+
+${transcriptContent}
+
+Provide a well-structured recap following the format requested.`;
+
+  logger.info('Generating meeting notes from transcript');
+  
+  try {
+    const notes = await generateResponse(userPrompt, systemPrompt, 2000);
+    logger.info('Successfully generated meeting notes');
+    return notes;
+  } catch (error) {
+    logger.error('Error generating meeting notes:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   PROVIDERS,
   getAIProvider,
@@ -295,6 +328,7 @@ module.exports = {
   getMaxTokens,
   callAI,
   generateResponse,
+  generateMeetingNotes,
   // Provider-specific functions (for backwards compatibility)
   getAnthropicClient,
   getOpenAIClient,

@@ -1404,22 +1404,34 @@ table {
   align-items: center;
 }
 
+.model-dropdown,
 .model-selector {
   flex: 1;
-  min-width: 0;
+  min-width: 200px;
   height: 44px;
   font-size: 16px;
-  padding: 0.5rem;
+  padding: 0.625rem 0.5rem;
   box-sizing: border-box;
-  line-height: 1.5;
+  line-height: normal;
+  border: 1px solid #3f3f46;
+  background: #18181b;
+  color: white;
+  border-radius: 4px;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  display: block;
+  width: 100%;
+  vertical-align: middle;
 }
 
+.model-refresh-btn,
 .model-refresh-button {
-  padding: 0;
+  padding: 0 !important;
   font-size: 1.25rem;
   background: #3b82f6;
   border: none;
-  border-radius: 4px;
+  border-radius: 8px;
   color: white;
   cursor: pointer;
   min-width: 44px;
@@ -1430,11 +1442,50 @@ table {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+  line-height: 1;
+  margin: 0 !important;
 }
 
+.model-refresh-btn:disabled,
 .model-refresh-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+  .model-selector-container {
+    align-items: center !important;
+    display: flex !important;
+    gap: 0.5rem !important;
+  }
+  
+  .model-dropdown,
+  .model-selector {
+    height: 44px !important;
+    margin: 0 !important;
+    padding: 0.5rem !important;
+    line-height: 1.5 !important;
+    display: block !important;
+    align-self: center !important;
+  }
+  
+  .model-refresh-btn,
+  .model-refresh-button {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    min-height: 44px !important;
+    max-height: 44px !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    align-self: center !important;
+  }
 }
 
 /* === TEXT STYLES === */
@@ -1546,6 +1597,10 @@ table {
   box-sizing: border-box;
 }
 
+.form-input[type="date"] {
+  max-width: 300px;
+}
+
 .form-input-mono {
   width: 100%;
   font-family: monospace;
@@ -1641,11 +1696,48 @@ table {
   width: 44px;
   height: 44px;
   padding: 0;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
   box-sizing: border-box;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* Ensure all button variants align on same baseline */
+.glass-button.btn-icon-square,
+.glass-button-primary.btn-icon-square,
+.secondary.btn-icon-square {
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  /* Unified icon-only button style for mobile */
+  .glass-button.btn-icon-square,
+  .glass-button-primary.btn-icon-square,
+  .secondary.btn-icon-square,
+  .glass-button-stop.btn-icon-square,
+  .btn-icon-square {
+    padding: 0 !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+  }
+
+  .flex.gap-sm.items-center > .glass-button.btn-icon-square,
+  .flex.gap-sm.items-center > .glass-button-primary.btn-icon-square,
+  .flex.gap-sm.items-center > .secondary.btn-icon-square {
+    margin: 0;
+  }
 }
 
 /* === TASK BADGES === */
@@ -2738,9 +2830,9 @@ table {
 .transcript-status-badge {
   background-color: #09090b;
   padding: 0.35rem 0.65rem;
-  borderRadius: 8px;
-  fontSize: 0.8rem;
-  fontWeight: 600;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
@@ -2785,6 +2877,180 @@ table {
 
 .mr-sm {
   margin-right: 0.5rem;
+}
+
+.mx-sm {
+  margin-left: 0.5rem;
+  margin-right: 0.5rem;
+}
+
+/* Meeting Notes Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center; /* center content vertically */
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  padding-top: 64px; /* offset below navbar but keep within viewport */
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding-top: 16px;
+  }
+  .modal-content {
+    max-height: calc(100vh - 96px);
+  }
+}
+
+/* Prevent body scroll when modal is open */
+body.modal-open {
+  overflow: hidden !important;
+  position: fixed;
+  width: 100%;
+}
+
+.modal-content {
+  background-color: #1a1a1a;
+  border-radius: 12px;
+  max-width: 900px;
+  width: 100%;
+  max-height: calc(100vh - 128px); /* ensure fits within window below navbar */
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid #3f3f46;
+  margin-top: 0; /* rely on overlay padding for vertical placement */
+}
+
+.modal-large {
+  max-width: 1200px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #3f3f46;
+  flex-shrink: 0;
+}
+
+.modal-close-btn {
+  background: #dc2626;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  font-weight: bold;
+}
+
+.modal-close-btn:hover {
+  background: #ef4444;
+  transform: scale(1.05);
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #3f3f46;
+  flex-shrink: 0;
+  background-color: #18181b;
+}
+
+.transcript-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 0.875rem;
+}
+
+.meeting-notes-section {
+  background-color: #18181b;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.meeting-notes-content {
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  line-height: 1.7;
+}
+
+.loading-notes {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.pulse-icon {
+  font-size: 3rem;
+  animation: pulse 2s ease-in-out infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.empty-notes {
+  text-align: center;
+  padding: 2rem;
+  color: #a1a1aa;
+}
+
+.transcript-full {
+  margin-top: 2rem;
+}
+
+.transcript-content {
+  background-color: #09090b;
+  border: 1px solid #27272a;
+  border-radius: 8px;
+  padding: 1.5rem;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.8;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 0.9rem;
+  color: #d4d4d8;
+}
+
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
 }
 
 /* Quick Action Button Text */
@@ -2943,10 +3209,20 @@ summary {
     font-size: 16px;
   }
   
-  /* All buttons - proper touch targets but don't override specific sizes */
-  button:not(.model-refresh-button),
+  /* All buttons - proper touch targets */
+  button,
   .btn {
     min-height: 44px;
+  }
+
+  /* Mobile alignment for icon button rows */
+  .flex.gap-sm.items-center .btn-icon-square,
+  .flex.gap-sm.items-center .glass-button.btn-icon-square,
+  .flex.gap-sm.items-center .glass-button-primary.btn-icon-square {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
   }
   
   /* Keep model refresh button square */

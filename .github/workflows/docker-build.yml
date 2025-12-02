@@ -19,6 +19,31 @@ env:
   REPO: ${{ github.repository }}
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      monolith: ${{ steps.filter.outputs.monolith }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      microservices: ${{ steps.filter.outputs.microservices }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            monolith:
+              - 'Dockerfile'
+              - 'frontend/**'
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+            microservices:
+              - 'services/**'
+
   prepare:
     runs-on: ubuntu-latest
     outputs:
@@ -67,7 +92,8 @@ jobs:
           echo "Repository: $REPO_LOWER"
 
   build-monolith:
-    needs: prepare
+    needs: [changes, prepare]
+    if: needs.changes.outputs.monolith == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -104,7 +130,8 @@ jobs:
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
 
   build-frontend:
-    needs: prepare
+    needs: [changes, prepare]
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -141,7 +168,8 @@ jobs:
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
 
   build-backend:
-    needs: prepare
+    needs: [changes, prepare]
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -178,7 +206,8 @@ jobs:
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
 
   build-microservices:
-    needs: prepare
+    needs: [changes, prepare]
+    if: needs.changes.outputs.microservices == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -233,7 +262,7 @@ jobs:
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
 
   summary:
-    needs: [prepare, build-monolith, build-frontend, build-backend, build-microservices]
+    needs: [changes, prepare, build-monolith, build-frontend, build-backend, build-microservices]
     runs-on: ubuntu-latest
     if: always()
     steps:

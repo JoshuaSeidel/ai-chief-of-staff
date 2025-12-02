@@ -663,6 +663,20 @@ async function processTranscriptAsync(id, transcript, db) {
     // Save commitments and create calendar events
     const taskStats = await saveAllTasksWithCalendar(db, id, extracted);
     
+    // Update progress: Generating meeting notes
+    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [85, id]);
+    
+    // Generate meeting notes
+    try {
+      const aiService = require('../services/ai-service');
+      const meetingNotes = await aiService.generateMeetingNotes(transcript.content);
+      await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ?', [meetingNotes, id]);
+      logger.info(`Generated meeting notes for transcript ${id}`);
+    } catch (notesError) {
+      logger.warn(`Failed to generate meeting notes for transcript ${id}:`, notesError.message);
+      // Don't fail the whole process if notes generation fails
+    }
+    
     // Update progress: Complete
     await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ?', 
       ['completed', 100, true, id]);
@@ -677,5 +691,103 @@ async function processTranscriptAsync(id, transcript, db) {
       ['failed', 0, true, id]);
   }
 }
+
+/**
+ * GET /api/transcripts/:id/meeting-notes
+ * Get or generate meeting notes for a transcript
+ */
+router.get('/:id/meeting-notes', async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    const { regenerate } = req.query;
+
+    logger.info(`Fetching meeting notes for transcript ${id}`, { regenerate: regenerate === 'true' });
+
+    // Get transcript
+    const transcript = await db.get('SELECT * FROM transcripts WHERE id = ?', [id]);
+    
+    if (!transcript) {
+      return res.status(404).json({ success: false, message: 'Transcript not found' });
+    }
+
+    // If notes exist and not regenerating, return them
+    if (transcript.meeting_notes && regenerate !== 'true') {
+      logger.info(`Returning cached meeting notes for transcript ${id}`);
+      return res.json({
+        success: true,
+        notes: transcript.meeting_notes,
+        cached: true
+      });
+    }
+
+    // Generate new meeting notes
+    logger.info(`Generating meeting notes for transcript ${id}`);
+    const aiService = require('../services/ai-service');
+    const notes = await aiService.generateMeetingNotes(transcript.content);
+
+    // Save notes to database
+    await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ?', [notes, id]);
+    
+    logger.info(`Meeting notes generated and saved for transcript ${id}`);
+
+    res.json({
+      success: true,
+      notes,
+      cached: false
+    });
+
+  } catch (error) {
+    logger.error('Error generating meeting notes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate meeting notes',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/transcripts/:id/meeting-notes
+ * Manually save/update meeting notes for a transcript
+ */
+router.post('/:id/meeting-notes', async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    if (!notes) {
+      return res.status(400).json({ success: false, message: 'Notes content required' });
+    }
+
+    logger.info(`Saving manual meeting notes for transcript ${id}`);
+
+    // Verify transcript exists
+    const transcript = await db.get('SELECT id FROM transcripts WHERE id = ?', [id]);
+    
+    if (!transcript) {
+      return res.status(404).json({ success: false, message: 'Transcript not found' });
+    }
+
+    // Save notes
+    await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ?', [notes, id]);
+    
+    logger.info(`Meeting notes manually saved for transcript ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Meeting notes saved successfully'
+    });
+
+  } catch (error) {
+    logger.error('Error saving meeting notes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to save meeting notes',
+      error: error.message
+    });
+  }
+});
 
 module.exports = router;

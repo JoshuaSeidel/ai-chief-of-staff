@@ -448,7 +448,7 @@ function Configuration() {
         <select
           value={currentModel}
           onChange={(e) => onModelChange(e.target.value)}
-          className="model-selector"
+          className="model-dropdown"
           disabled={loadingModels[provider]}
         >
           {provider === 'anthropic' && (
@@ -520,7 +520,7 @@ function Configuration() {
             onClick={() => loadModelsForProvider(provider)}
             disabled={loadingModels[provider]}
             title="Refresh model list"
-            className="model-refresh-button"
+            className="model-refresh-btn"
           >
             {loadingModels[provider] ? '⏳' : '🔄'}
           </button>

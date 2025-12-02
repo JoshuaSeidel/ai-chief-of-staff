@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { transcriptsAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
@@ -24,10 +25,20 @@ function Transcripts() {
   const [fileMeetingDate, setFileMeetingDate] = useState('');
   const [processingTranscriptId, setProcessingTranscriptId] = useState(null);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [viewingTranscript, setViewingTranscript] = useState(null);
+  const [meetingNotes, setMeetingNotes] = useState(null);
+  const [loadingNotes, setLoadingNotes] = useState(false);
 
   useEffect(() => {
     loadTranscripts();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup: Remove body scroll lock on unmount
+  useEffect(() => {
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, []);
 
   const loadTranscripts = async () => {
     try {
@@ -356,56 +367,35 @@ function Transcripts() {
     try {
       const response = await transcriptsAPI.getById(id);
       const transcript = response.data;
+      setViewingTranscript(transcript);
+      document.body.classList.add('modal-open');
       
-      // Open in a modal/new window
-      const viewWindow = window.open('', '_blank', 'width=800,height=600');
-      viewWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>${transcript.filename}</title>
-          <style>
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-              max-width: 800px;
-              margin: 2rem auto;
-              padding: 2rem;
-              background: #1a1a1a;
-              color: #e4e4e7;
-              line-height: 1.6;
-            }
-            h1 { color: #60a5fa; }
-            .meta {
-              color: #a1a1aa;
-              font-size: 0.9rem;
-              margin-bottom: 2rem;
-              padding-bottom: 1rem;
-              border-bottom: 1px solid #3f3f46;
-            }
-            pre {
-              white-space: pre-wrap;
-              word-wrap: break-word;
-              background: #27272a;
-              padding: 1.5rem;
-              border-radius: 8px;
-              line-height: 1.8;
-            }
-          </style>
-        </head>
-        <body>
-          <h1>📄 ${transcript.filename}</h1>
-          <div class="meta">
-            <div>Uploaded: ${new Date(transcript.upload_date).toLocaleString()}</div>
-            <div>Source: ${transcript.source}</div>
-          </div>
-          <pre>${transcript.content}</pre>
-        </body>
-        </html>
-      `);
-      viewWindow.document.close();
+      // Load meeting notes if available
+      loadMeetingNotes(id);
     } catch (err) {
       setError('Failed to view transcript');
     }
+  };
+
+  const loadMeetingNotes = async (id, regenerate = false) => {
+    setLoadingNotes(true);
+    try {
+      const response = await transcriptsAPI.getMeetingNotes(id, regenerate);
+      if (response.data.success) {
+        setMeetingNotes(response.data.notes);
+      }
+    } catch (err) {
+      console.error('Failed to load meeting notes:', err);
+      setMeetingNotes(null);
+    } finally {
+      setLoadingNotes(false);
+    }
+  };
+
+  const handleCloseTranscriptView = () => {
+    setViewingTranscript(null);
+    setMeetingNotes(null);
+    document.body.classList.remove('modal-open');
   };
 
   return (
@@ -583,7 +573,7 @@ function Transcripts() {
                 type="date"
                 value={fileMeetingDate}
                 onChange={(e) => setFileMeetingDate(e.target.value)}
-                className="mb-md"
+                className="form-input mb-md"
                 max={new Date().toISOString().split('T')[0]}
               />
               <p className="text-sm-gray-mt-negative-mb-md">
@@ -640,7 +630,7 @@ function Transcripts() {
               value={pasteData.meetingDate}
               onChange={(e) => setPasteData({ ...pasteData, meetingDate: e.target.value })}
               max={new Date().toISOString().split('T')[0]}
-              className="mb-sm"
+              className="form-input mb-sm"
             />
             <p className="text-sm-gray-mt-negative-mb-md">
               Enter the date the meeting occurred (helps AI set accurate deadlines)
@@ -773,6 +763,15 @@ function Transcripts() {
                             onClick={() => handleViewTranscript(transcript.id)}
                           >
                             View
+                          </button>
+                          <button
+                            className="secondary"
+                            style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
+                            onClick={() => handleViewTranscript(transcript.id)}
+                            disabled={isProcessing || isFailed}
+                            title="View AI-generated meeting recap"
+                          >
+                            📝 Meeting Recap
                           </button>
                           <button
                             className="secondary"
@@ -916,6 +915,92 @@ function Transcripts() {
           </>
         )}
       </div>
+
+      {/* Transcript Viewer Modal */}
+      {viewingTranscript && (
+        <div className="modal-overlay" onClick={handleCloseTranscriptView}>
+          <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="mt-0 mb-0">📄 {viewingTranscript.filename}</h2>
+              <button className="modal-close-btn" onClick={handleCloseTranscriptView}>
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {/* Metadata */}
+              <div className="transcript-meta mb-lg">
+                <span className="text-muted">Uploaded: {new Date(viewingTranscript.upload_date).toLocaleString()}</span>
+                <span className="mx-sm text-muted">•</span>
+                <span className="text-muted">Source: {viewingTranscript.source}</span>
+              </div>
+
+              {/* Meeting Notes Section */}
+              <div className="meeting-notes-section mb-xl">
+                <div className="flex justify-between items-center mb-md">
+                  <h3 className="mt-0 mb-0">📝 Meeting Recap</h3>
+                  <button 
+                    className="btn-secondary btn-sm"
+                    onClick={() => loadMeetingNotes(viewingTranscript.id, true)}
+                    disabled={loadingNotes}
+                  >
+                    {loadingNotes ? '⏳ Generating...' : '🔄 Regenerate'}
+                  </button>
+                </div>
+
+                {loadingNotes ? (
+                  <div className="loading-notes">
+                    <div className="pulse-icon">💭</div>
+                    <p className="text-muted">Generating meeting recap...</p>
+                  </div>
+                ) : meetingNotes ? (
+                  <div className="meeting-notes-content">
+                    <ReactMarkdown
+                      components={{
+                        h1: ({node, ...props}) => <h1 className="md-h1" {...props} />,
+                        h2: ({node, ...props}) => <h2 className="md-h2" {...props} />,
+                        h3: ({node, ...props}) => <h3 className="md-h3" {...props} />,
+                        strong: ({node, ...props}) => <strong className="md-strong" {...props} />,
+                        em: ({node, ...props}) => <em className="md-em" {...props} />,
+                        ul: ({node, ...props}) => <ul className="md-list" {...props} />,
+                        ol: ({node, ...props}) => <ol className="md-list" {...props} />,
+                        li: ({node, ...props}) => <li className="md-li" {...props} />,
+                        p: ({node, ...props}) => <p className="md-p" {...props} />,
+                      }}
+                    >
+                      {meetingNotes}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <div className="empty-notes">
+                    <p className="text-muted">No meeting notes available.</p>
+                    <button 
+                      className="btn-primary btn-sm mt-md"
+                      onClick={() => loadMeetingNotes(viewingTranscript.id, true)}
+                    >
+                      Generate Meeting Recap
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Full Transcript */}
+              <div className="transcript-full">
+                <h3>Full Transcript</h3>
+                <div className="transcript-content">
+                  {viewingTranscript.content}
+                </div>
+              </div>
+            </div>
+            
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={handleCloseTranscriptView}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </PullToRefresh>
   );
