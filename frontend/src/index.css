@@ -2508,6 +2508,19 @@ table {
   margin-bottom: 1rem;
 }
 
+.text-sm-muted-mb-md {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  margin-bottom: 1rem;
+}
+
+.text-sm-muted-mt-negative-mb-md {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+}
+
 .text-md-mb-sm {
   font-size: 1.1rem;
   margin-bottom: 0.5rem;

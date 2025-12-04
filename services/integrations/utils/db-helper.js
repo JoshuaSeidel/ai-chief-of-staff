@@ -20,17 +20,24 @@ const logger = {
 async function initializeDatabase() {
   const databaseUrl = process.env.DATABASE_URL;
   
-  if (databaseUrl && databaseUrl.startsWith('postgresql://')) {
-    dbType = 'postgres';
-    logger.info('Initializing PostgreSQL connection...');
-    await initPostgres(databaseUrl);
-  } else {
-    dbType = 'sqlite';
-    logger.info('Initializing SQLite connection...');
-    await initSQLite();
+  try {
+    if (databaseUrl && databaseUrl.startsWith('postgresql://')) {
+      dbType = 'postgres';
+      logger.info('Initializing PostgreSQL connection...');
+      await initPostgres(databaseUrl);
+    } else {
+      dbType = 'sqlite';
+      logger.info('Initializing SQLite connection...');
+      await initSQLite();
+    }
+    
+    logger.info(`✓ Database initialized: ${dbType}`);
+  } catch (error) {
+    logger.error(`Failed to initialize database: ${error.message}`);
+    // Reset dbType on failure to prevent incorrect behavior
+    dbType = null;
+    throw new Error(`Database initialization failed: ${error.message}`);
   }
-  
-  logger.info(`✓ Database initialized: ${dbType}`);
 }
 
 /**

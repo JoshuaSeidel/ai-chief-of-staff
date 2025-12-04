@@ -2157,7 +2157,7 @@ function Configuration() {
                     ✓ API token is configured
                   </p>
                 )}
-                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.jiraApiToken.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
+                <p className={config.jiraApiToken.includes('•') ? 'text-sm-muted-mb-md' : 'text-sm-muted-mt-negative-mb-md'}>
                   Create an API token: <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" rel="noopener noreferrer">Jira Cloud</a> or your on-premise Jira → Account Settings → Security → API Tokens
                 </p>
                 
@@ -2271,7 +2271,7 @@ function Configuration() {
                     ✓ Token is configured
                   </p>
                 )}
-                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.trelloToken.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
+                <p className={config.trelloToken.includes('•') ? 'text-sm-muted-mb-md' : 'text-sm-muted-mt-negative-mb-md'}>
                   Generate a token from the API key page above (click the "Token" link)
                 </p>
                 

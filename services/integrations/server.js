@@ -16,9 +16,9 @@ const path = require('path');
 const { initializeDatabase } = require('./utils/db-helper');
 
 const logger = {
-  info: (msg, ...args) => console.log(`[Integrations] ${msg}`, JSON.stringify(args).slice(1, -1)),
-  error: (msg, ...args) => console.error(`[Integrations ERROR] ${msg}`, JSON.stringify(args).slice(1, -1)),
-  warn: (msg, ...args) => console.warn(`[Integrations WARNING] ${msg}`, JSON.stringify(args).slice(1, -1))
+  info: (msg, ...args) => console.log(`[Integrations] ${msg}`, ...args.map(a => typeof a === 'object' ? JSON.stringify(a) : a)),
+  error: (msg, ...args) => console.error(`[Integrations ERROR] ${msg}`, ...args.map(a => typeof a === 'object' ? JSON.stringify(a) : a)),
+  warn: (msg, ...args) => console.warn(`[Integrations WARNING] ${msg}`, ...args.map(a => typeof a === 'object' ? JSON.stringify(a) : a))
 };
 
 const app = express();

@@ -29,6 +29,8 @@ async function getCredentials() {
 async function makeRequest(endpoint, options = {}) {
   const { apiKey, token } = await getCredentials();
   
+  // Note: Trello API requires key/token in query params (not headers)
+  // This is Trello's documented authentication method
   const url = new URL(`${TRELLO_API_BASE}${endpoint}`);
   url.searchParams.append('key', apiKey);
   url.searchParams.append('token', token);

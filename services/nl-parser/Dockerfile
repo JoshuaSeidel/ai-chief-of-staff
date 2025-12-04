@@ -2,20 +2,6 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
-COPY nl-parser/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy shared modules
-COPY shared /app/shared
-
-# Copy application files
-COPY nl-parser/*.py .
-
-FROM python:3.11-slim
-
-WORKDIR /app
-
 # Install OpenSSL and bash for certificate generation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssl \

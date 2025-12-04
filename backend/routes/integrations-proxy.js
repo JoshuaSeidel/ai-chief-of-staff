@@ -44,6 +44,8 @@ const integrationsClient = axios.create({
   baseURL: INTEGRATIONS_URL,
   timeout: 30000, // 30 second timeout
   httpsAgent: httpsAgent,
+  maxBodyLength: 10 * 1024 * 1024, // 10MB max body size
+  maxContentLength: 10 * 1024 * 1024, // 10MB max content size
   headers: {
     'Content-Type': 'application/json'
   }
