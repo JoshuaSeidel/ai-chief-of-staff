@@ -395,8 +395,48 @@ async function updateTaskStatus(taskId, status) {
 /**
  * Mark a task as completed
  */
-async function completeTask(taskId) {
-  return await updateTaskStatus(taskId, 'completed');
+async function completeTask(taskId, completionNote = null) {
+  try {
+    const client = await getGraphClient();
+    const taskListId = await getTaskListId();
+    
+    const updateData = {
+      status: 'completed'
+    };
+    
+    // If completion note provided, append it to the task body
+    if (completionNote) {
+      try {
+        // Get current task to preserve existing body
+        const currentTask = await client
+          .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+          .get();
+        
+        const existingBody = currentTask.body?.content || '';
+        const completionText = `\n\n✅ Completion Note: ${completionNote}`;
+        
+        updateData.body = {
+          contentType: 'text',
+          content: existingBody + completionText
+        };
+        
+        logger.info(`Added completion note to Microsoft task ${taskId}`);
+      } catch (noteError) {
+        logger.warn(`Failed to add completion note to Microsoft task: ${noteError.message}`);
+        // Continue with status update even if note fails
+      }
+    }
+    
+    await client
+      .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+      .patch(updateData);
+    
+    logger.info(`Completed Microsoft task ${taskId}`);
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to complete Microsoft task ${taskId}: ${error.message}`);
+    return false;
+  }
 }
 
 /**

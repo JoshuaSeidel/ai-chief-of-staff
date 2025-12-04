@@ -20,18 +20,15 @@ COPY main.go ./
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o context-service main.go
 
 # Final stage
-FROM alpine:latest
-
-RUN apk --no-cache add ca-certificates
+FROM scratch
 
 WORKDIR /app
 
+# Copy CA certificates from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 # Copy binary from builder
 COPY --from=builder /build/context-service .
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8005/health || exit 1
 
 # Expose port
 EXPOSE 8005

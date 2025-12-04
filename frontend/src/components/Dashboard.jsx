@@ -253,36 +253,6 @@ function Dashboard({ setActiveTab }) {
             Last generated: {new Date(lastGenerated).toLocaleString()}
           </p>
         )}
-
-        {stats && (
-          <div className="stats-container" style={{ 
-            display: 'flex', 
-            gap: '1rem', 
-            marginBottom: '1rem', 
-            padding: '1rem', 
-            backgroundColor: '#f5f5f7', 
-            borderRadius: '8px' 
-          }}>
-            <div className="stat-container">
-              <div className="stat-number-primary">
-                {stats.contextCount || 0}
-              </div>
-              <div className="stat-label">Context Items</div>
-            </div>
-            <div className="stat-container">
-              <div className="stat-number-warning-lg">
-                {stats.commitmentCount || 0}
-              </div>
-              <div className="stat-label">Commitments</div>
-            </div>
-            <div className="stat-container">
-              <div className="stat-number-success-lg">
-                {stats.transcriptCount || 0}
-              </div>
-              <div className="stat-label">Transcripts</div>
-            </div>
-          </div>
-        )}
         
         {/* Productivity Insights Widget */}
         {productivityInsights && !productivityInsights.error && productivityInsights.success && (
@@ -380,6 +350,36 @@ function Dashboard({ setActiveTab }) {
           }}>
             <div className="icon-xl-mb-sm">📊</div>
             <div>{productivityInsights.note || productivityInsights.message || 'Complete some tasks to see pattern analysis'}</div>
+          </div>
+        )}
+
+        {stats && (
+          <div className="stats-container" style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            marginBottom: '1rem', 
+            padding: '1rem', 
+            backgroundColor: '#f5f5f7', 
+            borderRadius: '8px' 
+          }}>
+            <div className="stat-container">
+              <div className="stat-number-primary">
+                {stats.contextCount || 0}
+              </div>
+              <div className="stat-label">Context Items</div>
+            </div>
+            <div className="stat-container">
+              <div className="stat-number-warning-lg">
+                {stats.commitmentCount || 0}
+              </div>
+              <div className="stat-label">Commitments</div>
+            </div>
+            <div className="stat-container">
+              <div className="stat-number-success-lg">
+                {stats.transcriptCount || 0}
+              </div>
+              <div className="stat-label">Transcripts</div>
+            </div>
           </div>
         )}
 

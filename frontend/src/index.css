@@ -2975,10 +2975,113 @@ body.modal-open {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 0.75rem;
   padding: 1rem 1.5rem;
   border-top: 1px solid #3f3f46;
   flex-shrink: 0;
   background-color: #18181b;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #e5e5e7;
+}
+
+.modal-task-description {
+  margin: 0 0 1.5rem 0;
+  padding: 1rem;
+  background-color: #09090b;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e5e5e7;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #e5e5e7;
+  font-size: 0.9rem;
+}
+
+.form-help-text {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  line-height: 1.4;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background-color: #09090b;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  color: #e5e5e7;
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 100px;
+  margin-bottom: 1rem;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-success {
+  padding: 0.75rem 1.5rem;
+  background-color: #22c55e;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: #16a34a;
+}
+
+.btn-success:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  background-color: transparent;
+  color: #a1a1aa;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #27272a;
+  color: #e5e5e7;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .transcript-meta {

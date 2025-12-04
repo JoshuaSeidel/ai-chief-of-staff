@@ -149,6 +149,11 @@ router.put('/:id', async (req, res) => {
       params.push(req.body.cluster_group);
     }
     
+    if (req.body.completion_note !== undefined) {
+      updates.push('completion_note = ?');
+      params.push(req.body.completion_note);
+    }
+    
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
@@ -184,7 +189,7 @@ router.put('/:id', async (req, res) => {
       try {
         const isJiraConnected = await jira.isConnected();
         if (isJiraConnected) {
-          await jira.closeIssue(updatedTask.jira_task_id);
+          await jira.closeIssue(updatedTask.jira_task_id, req.body.completion_note);
           logger.info(`Closed Jira issue ${updatedTask.jira_task_id} for completed task ${id}`);
         }
       } catch (jiraError) {
@@ -197,7 +202,7 @@ router.put('/:id', async (req, res) => {
       try {
         const isMicrosoftConnected = await microsoftPlanner.isConnected();
         if (isMicrosoftConnected) {
-          await microsoftPlanner.completeTask(updatedTask.microsoft_task_id);
+          await microsoftPlanner.completeTask(updatedTask.microsoft_task_id, req.body.completion_note);
           logger.info(`Completed Microsoft task ${updatedTask.microsoft_task_id} for completed task ${id}`);
         }
       } catch (msError) {

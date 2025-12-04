@@ -118,6 +118,12 @@ You should see:
 - ✅ AI Chief of Staff dashboard
 - ✅ No need to specify port 3001
 
+**Note on Timeouts:**
+The SWAG configuration includes 180-second timeouts for proxy requests. This is required because AI operations (brief generation, pattern analysis) can take 30-120 seconds. If you see 502 Bad Gateway errors during AI operations, check:
+1. SWAG timeout settings in the subdomain config
+2. Frontend nginx timeout settings (in the container)
+3. Backend is running and healthy
+
 ## Configuration Details
 
 ### Upload Size Limit
