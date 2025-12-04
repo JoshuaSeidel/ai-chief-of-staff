@@ -171,6 +171,7 @@ async function startServer() {
     const calendarRoutes = require('./routes/calendar');
     const commitmentsRoutes = require('./routes/commitments');
     const webhookRoutes = require('./routes/webhook');
+    const integrationsProxyRoutes = require('./routes/integrations-proxy');
     
     app.use('/api/brief', briefRoutes);
     app.use('/api/transcripts', transcriptRoutes);
@@ -183,6 +184,7 @@ async function startServer() {
     app.use('/api/notifications', require('./routes/notifications'));
     app.use('/api/webhook', webhookRoutes);
     app.use('/api/intelligence', require('./routes/intelligence'));
+    app.use('/api/integrations', integrationsProxyRoutes); // Proxy to integrations microservice
     
     serverLogger.info('API routes initialized');
     
