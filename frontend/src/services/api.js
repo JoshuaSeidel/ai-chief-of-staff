@@ -87,8 +87,8 @@ export const intelligenceAPI = {
     api.post('/intelligence/extract-dates', { text }),
   
   // Pattern Recognition Service (ML)
-  analyzePatterns: (user_id, time_range) => 
-    api.post('/intelligence/analyze-patterns', { user_id, time_range }),
+  analyzePatterns: (userId = null, timeRange = '30d') => 
+    api.post('/intelligence/analyze-patterns', { user_id: userId, time_range: timeRange }, { timeout: 120000 }),
   getInsights: (user_id) => 
     api.get('/intelligence/insights', { params: { user_id } }),
   predictCompletion: (task_description, user_id) => 

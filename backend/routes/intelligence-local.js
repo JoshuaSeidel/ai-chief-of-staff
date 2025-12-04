@@ -26,16 +26,16 @@ async function analyzeTaskPatterns(time_range = '30d') {
     
     logger.info(`Analyzing patterns for last ${days} days`);
     
-    // Get all commitments (tasks)
+    // Get all commitments (tasks) created in time range
     const allTasks = await db.all(
       'SELECT * FROM commitments WHERE created_date >= ? ORDER BY created_date DESC',
       [startDate.toISOString()]
     );
     
-    // Get completed tasks
+    // Get completed tasks (only those created AND completed in time range)
     const completedTasks = await db.all(
-      'SELECT * FROM commitments WHERE status = ? AND completed_date >= ? ORDER BY completed_date DESC',
-      ['completed', startDate.toISOString()]
+      'SELECT * FROM commitments WHERE status = ? AND created_date >= ? AND completed_date >= ? ORDER BY completed_date DESC',
+      ['completed', startDate.toISOString(), startDate.toISOString()]
     );
     
     // Get pending tasks
