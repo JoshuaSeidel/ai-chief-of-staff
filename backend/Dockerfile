@@ -3,12 +3,19 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install only essential runtime dependencies (no build tools needed)
+# Install build dependencies for sqlite3 (native module) and runtime deps
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache \
+    python3 \
+    make \
+    g++ \
     openssl \
     bash \
-    curl
+    curl \
+    && ln -sf python3 /usr/bin/python
+
+# Set Python environment variable for node-gyp
+ENV PYTHON=/usr/bin/python3
 
 # Install backend dependencies
 COPY package*.json ./

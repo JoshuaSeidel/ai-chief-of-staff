@@ -167,7 +167,7 @@ services:
           memory: 512M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "https://localhost:8001/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "--method=GET", "https://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -214,7 +214,7 @@ services:
       - tls-certs:/app/certs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "https://localhost:8002/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "--method=GET", "https://localhost:8002/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -258,7 +258,7 @@ services:
           memory: 512M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "https://localhost:8003/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "--method=GET", "https://localhost:8003/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -308,7 +308,7 @@ services:
     #   - NVIDIA_VISIBLE_DEVICES=all
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "https://localhost:8004/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "--method=GET", "https://localhost:8004/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -349,7 +349,7 @@ services:
           memory: 128M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "https://localhost:8005/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "--method=GET", "https://localhost:8005/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -394,7 +394,7 @@ services:
           memory: 256M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "https://localhost:8006/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "--method=GET", "https://localhost:8006/health"]
       interval: 30s
       timeout: 10s
       retries: 3
