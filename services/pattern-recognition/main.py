@@ -13,7 +13,7 @@ import os
 
 # Add shared modules to path
 sys.path.insert(0, '/app/shared')
-from db_config import get_ai_model, get_ai_provider
+from db_config import get_ai_model, get_ai_provider, get_api_key
 
 import anthropic
 import redis
@@ -62,7 +62,6 @@ app.add_middleware(
 )
 
 # Initialize clients
-anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 redis_client = None
 db_pool = None
 
@@ -393,10 +392,20 @@ Provide:
 
 Format as markdown with clear sections."""
 
-        # Get model from database configuration
+        # Get model and API key from database configuration
         model = get_ai_model(provider="anthropic")
+        api_key = get_api_key(provider="anthropic")
         
-        response = anthropic_client.messages.create(
+        if not api_key:
+            # Fallback to environment variable
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError("No Anthropic API key available in database or environment")
+        
+        # Create client with database API key
+        client = anthropic.Anthropic(api_key=api_key)
+        
+        response = client.messages.create(
             model=model,
             max_tokens=1024,  # Reduced for faster responses
             temperature=0.7,  # Slightly creative but focused
@@ -514,10 +523,20 @@ Return as JSON array with format:
 ]
 """
                 
-                # Get model from database configuration
+                # Get model and API key from database configuration
                 model = get_ai_model(provider="anthropic")
+                api_key = get_api_key(provider="anthropic")
                 
-                response = anthropic_client.messages.create(
+                if not api_key:
+                    # Fallback to environment variable
+                    api_key = os.getenv("ANTHROPIC_API_KEY")
+                    if not api_key:
+                        raise ValueError("No Anthropic API key available in database or environment")
+                
+                # Create client with database API key
+                client = anthropic.Anthropic(api_key=api_key)
+                
+                response = client.messages.create(
                     model=model,
                     max_tokens=800,
                     temperature=0.5,
