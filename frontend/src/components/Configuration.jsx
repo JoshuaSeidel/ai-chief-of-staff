@@ -112,6 +112,13 @@ function Configuration() {
     jiraEmail: '',
     jiraApiToken: '',
     jiraProjectKey: '',
+    trelloApiKey: '',
+    trelloToken: '',
+    trelloBoardId: '',
+    trelloListId: '',
+    mondayApiToken: '',
+    mondayBoardId: '',
+    mondayGroupId: '',
     userNames: '',
     dbType: 'sqlite',
     postgresHost: '',
@@ -136,6 +143,8 @@ function Configuration() {
     googleCalendar: false,
     microsoft: false, // Combined Microsoft Calendar + Planner
     jira: false,
+    trello: false,
+    monday: false,
     radicale: false
   });
   
@@ -147,6 +156,14 @@ function Configuration() {
   const [checkingMicrosoft, setCheckingMicrosoft] = useState(true);
   const [jiraConnected, setJiraConnected] = useState(false);
   const [checkingJira, setCheckingJira] = useState(true);
+  const [trelloConnected, setTrelloConnected] = useState(false);
+  const [checkingTrello, setCheckingTrello] = useState(true);
+  const [mondayConnected, setMondayConnected] = useState(false);
+  const [checkingMonday, setCheckingMonday] = useState(true);
+  const [trelloBoards, setTrelloBoards] = useState([]);
+  const [trelloLists, setTrelloLists] = useState([]);
+  const [mondayBoards, setMondayBoards] = useState([]);
+  const [mondayGroups, setMondayGroups] = useState([]);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [microservicesExpanded, setMicroservicesExpanded] = useState(false);
   const [notificationMaxRepeat, setNotificationMaxRepeat] = useState(3);
@@ -177,6 +194,8 @@ function Configuration() {
     checkGoogleCalendarStatus();
     checkMicrosoftPlannerStatus();
     checkJiraStatus();
+    checkTrelloStatus();
+    checkMondayStatus();
     loadPrompts();
     
     // Load available models for all providers on mount
@@ -601,6 +620,130 @@ function Configuration() {
       }
     } catch (err) {
       setMessage({ type: 'error', text: `❌ Error disconnecting: ${err.message}` });
+    }
+  };
+
+  const checkTrelloStatus = async () => {
+    try {
+      setCheckingTrello(true);
+      const response = await fetch('/api/integrations/tasks/trello/status');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setTrelloConnected(data.connected || false);
+      const hasConfig = config.trelloApiKey && config.trelloToken && config.trelloBoardId;
+      if (hasConfig || data.connected) {
+        setEnabledIntegrations(prev => ({ ...prev, trello: true }));
+      }
+    } catch (err) {
+      console.error('Failed to check Trello status:', err);
+      setTrelloConnected(false);
+    } finally {
+      setCheckingTrello(false);
+    }
+  };
+
+  const handleTrelloDisconnect = async () => {
+    if (!window.confirm('Are you sure you want to disconnect Trello? This will not delete any existing cards.')) {
+      return;
+    }
+    try {
+      const response = await fetch('/api/integrations/tasks/trello/disconnect', { method: 'POST' });
+      const data = await response.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: '✅ Trello disconnected successfully' });
+        await checkTrelloStatus();
+      } else {
+        setMessage({ type: 'error', text: `❌ Failed to disconnect: ${data.message || 'Unknown error'}` });
+      }
+    } catch (err) {
+      console.error('Failed to disconnect Trello:', err);
+      setMessage({ type: 'error', text: `❌ Error disconnecting: ${err.message}` });
+    }
+  };
+
+  const loadTrelloBoards = async () => {
+    try {
+      const response = await fetch('/api/integrations/tasks/trello/boards');
+      if (!response.ok) throw new Error('Failed to fetch boards');
+      const data = await response.json();
+      setTrelloBoards(data.boards || []);
+    } catch (err) {
+      console.error('Failed to load Trello boards:', err);
+      setMessage({ type: 'error', text: `❌ Failed to load boards: ${err.message}` });
+    }
+  };
+
+  const loadTrelloLists = async (boardId) => {
+    try {
+      const response = await fetch(`/api/integrations/tasks/trello/boards/${boardId}/lists`);
+      if (!response.ok) throw new Error('Failed to fetch lists');
+      const data = await response.json();
+      setTrelloLists(data.lists || []);
+    } catch (err) {
+      console.error('Failed to load Trello lists:', err);
+      setMessage({ type: 'error', text: `❌ Failed to load lists: ${err.message}` });
+    }
+  };
+
+  const checkMondayStatus = async () => {
+    try {
+      setCheckingMonday(true);
+      const response = await fetch('/api/integrations/tasks/monday/status');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setMondayConnected(data.connected || false);
+      const hasConfig = config.mondayApiToken && config.mondayBoardId;
+      if (hasConfig || data.connected) {
+        setEnabledIntegrations(prev => ({ ...prev, monday: true }));
+      }
+    } catch (err) {
+      console.error('Failed to check Monday status:', err);
+      setMondayConnected(false);
+    } finally {
+      setCheckingMonday(false);
+    }
+  };
+
+  const handleMondayDisconnect = async () => {
+    if (!window.confirm('Are you sure you want to disconnect Monday.com? This will not delete any existing items.')) {
+      return;
+    }
+    try {
+      const response = await fetch('/api/integrations/tasks/monday/disconnect', { method: 'POST' });
+      const data = await response.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: '✅ Monday.com disconnected successfully' });
+        await checkMondayStatus();
+      } else {
+        setMessage({ type: 'error', text: `❌ Failed to disconnect: ${data.message || 'Unknown error'}` });
+      }
+    } catch (err) {
+      console.error('Failed to disconnect Monday.com:', err);
+      setMessage({ type: 'error', text: `❌ Error disconnecting: ${err.message}` });
+    }
+  };
+
+  const loadMondayBoards = async () => {
+    try {
+      const response = await fetch('/api/integrations/tasks/monday/boards');
+      if (!response.ok) throw new Error('Failed to fetch boards');
+      const data = await response.json();
+      setMondayBoards(data.boards || []);
+    } catch (err) {
+      console.error('Failed to load Monday boards:', err);
+      setMessage({ type: 'error', text: `❌ Failed to load boards: ${err.message}` });
+    }
+  };
+
+  const loadMondayGroups = async (boardId) => {
+    try {
+      const response = await fetch(`/api/integrations/tasks/monday/boards/${boardId}/groups`);
+      if (!response.ok) throw new Error('Failed to fetch groups');
+      const data = await response.json();
+      setMondayGroups(data.groups || []);
+    } catch (err) {
+      console.error('Failed to load Monday groups:', err);
+      setMessage({ type: 'error', text: `❌ Failed to load groups: ${err.message}` });
     }
   };
 
@@ -1465,6 +1608,26 @@ function Configuration() {
             <label className="integration-label">
               <input
                 type="checkbox"
+                checked={enabledIntegrations.trello}
+                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, trello: e.target.checked })}
+                className="integration-checkbox"
+              />
+              <span className="integration-text">📋 Trello</span>
+            </label>
+            
+            <label className="integration-label">
+              <input
+                type="checkbox"
+                checked={enabledIntegrations.monday}
+                onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, monday: e.target.checked })}
+                className="integration-checkbox"
+              />
+              <span className="integration-text">📊 Monday.com</span>
+            </label>
+            
+            <label className="integration-label">
+              <input
+                type="checkbox"
                 checked={enabledIntegrations.radicale}
                 onChange={(e) => setEnabledIntegrations({ ...enabledIntegrations, radicale: e.target.checked })}
                 className="integration-checkbox"
@@ -2014,6 +2177,322 @@ function Configuration() {
                 
                 <p className="info-box-success">
                   💡 After saving these credentials, Jira will automatically connect. Issues will be created as Stories (for commitments) or Tasks (for action items).
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        )}
+
+        {enabledIntegrations.trello && (
+        <div className="mb-xl">
+          <h3>📋 Trello Integration</h3>
+          
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            border: '2px solid #3f3f46', 
+            borderRadius: '12px', 
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 className="mt-0-mb-md-flex-center">
+              <span className="emoji-icon">📋</span>
+              Trello Board Management
+            </h4>
+            
+            {checkingTrello ? (
+              <p className="text-muted">Checking connection status...</p>
+            ) : trelloConnected ? (
+              <div>
+                <div style={{ 
+                  backgroundColor: '#e5ffe5', 
+                  color: '#00a000',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span>
+                    <strong>✓ Connected</strong> - Cards will be created automatically in Trello
+                  </span>
+                  <button 
+                    onClick={handleTrelloDisconnect}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#ff4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+                <p className="config-subsection-description">
+                  Tasks with deadlines will automatically create Trello cards in your configured board and list.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-muted-mb-md-lh">
+                  Connect Trello to automatically create cards for commitments and action items with deadlines.
+                </p>
+                
+                <label className="form-label-muted">
+                  Trello API Key
+                </label>
+                <input
+                  type="text"
+                  value={config.trelloApiKey}
+                  onChange={(e) => handleChange('trelloApiKey', e.target.value)}
+                  placeholder="Your Trello API key"
+                  className="mb-md"
+                />
+                <p className="text-sm-muted-mt-negative-mb-md">
+                  Get your API key: <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer">https://trello.com/app-key</a>
+                </p>
+                
+                <label className="form-label-muted">
+                  Trello Token
+                </label>
+                <input
+                  type="password"
+                  value={config.trelloToken}
+                  onChange={(e) => handleChange('trelloToken', e.target.value)}
+                  placeholder="Your Trello token"
+                  className="mb-md"
+                />
+                {config.trelloToken.includes('•') && (
+                  <p className="text-success-mt-negative-mb-md">
+                    ✓ Token is configured
+                  </p>
+                )}
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.trelloToken.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
+                  Generate a token from the API key page above (click the "Token" link)
+                </p>
+                
+                {config.trelloApiKey && config.trelloToken && (
+                  <>
+                    <label className="form-label-muted">
+                      Board
+                    </label>
+                    <select
+                      value={config.trelloBoardId}
+                      onChange={(e) => {
+                        handleChange('trelloBoardId', e.target.value);
+                        if (e.target.value) {
+                          loadTrelloLists(e.target.value);
+                        }
+                      }}
+                      onFocus={loadTrelloBoards}
+                      style={{ 
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: '1px solid #3f3f46',
+                        borderRadius: '8px',
+                        fontSize: '1rem',
+                        fontFamily: 'inherit',
+                        marginBottom: '1rem',
+                        backgroundColor: '#18181b',
+                        color: '#e5e5e7'
+                      }}
+                    >
+                      <option value="">Select a board...</option>
+                      {trelloBoards.map(board => (
+                        <option key={board.id} value={board.id}>{board.name}</option>
+                      ))}
+                    </select>
+                    
+                    {config.trelloBoardId && (
+                      <>
+                        <label className="form-label-muted">
+                          List
+                        </label>
+                        <select
+                          value={config.trelloListId}
+                          onChange={(e) => handleChange('trelloListId', e.target.value)}
+                          style={{ 
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #3f3f46',
+                            borderRadius: '8px',
+                            fontSize: '1rem',
+                            fontFamily: 'inherit',
+                            marginBottom: '1rem',
+                            backgroundColor: '#18181b',
+                            color: '#e5e5e7'
+                          }}
+                        >
+                          <option value="">Select a list...</option>
+                          {trelloLists.map(list => (
+                            <option key={list.id} value={list.id}>{list.name}</option>
+                          ))}
+                        </select>
+                        <p className="text-sm-muted-mt-negative-mb-md">
+                          Cards will be created in this list
+                        </p>
+                      </>
+                    )}
+                  </>
+                )}
+                
+                <p className="info-box-success">
+                  💡 After saving these credentials, Trello will automatically connect. Cards will be created for tasks with deadlines.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+        )}
+
+        {enabledIntegrations.monday && (
+        <div className="mb-xl">
+          <h3>📊 Monday.com Integration</h3>
+          
+          <div style={{ 
+            backgroundColor: '#18181b', 
+            border: '2px solid #3f3f46', 
+            borderRadius: '12px', 
+            padding: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 className="mt-0-mb-md-flex-center">
+              <span className="emoji-icon">📊</span>
+              Monday.com Workspace
+            </h4>
+            
+            {checkingMonday ? (
+              <p className="text-muted">Checking connection status...</p>
+            ) : mondayConnected ? (
+              <div>
+                <div style={{ 
+                  backgroundColor: '#e5ffe5', 
+                  color: '#00a000',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <span>
+                    <strong>✓ Connected</strong> - Items will be created automatically in Monday.com
+                  </span>
+                  <button 
+                    onClick={handleMondayDisconnect}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#ff4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem'
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </div>
+                <p className="config-subsection-description">
+                  Tasks with deadlines will automatically create Monday.com items in your configured board and group.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-muted-mb-md-lh">
+                  Connect Monday.com to automatically create items for commitments and action items with deadlines.
+                </p>
+                
+                <label className="form-label-muted">
+                  API Token
+                </label>
+                <input
+                  type="password"
+                  value={config.mondayApiToken}
+                  onChange={(e) => handleChange('mondayApiToken', e.target.value)}
+                  placeholder="Your Monday.com API token"
+                  className="mb-md"
+                />
+                {config.mondayApiToken.includes('•') && (
+                  <p className="text-success-mt-negative-mb-md">
+                    ✓ API token is configured
+                  </p>
+                )}
+                <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: config.mondayApiToken.includes('•') ? '0' : '-0.5rem', marginBottom: '1rem' }}>
+                  Get your token: Monday.com → Profile Picture → Developers → My Access Tokens → Generate
+                </p>
+                
+                {config.mondayApiToken && (
+                  <>
+                    <label className="form-label-muted">
+                      Board
+                    </label>
+                    <select
+                      value={config.mondayBoardId}
+                      onChange={(e) => {
+                        handleChange('mondayBoardId', e.target.value);
+                        if (e.target.value) {
+                          loadMondayGroups(e.target.value);
+                        }
+                      }}
+                      onFocus={loadMondayBoards}
+                      style={{ 
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: '1px solid #3f3f46',
+                        borderRadius: '8px',
+                        fontSize: '1rem',
+                        fontFamily: 'inherit',
+                        marginBottom: '1rem',
+                        backgroundColor: '#18181b',
+                        color: '#e5e5e7'
+                      }}
+                    >
+                      <option value="">Select a board...</option>
+                      {mondayBoards.map(board => (
+                        <option key={board.id} value={board.id}>{board.name}</option>
+                      ))}
+                    </select>
+                    
+                    {config.mondayBoardId && (
+                      <>
+                        <label className="form-label-muted">
+                          Group
+                        </label>
+                        <select
+                          value={config.mondayGroupId}
+                          onChange={(e) => handleChange('mondayGroupId', e.target.value)}
+                          style={{ 
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: '1px solid #3f3f46',
+                            borderRadius: '8px',
+                            fontSize: '1rem',
+                            fontFamily: 'inherit',
+                            marginBottom: '1rem',
+                            backgroundColor: '#18181b',
+                            color: '#e5e5e7'
+                          }}
+                        >
+                          <option value="">Select a group...</option>
+                          {mondayGroups.map(group => (
+                            <option key={group.id} value={group.id}>{group.title}</option>
+                          ))}
+                        </select>
+                        <p className="text-sm-muted-mt-negative-mb-md">
+                          Items will be created in this group
+                        </p>
+                      </>
+                    )}
+                  </>
+                )}
+                
+                <p className="info-box-success">
+                  💡 After saving these credentials, Monday.com will automatically connect. Items will be created for tasks with deadlines.
                 </p>
               </div>
             )}
