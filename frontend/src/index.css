@@ -1402,6 +1402,7 @@ table {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  align-content: center;
 }
 
 .model-dropdown,
@@ -1444,6 +1445,7 @@ table {
   box-sizing: border-box;
   line-height: 1;
   margin: 0 !important;
+  align-self: center;
 }
 
 .model-refresh-btn:disabled,
