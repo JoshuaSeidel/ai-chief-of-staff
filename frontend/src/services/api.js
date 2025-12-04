@@ -16,11 +16,12 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 60000, // 60 seconds default timeout
 });
 
 // Brief API
 export const briefAPI = {
-  generate: () => api.post('/brief/generate'),
+  generate: () => api.post('/brief/generate', {}, { timeout: 120000 }), // 2 minutes for AI generation
   getRecent: (limit = 7) => api.get(`/brief/recent?limit=${limit}`),
   getByDate: (date) => api.get(`/brief/${date}`),
   generateWeeklyReport: () => api.post('/brief/weekly-report'),

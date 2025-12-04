@@ -7,7 +7,8 @@ const { generateDailyBrief, generateWeeklyReport, detectPatterns, flagRisks } = 
 const logger = {
   info: (msg, ...args) => console.log(`[BRIEF] ${msg}`, ...args),
   error: (msg, ...args) => console.error(`[BRIEF ERROR] ${msg}`, ...args),
-  warn: (msg, ...args) => console.warn(`[BRIEF WARNING] ${msg}`, ...args)
+  warn: (msg, ...args) => console.warn(`[BRIEF WARNING] ${msg}`, ...args),
+  debug: (msg, ...args) => console.log(`[BRIEF DEBUG] ${msg}`, ...args)
 };
 
 /**
