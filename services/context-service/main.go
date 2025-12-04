@@ -101,9 +101,29 @@ func main() {
 
 	// Start server
 	port := getEnv("PORT", "8005")
-	log.Printf("✓ Context Service listening on port %s", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
-		log.Fatal("Server failed to start:", err)
+	tlsCert := getEnv("TLS_CERT", "/app/certs/aicos-context-service.crt")
+	tlsKey := getEnv("TLS_KEY", "/app/certs/aicos-context-service.key")
+	
+	// Check if TLS certificates exist
+	if _, err := os.Stat(tlsCert); err == nil {
+		if _, err := os.Stat(tlsKey); err == nil {
+			log.Printf("✓ Context Service listening on port %s (HTTPS)", port)
+			if err := http.ListenAndServeTLS(":"+port, tlsCert, tlsKey, r); err != nil {
+				log.Fatal("Server failed to start:", err)
+			}
+		} else {
+			log.Printf("⚠ TLS key not found, falling back to HTTP")
+			log.Printf("✓ Context Service listening on port %s (HTTP)", port)
+			if err := http.ListenAndServe(":"+port, r); err != nil {
+				log.Fatal("Server failed to start:", err)
+			}
+		}
+	} else {
+		log.Printf("⚠ TLS certificate not found, falling back to HTTP")
+		log.Printf("✓ Context Service listening on port %s (HTTP)", port)
+		if err := http.ListenAndServe(":"+port, r); err != nil {
+			log.Fatal("Server failed to start:", err)
+		}
 	}
 }
 

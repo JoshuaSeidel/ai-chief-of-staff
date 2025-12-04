@@ -250,18 +250,36 @@ router.get('/version', async (req, res) => {
     
     // Get microservices versions by querying their health endpoints
     const axios = require('axios');
+    const https = require('https');
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Load CA certificate for HTTPS calls
+    const CA_CERT_PATH = path.join(__dirname, '../../certs/ca.crt');
+    let httpsAgent = null;
+    if (fs.existsSync(CA_CERT_PATH)) {
+      try {
+        const caCert = fs.readFileSync(CA_CERT_PATH);
+        httpsAgent = new https.Agent({ ca: caCert, rejectUnauthorized: true });
+      } catch (error) {
+        httpsAgent = new https.Agent({ rejectUnauthorized: false });
+      }
+    } else {
+      httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    }
+    
     const microservices = {
-      'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'http://aicos-ai-intelligence:8001',
-      'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'http://aicos-pattern-recognition:8002',
-      'nl-parser': process.env.NL_PARSER_URL || 'http://aicos-nl-parser:8003',
-      'voice-processor': process.env.VOICE_PROCESSOR_URL || 'http://aicos-voice-processor:8004',
-      'context-service': process.env.CONTEXT_SERVICE_URL || 'http://aicos-context-service:8005'
+      'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'https://aicos-ai-intelligence:8001',
+      'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'https://aicos-pattern-recognition:8002',
+      'nl-parser': process.env.NL_PARSER_URL || 'https://aicos-nl-parser:8003',
+      'voice-processor': process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004',
+      'context-service': process.env.CONTEXT_SERVICE_URL || 'https://aicos-context-service:8005'
     };
     
     // Query each microservice for version (with timeout to avoid hanging)
     const versionPromises = Object.entries(microservices).map(async ([name, url]) => {
       try {
-        const response = await axios.get(`${url}/health`, { timeout: 2000 });
+        const response = await axios.get(`${url}/health`, { timeout: 2000, httpsAgent });
         microservicesVersions[name] = response.data.version || 'unknown';
       } catch (error) {
         microservicesVersions[name] = 'unavailable';
