@@ -1,17 +1,49 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('INTEGRATIONS-PROXY');
 
 // Get integrations service URL from environment
-const INTEGRATIONS_URL = process.env.INTEGRATIONS_URL || 'http://aicos-integrations:8006';
+const INTEGRATIONS_URL = process.env.INTEGRATIONS_URL || 'https://aicos-integrations:8006';
+
+// Load CA certificate for validating microservice certificates
+const CA_CERT_PATH = path.join(__dirname, '../../certs/ca.crt');
+let httpsAgent = null;
+
+// Try to load CA certificate if it exists
+if (fs.existsSync(CA_CERT_PATH)) {
+  try {
+    const caCert = fs.readFileSync(CA_CERT_PATH);
+    httpsAgent = new https.Agent({
+      ca: caCert,
+      rejectUnauthorized: true
+    });
+    logger.info('Loaded CA certificate for HTTPS communication with integrations service');
+  } catch (error) {
+    logger.warn('Failed to load CA certificate, using insecure HTTPS', { error: error.message });
+    // Fallback to accepting self-signed certificates (dev only)
+    httpsAgent = new https.Agent({
+      rejectUnauthorized: false
+    });
+  }
+} else {
+  logger.warn('CA certificate not found, using insecure HTTPS', { path: CA_CERT_PATH });
+  // Fallback to accepting self-signed certificates (dev only)
+  httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+  });
+}
 
 // Create axios instance for integrations service
 const integrationsClient = axios.create({
   baseURL: INTEGRATIONS_URL,
   timeout: 30000, // 30 second timeout
+  httpsAgent: httpsAgent,
   headers: {
     'Content-Type': 'application/json'
   }

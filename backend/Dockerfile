@@ -3,12 +3,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Update Alpine packages and install Python3 and build tools needed for native modules (sqlite3)
+# Update Alpine packages and install Python3, build tools, OpenSSL, and bash
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache \
     python3 \
     make \
     g++ \
+    openssl \
+    bash \
     && ln -sf python3 /usr/bin/python
 
 # Set Python environment variable for node-gyp
@@ -20,6 +22,10 @@ RUN npm install --production
 
 # Copy backend files
 COPY . .
+
+# Copy certificate generation script
+COPY ../scripts/generate-service-cert.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/generate-service-cert.sh
 
 # Get version and commit hash from build args
 ARG VERSION=1.0.0
@@ -43,10 +49,10 @@ VOLUME ["/app/data"]
 # Expose ports
 EXPOSE 3001
 
-# Health check
+# Health check (still HTTP for backend as it handles external traffic)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3001/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
-# Start the application
-CMD ["node", "server.js"]
+# Generate certificates and start the application
+CMD ["/bin/bash", "-c", "generate-service-cert.sh aicos-backend && node server.js"]
 

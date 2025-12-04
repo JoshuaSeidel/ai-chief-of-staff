@@ -10,6 +10,9 @@
 
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
 const { initializeDatabase } = require('./utils/db-helper');
 
 const logger = {
@@ -122,14 +125,44 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`=== Integrations Service Starting ===`);
-  logger.info(`→ Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`→ Port: ${PORT}`);
-  logger.info(`→ Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite'}`);
-  logger.info(`✓ Server ready and listening`);
-  logger.info(`=====================================`);
-});
+// Start server with HTTPS
+const CERT_DIR = path.join(__dirname, 'certs');
+const CERT_PATH = path.join(CERT_DIR, 'aicos-integrations.crt');
+const KEY_PATH = path.join(CERT_DIR, 'aicos-integrations.key');
+
+// Check if certificates exist
+if (fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH)) {
+  // Start HTTPS server
+  const httpsOptions = {
+    cert: fs.readFileSync(CERT_PATH),
+    key: fs.readFileSync(KEY_PATH)
+  };
+  
+  https.createServer(httpsOptions, app).listen(PORT, '0.0.0.0', () => {
+    logger.info(`=== Integrations Service Starting ===`);
+    logger.info(`→ Protocol: HTTPS (TLS enabled)`);
+    logger.info(`→ Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`→ Port: ${PORT}`);
+    logger.info(`→ Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite'}`);
+    logger.info(`→ Certificate: ${CERT_PATH}`);
+    logger.info(`✓ Server ready and listening`);
+    logger.info(`=====================================`);
+  });
+} else {
+  // Fallback to HTTP if certificates don't exist (shouldn't happen with auto-generation)
+  logger.warn('TLS certificates not found, falling back to HTTP');
+  logger.warn(`Expected cert at: ${CERT_PATH}`);
+  logger.warn(`Expected key at: ${KEY_PATH}`);
+  
+  app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`=== Integrations Service Starting ===`);
+    logger.info(`→ Protocol: HTTP (INSECURE)`);
+    logger.info(`→ Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`→ Port: ${PORT}`);
+    logger.info(`→ Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite'}`);
+    logger.info(`✓ Server ready and listening`);
+    logger.info(`=====================================`);
+  });
+}
 
 module.exports = app;

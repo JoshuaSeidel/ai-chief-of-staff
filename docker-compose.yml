@@ -78,12 +78,13 @@ services:
       - REDIS_URL=redis://aicos-redis:6379
       
       # Microservice discovery URLs (auto-configured via Docker network)
+      # Using HTTPS for encrypted inter-container communication
       - AI_INTELLIGENCE_URL=http://aicos-ai-intelligence:8001
       - PATTERN_RECOGNITION_URL=http://aicos-pattern-recognition:8002
       - NL_PARSER_URL=http://aicos-nl-parser:8003
       - VOICE_PROCESSOR_URL=http://aicos-voice-processor:8004
       - CONTEXT_SERVICE_URL=http://aicos-context-service:8005
-      - INTEGRATIONS_URL=http://aicos-integrations:8006
+      - INTEGRATIONS_URL=https://aicos-integrations:8006
       
       # ============================================
       # RUNTIME CONFIGURATION
@@ -114,6 +115,8 @@ services:
       - ./backend:/app
       - /app/node_modules
       - backend-data:/app/data
+      # Shared certificate volume for TLS
+      - tls-certs:/app/certs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
@@ -359,6 +362,9 @@ services:
       - aicos-postgres
     networks:
       - aicos-network
+    volumes:
+      # Shared certificate volume for TLS
+      - tls-certs:/app/certs
     deploy:
       resources:
         limits:
@@ -369,10 +375,11 @@ services:
           memory: 256M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "--no-check-certificate", "https://localhost:8006/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 15s
 
   # ============================================================================
   # OPTIONAL SERVICES (Uncomment to enable)
@@ -525,3 +532,7 @@ volumes:
   #   driver: local
   # grafana-data:
   #   driver: local
+  
+  # Shared TLS certificates volume
+  tls-certs:
+    driver: local

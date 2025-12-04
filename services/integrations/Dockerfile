@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
-# Update Alpine packages for security
-RUN apk update && apk upgrade --no-cache
+# Install OpenSSL for certificate generation
+RUN apk update && apk upgrade --no-cache && apk add --no-cache openssl bash
 
 WORKDIR /app
 
@@ -14,12 +14,16 @@ RUN npm ci --only=production
 # Copy source code
 COPY . .
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8006/health || exit 1
+# Copy certificate generation script
+COPY ../../scripts/generate-service-cert.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/generate-service-cert.sh
+
+# Health check (HTTPS)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider --no-check-certificate https://localhost:8006/health || exit 1
 
 # Expose port
 EXPOSE 8006
 
-# Run service
-CMD ["node", "server.js"]
+# Generate certificates and run service
+CMD ["/bin/bash", "-c", "generate-service-cert.sh aicos-integrations && node server.js"]
