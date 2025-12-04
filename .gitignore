@@ -41,3 +41,9 @@ venv/
 env/
 ENV/
 .venv
+
+# TLS Certificates (never commit private keys!)
+certs/
+*.pem
+*.crt
+*.key
