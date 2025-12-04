@@ -294,8 +294,35 @@ async function createIssue(issueData) {
 /**
  * Transition a Jira issue to Done/Closed status
  */
-async function closeIssue(issueKey) {
+async function closeIssue(issueKey, completionNote = null) {
   try {
+    // Add completion note as comment if provided
+    if (completionNote) {
+      try {
+        await jiraRequest(`/issue/${issueKey}/comment`, 'POST', {
+          body: {
+            type: 'doc',
+            version: 1,
+            content: [
+              {
+                type: 'paragraph',
+                content: [
+                  {
+                    type: 'text',
+                    text: `✅ Completion Note: ${completionNote}`
+                  }
+                ]
+              }
+            ]
+          }
+        });
+        logger.info(`Added completion note to Jira issue ${issueKey}`);
+      } catch (commentError) {
+        logger.warn(`Failed to add comment to Jira issue ${issueKey}: ${commentError.message}`);
+        // Continue with closing even if comment fails
+      }
+    }
+    
     // First, get available transitions for this issue
     const transitions = await jiraRequest(`/issue/${issueKey}/transitions`);
     

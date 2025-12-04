@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { commitmentsAPI, intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
+import CompletionModal from './CompletionModal';
 
 function Commitments() {
   const [commitments, setCommitments] = useState([]);
@@ -25,6 +26,7 @@ function Commitments() {
   const [showClusters, setShowClusters] = useState(false);
   const [clusters, setClusters] = useState(null);
   const [clusteringTasks, setClusteringTasks] = useState(false);
+  const [completingTask, setCompletingTask] = useState(null);
 
   useEffect(() => {
     loadCommitments();
@@ -274,11 +276,37 @@ function Commitments() {
   };
 
   const updateStatus = async (id, newStatus) => {
+    // Show completion modal for completed status
+    if (newStatus === 'completed') {
+      const task = commitments.find(c => c.id === id);
+      if (task) {
+        setCompletingTask(task);
+        return;
+      }
+    }
+    
+    // For other status changes, update directly
     try {
       await commitmentsAPI.update(id, { status: newStatus });
       loadCommitments();
     } catch (err) {
       setError('Failed to update commitment status');
+    }
+  };
+  
+  const handleCompleteTask = async (completionNote) => {
+    if (!completingTask) return;
+    
+    try {
+      await commitmentsAPI.update(completingTask.id, { 
+        status: 'completed',
+        completion_note: completionNote || null
+      });
+      setCompletingTask(null);
+      loadCommitments();
+    } catch (err) {
+      setError('Failed to complete task');
+      throw err; // Re-throw to keep modal open
     }
   };
 
@@ -1239,6 +1267,15 @@ function Commitments() {
             </button>
           </div>
         </div>
+      )}
+      
+      {/* Completion Modal */}
+      {completingTask && (
+        <CompletionModal
+          task={completingTask}
+          onComplete={handleCompleteTask}
+          onCancel={() => setCompletingTask(null)}
+        />
       )}
     </>
   );
