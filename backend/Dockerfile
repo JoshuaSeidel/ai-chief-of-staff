@@ -3,22 +3,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Update Alpine packages and install Python3, build tools, OpenSSL, and bash
+# Install only essential runtime dependencies (no build tools needed)
 RUN apk update && apk upgrade --no-cache && \
     apk add --no-cache \
-    python3 \
-    make \
-    g++ \
     openssl \
     bash \
-    && ln -sf python3 /usr/bin/python
-
-# Set Python environment variable for node-gyp
-ENV PYTHON=/usr/bin/python3
+    curl
 
 # Install backend dependencies
 COPY package*.json ./
-RUN npm install --production
+RUN npm install --production --omit=dev
 
 # Copy backend files
 COPY . .
