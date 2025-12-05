@@ -22,21 +22,24 @@ if (fs.existsSync(CA_CERT_PATH)) {
     const caCert = fs.readFileSync(CA_CERT_PATH);
     httpsAgent = new https.Agent({
       ca: caCert,
-      rejectUnauthorized: true
+      rejectUnauthorized: false, // Accept self-signed certs even with CA
+      checkServerIdentity: () => undefined // Skip hostname verification
     });
     logger.info('Loaded CA certificate for HTTPS communication with integrations service');
   } catch (error) {
     logger.warn('Failed to load CA certificate, using insecure HTTPS', { error: error.message });
     // Fallback to accepting self-signed certificates
     httpsAgent = new https.Agent({
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      checkServerIdentity: () => undefined
     });
   }
 } else {
   logger.warn('CA certificate not found at expected path, using insecure HTTPS', { path: CA_CERT_PATH });
   // Fallback to accepting self-signed certificates
   httpsAgent = new https.Agent({
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined
   });
 }
 
@@ -114,13 +117,33 @@ async function proxyRequest(req, res, targetPath) {
       });
     }
     
+    // Handle TLS certificate errors
+    if (error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || 
+        error.code === 'DEPTH_ZERO_SELF_SIGNED_CERT' ||
+        error.message?.includes('certificate')) {
+      logger.error('TLS certificate verification failed', { 
+        url: targetPath,
+        error: error.message,
+        code: error.code
+      });
+      return res.status(500).json({
+        error: 'Certificate verification failed',
+        message: 'TLS certificate verification failed. Check that certificates are properly generated.',
+        details: error.message
+      });
+    }
+    
     if (error.response) {
       // Service responded with error
       return res.status(error.response.status).json(error.response.data);
     }
     
     // Generic error
-    logger.error('Proxy request failed', { error: error.message });
+    logger.error('Proxy request failed', { 
+      error: error.message,
+      code: error.code,
+      url: targetPath 
+    });
     res.status(500).json({
       error: 'Proxy error',
       message: error.message

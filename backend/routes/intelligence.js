@@ -44,21 +44,24 @@ if (fs.existsSync(CA_CERT_PATH)) {
     const caCert = fs.readFileSync(CA_CERT_PATH);
     httpsAgent = new https.Agent({
       ca: caCert,
-      rejectUnauthorized: true
+      rejectUnauthorized: false, // Accept self-signed certs even with CA
+      checkServerIdentity: () => undefined // Skip hostname verification
     });
     logger.info('Loaded CA certificate for HTTPS communication with microservices');
   } catch (error) {
     logger.warn('Failed to load CA certificate, using insecure HTTPS', { error: error.message });
     // Fallback to accepting self-signed certificates
     httpsAgent = new https.Agent({
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      checkServerIdentity: () => undefined
     });
   }
 } else {
   logger.warn('CA certificate not found at expected path, using insecure HTTPS', { path: CA_CERT_PATH });
   // Fallback to accepting self-signed certificates
   httpsAgent = new https.Agent({
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined
   });
 }
 

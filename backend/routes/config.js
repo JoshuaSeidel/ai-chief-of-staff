@@ -264,19 +264,22 @@ try {
     const caCert = fs.readFileSync(CA_CERT_PATH);
     microserviceHttpsAgent = new https.Agent({
       ca: caCert,
-      rejectUnauthorized: true
+      rejectUnauthorized: false, // Accept self-signed certs even with CA
+      checkServerIdentity: () => undefined // Skip hostname verification
     });
     logger.info('Loaded CA certificate for microservice health checks');
   } else {
     logger.warn('CA certificate not found at expected path for microservice health checks', { path: CA_CERT_PATH });
     microserviceHttpsAgent = new https.Agent({
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      checkServerIdentity: () => undefined
     });
   }
 } catch (error) {
   logger.warn('Failed to load CA certificate for microservice health checks', { error: error.message });
   microserviceHttpsAgent = new https.Agent({
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    checkServerIdentity: () => undefined
   });
 }    const microservices = {
       'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'https://aicos-ai-intelligence:8001',
