@@ -34,7 +34,7 @@ WORKDIR /app
 
 # Update Alpine packages and install Python3 and build tools needed for native modules (sqlite3)
 RUN apk update && apk upgrade --no-cache && \
-    apk add --no-cache \
+    apk add --no-cache --no-scripts \
     python3 \
     py3-setuptools \
     make \
