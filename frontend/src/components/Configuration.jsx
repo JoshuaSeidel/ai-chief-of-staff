@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { configAPI, intelligenceAPI } from '../services/api';
+import { configAPI, intelligenceAPI, microservicesAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
 // Version info component
@@ -270,7 +270,7 @@ function Configuration() {
   
   const loadServicesHealth = async () => {
     try {
-      const response = await intelligenceAPI.checkHealth();
+      const response = await microservicesAPI.checkHealth();
       console.log('Health check response:', response);
       if (response && response.data) {
         setServicesHealth(response.data);
