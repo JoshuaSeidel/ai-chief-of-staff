@@ -385,6 +385,56 @@ router.get('/ai-provider/:serviceName', async (req, res) => {
 });
 
 /**
+ * Microservices health check - checks all microservices status
+ * GET /api/config/microservices
+ * IMPORTANT: This must come BEFORE the /:key route to avoid being caught by it
+ */
+router.get('/microservices', async (req, res) => {
+  const services = {
+    'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'https://aicos-ai-intelligence:8001',
+    'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'https://aicos-pattern-recognition:8002',
+    'nl-parser': process.env.NL_PARSER_URL || 'https://aicos-nl-parser:8003',
+    'voice-processor': process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004',
+    'context-service': process.env.CONTEXT_SERVICE_URL || 'https://aicos-context-service:8005'
+  };
+
+  const healthStatus = {
+    status: 'healthy',
+    services: {}
+  };
+
+  // Check each service
+  for (const [name, url] of Object.entries(services)) {
+    try {
+      const response = await axios.get(`${url}/health`, { 
+        timeout: 5000,
+        httpsAgent: microserviceHttpsAgent 
+      });
+      healthStatus.services[name] = {
+        status: 'healthy',
+        url,
+        ...response.data
+      };
+    } catch (error) {
+      logger.warn(`Health check failed for ${name}`, { 
+        url, 
+        error: error.message,
+        code: error.code 
+      });
+      healthStatus.services[name] = {
+        status: 'unhealthy',
+        url,
+        error: error.message
+      };
+      healthStatus.status = 'degraded';
+    }
+  }
+
+  const statusCode = healthStatus.status === 'healthy' ? 200 : 503;
+  res.status(statusCode).json(healthStatus);
+});
+
+/**
  * Get specific config value from database
  */
 router.get('/:key', async (req, res) => {
@@ -459,55 +509,6 @@ router.get('/health', async (req, res) => {
       }
     });
   }
-});
-
-/**
- * Microservices health check - checks all microservices status
- * GET /api/config/microservices
- */
-router.get('/microservices', async (req, res) => {
-  const services = {
-    'ai-intelligence': process.env.AI_INTELLIGENCE_URL || 'https://aicos-ai-intelligence:8001',
-    'pattern-recognition': process.env.PATTERN_RECOGNITION_URL || 'https://aicos-pattern-recognition:8002',
-    'nl-parser': process.env.NL_PARSER_URL || 'https://aicos-nl-parser:8003',
-    'voice-processor': process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004',
-    'context-service': process.env.CONTEXT_SERVICE_URL || 'https://aicos-context-service:8005'
-  };
-
-  const healthStatus = {
-    status: 'healthy',
-    services: {}
-  };
-
-  // Check each service
-  for (const [name, url] of Object.entries(services)) {
-    try {
-      const response = await axios.get(`${url}/health`, { 
-        timeout: 5000,
-        httpsAgent: microserviceHttpsAgent 
-      });
-      healthStatus.services[name] = {
-        status: 'healthy',
-        url,
-        ...response.data
-      };
-    } catch (error) {
-      logger.warn(`Health check failed for ${name}`, { 
-        url, 
-        error: error.message,
-        code: error.code 
-      });
-      healthStatus.services[name] = {
-        status: 'unhealthy',
-        url,
-        error: error.message
-      };
-      healthStatus.status = 'degraded';
-    }
-  }
-
-  const statusCode = healthStatus.status === 'healthy' ? 200 : 503;
-  res.status(statusCode).json(healthStatus);
 });
 
 /**
