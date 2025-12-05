@@ -40,7 +40,8 @@ logging.basicConfig(
 app = FastAPI(
     title="AI Intelligence Service",
     description="Task effort estimation, energy classification, and clustering",
-    version="1.1.0",
+    version="1.1.0"
+)
 
 # Middleware for request logging
 @app.middleware("http")

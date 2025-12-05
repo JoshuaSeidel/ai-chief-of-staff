@@ -37,6 +37,7 @@ app = FastAPI(
     title="Pattern Recognition Service",
     description="Behavioral pattern detection and productivity insights",
     version="1.1.0"
+)
 
 # Middleware for request logging
 @app.middleware("http")
