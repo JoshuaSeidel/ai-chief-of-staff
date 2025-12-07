@@ -881,6 +881,15 @@ async function runMigrations() {
   try {
     dbLogger.info('Running database migrations...');
     
+    // Run migration 002: Add profiles system
+    try {
+      const migration002 = require('./migrations/002_add_profiles');
+      await migration002.runMigration(db, pool, dbType);
+    } catch (err) {
+      dbLogger.error('Migration 002 error:', err);
+      // Don't throw - allow app to continue
+    }
+    
     if (dbType === 'postgres') {
       // Migration 1: Add urgency and suggested_approach columns to commitments table
       try {

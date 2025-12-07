@@ -58,6 +58,14 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Cookie parser for profile context
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());
+
+// Profile context middleware - extract profile_id from requests
+const { profileContext } = require('./middleware/profile-context');
+app.use('/api', profileContext);
+
 // Request logging middleware
 app.use((req, res, next) => {
   const startTime = Date.now();
@@ -175,6 +183,7 @@ async function startServer() {
     const webhookRoutes = require('./routes/webhook');
     const integrationsProxyRoutes = require('./routes/integrations-proxy');
     
+    app.use('/api/profiles', require('./routes/profiles')); // Profile management
     app.use('/api/brief', briefRoutes);
     app.use('/api/transcripts', transcriptRoutes);
     app.use('/api/config', configRoutes);
