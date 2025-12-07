@@ -3385,3 +3385,279 @@ summary {
     font-size: 3rem;
   }
 }
+
+/* ========================================
+   Profile System Styles
+   ======================================== */
+
+/* Profile Selector (Header) */
+.profile-selector {
+  position: relative;
+  margin-left: auto;
+  margin-right: 1rem;
+}
+
+.profile-selector-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #3f3f46;
+  border: 1px solid #52525b;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.profile-selector-btn:hover {
+  background-color: #52525b;
+  border-color: #71717a;
+}
+
+.profile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  color: white;
+}
+
+.profile-name {
+  font-weight: 500;
+}
+
+.profile-chevron {
+  font-size: 0.7rem;
+  margin-left: 0.25rem;
+  opacity: 0.7;
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  min-width: 220px;
+  max-width: 300px;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.profile-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #3f3f46;
+  color: #e4e4e7;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.profile-option:last-child {
+  border-bottom: none;
+}
+
+.profile-option:hover {
+  background-color: #3f3f46;
+}
+
+.profile-option.active {
+  background-color: #3f3f46;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-description {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.profile-badge-active {
+  background-color: #10b981;
+}
+
+.profile-check {
+  color: #10b981;
+  font-weight: bold;
+  margin-left: auto;
+}
+
+/* Profile Management (Settings) */
+.profile-management {
+  margin-bottom: 2rem;
+}
+
+.profile-form {
+  margin-bottom: 2rem;
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.profile-form h3 {
+  margin-bottom: 1.5rem;
+  color: #e4e4e7;
+}
+
+.icon-picker, .color-picker {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.icon-option, .color-option {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 2px solid #52525b;
+  border-radius: 6px;
+  background-color: #3f3f46;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.icon-option:hover, .color-option:hover {
+  border-color: #71717a;
+  transform: scale(1.05);
+}
+
+.icon-option.selected, .color-option.selected {
+  border-color: #3b82f6;
+  border-width: 3px;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.color-option {
+  border: 2px solid transparent;
+}
+
+.color-option.selected {
+  border-color: white;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+}
+
+.profiles-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-card {
+  background-color: #27272a;
+  border: 1px solid #3f3f46;
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: all 0.2s;
+}
+
+.profile-card:hover {
+  border-color: #52525b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.profile-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.profile-card-header .profile-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.profile-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-card-info h3 {
+  font-size: 1.1rem;
+  margin: 0 0 0.25rem 0;
+  color: #e4e4e7;
+}
+
+.profile-card-info p {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  margin: 0;
+}
+
+.profile-card-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .profile-selector {
+    margin-right: 0.5rem;
+  }
+
+  .profile-selector-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+  }
+
+  .profile-name {
+    display: none;
+  }
+
+  .profile-icon {
+    width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.85rem;
+  }
+
+  .profile-dropdown {
+    right: -0.5rem;
+    min-width: 200px;
+  }
+
+  .profile-card {
+    padding: 1rem;
+  }
+
+  .profile-card-actions {
+    margin-top: 0.75rem;
+  }
+}

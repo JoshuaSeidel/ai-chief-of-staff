@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { configAPI, intelligenceAPI, microservicesAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
+import ProfileManagement from './ProfileManagement';
 
 // Version info component
 function VersionInfo() {
@@ -1024,6 +1025,10 @@ function Configuration() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="configuration">
+      <div className="card">
+        <ProfileManagement />
+      </div>
+
       <div className="card">
         <h2>Configuration</h2>
         <p className="text-muted-mb-lg">
