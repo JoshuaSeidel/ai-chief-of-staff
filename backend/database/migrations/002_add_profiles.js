@@ -115,7 +115,7 @@ async function migrateSQLite(db) {
         else logger.info('✓ Created profile_task_integrations table');
       });
 
-      // 5. Add profile_id to existing tables
+      // 5. Add profile_id to existing tables (only if they exist)
       const tablesToUpdate = [
         'transcripts',
         'commitments',
@@ -134,11 +134,23 @@ async function migrateSQLite(db) {
       ];
 
       tablesToUpdate.forEach(tableName => {
-        db.run(`ALTER TABLE ${tableName} ADD COLUMN profile_id INTEGER DEFAULT 2 REFERENCES profiles(id)`, (err) => {
-          if (err && !err.message.includes('duplicate column')) {
-            logger.error(`Error adding profile_id to ${tableName}:`, err);
-          } else if (!err) {
-            logger.info(`✓ Added profile_id to ${tableName}`);
+        // Check if table exists first
+        db.get(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [tableName], (err, row) => {
+          if (err) {
+            logger.error(`Error checking if ${tableName} exists:`, err);
+            return;
+          }
+          
+          if (row) {
+            db.run(`ALTER TABLE ${tableName} ADD COLUMN profile_id INTEGER DEFAULT 2 REFERENCES profiles(id)`, (err) => {
+              if (err && !err.message.includes('duplicate column')) {
+                logger.error(`Error adding profile_id to ${tableName}:`, err);
+              } else if (!err) {
+                logger.info(`✓ Added profile_id to ${tableName}`);
+              }
+            });
+          } else {
+            logger.info(`  Skipped ${tableName} (table does not exist)`);
           }
         });
       });
@@ -276,7 +288,7 @@ async function migratePostgreSQL(pool) {
     `);
     logger.info('✓ Created profile_task_integrations table');
 
-    // 5. Add profile_id to existing tables
+    // 5. Add profile_id to existing tables (only if they exist)
     const tablesToUpdate = [
       'transcripts',
       'commitments',
@@ -296,11 +308,24 @@ async function migratePostgreSQL(pool) {
 
     for (const tableName of tablesToUpdate) {
       try {
-        await client.query(`
-          ALTER TABLE ${tableName} 
-          ADD COLUMN IF NOT EXISTS profile_id INTEGER DEFAULT 2 REFERENCES profiles(id)
-        `);
-        logger.info(`✓ Added profile_id to ${tableName}`);
+        // Check if table exists first
+        const tableExists = await client.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'public' 
+            AND table_name = $1
+          )
+        `, [tableName]);
+        
+        if (tableExists.rows[0].exists) {
+          await client.query(`
+            ALTER TABLE ${tableName} 
+            ADD COLUMN IF NOT EXISTS profile_id INTEGER DEFAULT 2 REFERENCES profiles(id)
+          `);
+          logger.info(`✓ Added profile_id to ${tableName}`);
+        } else {
+          logger.info(`  Skipped ${tableName} (table does not exist)`);
+        }
       } catch (err) {
         if (!err.message.includes('already exists')) {
           logger.error(`Error adding profile_id to ${tableName}:`, err);
