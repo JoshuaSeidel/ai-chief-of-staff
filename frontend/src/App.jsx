@@ -19,6 +19,7 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  const [swRegistration, setSwRegistration] = useState(null);
 
   // Minimum swipe distance (in pixels)
   const minSwipeDistance = 50;
@@ -30,17 +31,24 @@ function App() {
   } = useRegisterSW({
     onRegistered(r) {
       console.log('SW Registered:', r);
-      // Check for updates every 30 seconds
-      if (r) {
-        setInterval(() => {
-          r.update();
-        }, 30000);
-      }
+      setSwRegistration(r);
     },
     onRegisterError(error) {
       console.log('SW registration error', error);
     },
   });
+
+  // Set up periodic update checks with proper cleanup
+  useEffect(() => {
+    if (!swRegistration) return;
+
+    // Check for updates every 5 minutes
+    const intervalId = setInterval(() => {
+      swRegistration.update();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(intervalId);
+  }, [swRegistration]);
 
   // Update URL when tab changes
   useEffect(() => {
