@@ -1,7 +1,5 @@
 node_modules/
 build/
-dev-dist/
 .env
 .env.local
 .DS_Store
-*.backup

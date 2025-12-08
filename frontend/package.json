@@ -26,6 +26,7 @@
   "scripts": {
     "dev": "vite",
     "start": "vite",
+    "prebuild": "node scripts/inject-version.cjs",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.jsx --max-warnings=0",

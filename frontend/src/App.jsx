@@ -5,7 +5,6 @@ import Transcripts from './components/Transcripts';
 import Calendar from './components/Calendar';
 import Tasks from './components/Tasks';
 import Intelligence from './components/Intelligence';
-import { useRegisterSW } from 'virtual:pwa-register/react';
 import ProfileSelector from './components/ProfileSelector';
 import { ProfileProvider } from './contexts/ProfileContext';
 
@@ -21,38 +20,9 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
-  const [swRegistration, setSwRegistration] = useState(null);
 
   // Minimum swipe distance (in pixels)
   const minSwipeDistance = 50;
-
-  // Service Worker update handling
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
-    onRegistered(r) {
-      console.log('SW Registered:', r);
-      setSwRegistration(r);
-    },
-    onRegisterError(error) {
-      console.log('SW registration error', error);
-    },
-  });
-
-  // Set up periodic update checks with proper cleanup
-  useEffect(() => {
-    if (!swRegistration) return;
-
-    // Check for updates every 5 minutes
-    const intervalId = setInterval(() => {
-      swRegistration.update().catch((error) => {
-        console.log('Service worker update check failed:', error);
-      });
-    }, 5 * 60 * 1000); // 5 minutes
-
-    return () => clearInterval(intervalId);
-  }, [swRegistration]);
 
   // Update URL when tab changes
   useEffect(() => {
@@ -203,30 +173,7 @@ function App() {
         {activeTab === 'intelligence' && <Intelligence />}
         {activeTab === 'config' && <Configuration />}
       </main>
-
-      {/* Service Worker Update Notification */}
-      {needRefresh && (
-        <div className="update-notification">
-          <div className="update-notification-content">
-            <span>🔄 New version available!</span>
-            <div className="update-notification-actions">
-              <button 
-                className="btn-update"
-                onClick={() => updateServiceWorker(true)}
-              >
-                Update
-              </button>
-              <button 
-                className="btn-dismiss"
-                onClick={() => setNeedRefresh(false)}
-              >
-                Later
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      </div>
     </ProfileProvider>
   );
 }
