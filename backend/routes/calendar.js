@@ -38,9 +38,10 @@ router.get('/events', async (req, res) => {
       }
     }
     
-    return res.status(400).json({ 
-      error: 'No calendar configured',
-      message: 'Please connect Google Calendar or Microsoft Calendar in Configuration'
+    return res.status(200).json({ 
+      source: 'none',
+      events: [],
+      message: 'No calendar connected. Calendar integration is optional. Connect Google Calendar or Microsoft Calendar in Configuration to sync events.'
     });
   } catch (error) {
     logger.error('Error fetching calendar events', error);

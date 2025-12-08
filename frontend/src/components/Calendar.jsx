@@ -6,6 +6,7 @@ function Calendar() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [infoMessage, setInfoMessage] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
   
@@ -24,12 +25,18 @@ function Calendar() {
   const loadEvents = async () => {
     setLoading(true);
     setError(null);
+    setInfoMessage(null);
     try {
       const response = await calendarAPI.getEvents();
-      // Backend returns {source: 'google'|'icloud', events: [...]}
+      // Backend returns {source: 'google'|'microsoft'|'none', events: [...], message?: string}
       const data = response.data;
       const eventList = data.events || data || [];
       setEvents(Array.isArray(eventList) ? eventList : []);
+      
+      // If no calendar is connected, show informational message (not an error)
+      if (data.source === 'none' && data.message) {
+        setInfoMessage(data.message);
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load calendar events';
       setError(errorMessage);
@@ -159,6 +166,19 @@ function Calendar() {
                 Go to Configuration tab to set up your iCloud calendar URL.
               </p>
             )}
+          </div>
+        )}
+
+        {infoMessage && (
+          <div style={{ 
+            backgroundColor: '#1e3a5f', 
+            color: '#bfdbfe', 
+            padding: '1rem', 
+            borderRadius: '8px', 
+            marginBottom: '1rem',
+            border: '1px solid #2563eb'
+          }}>
+            <strong>ℹ️ {infoMessage}</strong>
           </div>
         )}
 
