@@ -5,6 +5,7 @@ import Transcripts from './components/Transcripts';
 import Calendar from './components/Calendar';
 import Tasks from './components/Tasks';
 import Intelligence from './components/Intelligence';
+import { useRegisterSW } from 'virtual:pwa-register/react';
 
 function App() {
   // Get initial tab from URL hash or default to dashboard
@@ -21,6 +22,25 @@ function App() {
 
   // Minimum swipe distance (in pixels)
   const minSwipeDistance = 50;
+
+  // Service Worker update handling
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegistered(r) {
+      console.log('SW Registered:', r);
+      // Check for updates every 30 seconds
+      if (r) {
+        setInterval(() => {
+          r.update();
+        }, 30000);
+      }
+    },
+    onRegisterError(error) {
+      console.log('SW registration error', error);
+    },
+  });
 
   // Update URL when tab changes
   useEffect(() => {
@@ -169,6 +189,29 @@ function App() {
         {activeTab === 'intelligence' && <Intelligence />}
         {activeTab === 'config' && <Configuration />}
       </main>
+
+      {/* Service Worker Update Notification */}
+      {needRefresh && (
+        <div className="update-notification">
+          <div className="update-notification-content">
+            <span>🔄 New version available!</span>
+            <div className="update-notification-actions">
+              <button 
+                className="btn-update"
+                onClick={() => updateServiceWorker(true)}
+              >
+                Update
+              </button>
+              <button 
+                className="btn-dismiss"
+                onClick={() => setNeedRefresh(false)}
+              >
+                Later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -13,6 +13,8 @@ html, body, #root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
+  /* Enable pull-to-refresh on mobile */
+  overscroll-behavior-y: auto;
 }
 
 code {
@@ -3383,5 +3385,97 @@ summary {
   
   .recording-icon {
     font-size: 3rem;
+  }
+}
+
+/* Service Worker Update Notification */
+.update-notification {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  padding: 1rem;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10000;
+  animation: slideUp 0.3s ease-out;
+  /* Ensure notification is above pull-to-refresh overlay */
+  transform: translateZ(0);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.update-notification-content {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.update-notification-content span {
+  font-weight: 500;
+  flex: 1;
+  min-width: 150px;
+}
+
+.update-notification-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.update-notification button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 80px;
+}
+
+.btn-update {
+  background: white;
+  color: #3b82f6;
+}
+
+.btn-update:hover {
+  background: #f1f5f9;
+  transform: scale(1.05);
+}
+
+.btn-dismiss {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.btn-dismiss:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 768px) {
+  .update-notification {
+    padding: 0.75rem;
+  }
+  
+  .update-notification-content {
+    font-size: 0.9rem;
+  }
+  
+  .update-notification button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+    min-width: 70px;
   }
 }
