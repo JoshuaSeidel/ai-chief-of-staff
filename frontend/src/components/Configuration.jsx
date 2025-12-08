@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { configAPI, intelligenceAPI, microservicesAPI } from '../services/api';
+import { configAPI, intelligenceAPI, microservicesAPI, calendarAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 import ProfileManagement from './ProfileManagement';
 import { useProfile } from '../contexts/ProfileContext';
@@ -202,6 +202,14 @@ function Configuration() {
     openai: false,
     ollama: false
   });
+
+  // Re-check calendar status when profile changes
+  useEffect(() => {
+    if (currentProfile?.id) {
+      checkGoogleCalendarStatus();
+      checkMicrosoftPlannerStatus();
+    }
+  }, [currentProfile?.id]);
 
   useEffect(() => {
     loadConfig();
@@ -566,9 +574,8 @@ function Configuration() {
 
   const checkGoogleCalendarStatus = async () => {
     try {
-      const response = await fetch('/api/calendar/google/status');
-      const data = await response.json();
-      setGoogleConnected(data.connected);
+      const response = await calendarAPI.getGoogleStatus();
+      setGoogleConnected(response.data.connected);
     } catch (err) {
       console.error('Failed to check Google Calendar status:', err);
     } finally {
@@ -579,9 +586,8 @@ function Configuration() {
   const checkMicrosoftPlannerStatus = async () => {
     try {
       // Check Microsoft status (shared token for Calendar and Planner)
-      const response = await fetch('/api/planner/microsoft/status');
-      const data = await response.json();
-      setMicrosoftConnected(data.connected);
+      const response = await calendarAPI.getMicrosoftStatus();
+      setMicrosoftConnected(response.data.connected);
       
       // If connected, load available task lists and enable integration
       if (data.connected) {
@@ -2379,284 +2385,6 @@ function Configuration() {
           </div>
         </div>
         )}
-
-        {/* Microservice AI Configuration - Profile-Specific */}
-        <div className="mb-xl">
-          <h3>🤖 Microservice AI Configuration</h3>
-          <p className="config-section-description">
-            AI provider selection for microservices (Pattern Recognition, Voice Processor, etc.) for this profile.
-          </p>
-          
-          <div className="mt-xl-mb-md">
-            <h4 
-              onClick={() => setMicroservicesExpanded(!microservicesExpanded)}
-              className="flex items-center gap-sm header-interactive"
-            >
-              <span className={`rotate-icon ${microservicesExpanded ? 'rotate-icon-open' : ''}`}>
-                ▶
-              </span>
-              Microservices Configuration (Optional)
-            </h4>
-          </div>
-          
-          {microservicesExpanded && (
-            <>
-              {/* AI Intelligence Service */}
-              <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">🧠 AI Intelligence Service</h4>
-            <p className="config-subsection-description">
-              Task effort estimation, energy classification, and task clustering
-            </p>
-            
-            <div className="grid-2col mb-lg">
-              <div>
-                <label className="form-label">
-                  Provider
-                </label>
-                <select
-                  value={config.aiIntelligenceProvider || 'anthropic'}
-                  onChange={(e) => handleChange('aiIntelligenceProvider', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai">OpenAI GPT</option>
-                  <option value="ollama">Ollama (Local)</option>
-                  <option value="bedrock">AWS Bedrock</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Model
-                </label>
-                {renderModelSelector(
-                  config.aiIntelligenceProvider || 'anthropic',
-                  config.aiIntelligenceModel || 'claude-sonnet-4-5-20250929',
-                  (value) => handleChange('aiIntelligenceModel', value)
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Voice Processor Service */}
-          <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">🎤 Voice Processor Service</h4>
-            <p className="config-subsection-description">
-              Audio transcription and voice-to-text
-            </p>
-            
-            <div className="grid-2col mb-lg">
-              <div>
-                <label className="form-label">
-                  Provider
-                </label>
-                <select
-                  value={config.voiceProcessorProvider || 'openai'}
-                  onChange={(e) => handleChange('voiceProcessorProvider', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="openai">OpenAI Whisper</option>
-                  <option value="ollama">Ollama Whisper</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Model
-                </label>
-                {renderModelSelector(
-                  config.voiceProcessorProvider || 'openai',
-                  config.voiceProcessorModel || 'whisper-1',
-                  (value) => handleChange('voiceProcessorModel', value)
-                )}
-              </div>
-            </div>
-            
-            {/* Voice Storage Configuration */}
-            <div className="section-divider">
-              <h5 className="config-subsection-subtitle mt-0">💾 Storage Configuration</h5>
-              <p className="config-subsection-description">
-                Configure where transcribed audio files are stored
-              </p>
-              
-              <div className="grid-2col mb-lg">
-                <div>
-                  <label className="form-label">
-                    Storage Type
-                  </label>
-                  <select
-                    value={config.storageType || 'local'}
-                    onChange={(e) => handleChange('storageType', e.target.value)}
-                    className="form-input"
-                  >
-                    <option value="local">Local Filesystem</option>
-                    <option value="s3">AWS S3</option>
-                  </select>
-                </div>
-                
-                {config.storageType === 'local' && (
-                  <div>
-                    <label className="form-label">
-                      Storage Path
-                    </label>
-                    <input
-                      type="text"
-                      value={config.storagePath || '/app/data/voice-recordings'}
-                      onChange={(e) => handleChange('storagePath', e.target.value)}
-                      placeholder="/app/data/voice-recordings"
-                      className="form-input"
-                    />
-                  </div>
-                )}
-              </div>
-              
-              {config.storageType === 's3' && (
-                <div className="grid-2col">
-                  <div>
-                    <label className="form-label">
-                      S3 Bucket
-                    </label>
-                    <input
-                      type="text"
-                      value={config.s3Bucket || ''}
-                      onChange={(e) => handleChange('s3Bucket', e.target.value)}
-                      placeholder="my-bucket"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Region
-                    </label>
-                    <input
-                      type="text"
-                      value={config.s3Region || 'us-east-1'}
-                      onChange={(e) => handleChange('s3Region', e.target.value)}
-                      placeholder="us-east-1"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Access Key ID
-                    </label>
-                    <input
-                      type="password"
-                      value={config.s3AccessKeyId || ''}
-                      onChange={(e) => handleChange('s3AccessKeyId', e.target.value)}
-                      placeholder="AKIA..."
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Secret Access Key
-                    </label>
-                    <input
-                      type="password"
-                      value={config.s3SecretAccessKey || ''}
-                      onChange={(e) => handleChange('s3SecretAccessKey', e.target.value)}
-                      placeholder="••••••••"
-                      className="form-input"
-                    />
-                  </div>
-                  
-                  <div className="grid-2col-span">
-                    <label className="form-label">
-                      S3 Endpoint (Optional - for S3-compatible services)
-                    </label>
-                    <input
-                      type="text"
-                      value={config.s3Endpoint || ''}
-                      onChange={(e) => handleChange('s3Endpoint', e.target.value)}
-                      placeholder="https://s3.amazonaws.com"
-                      className="form-input"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Pattern Recognition Service */}
-          <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">🔍 Pattern Recognition Service</h4>
-            <p className="config-subsection-description">
-              Behavioral pattern analysis and productivity insights
-            </p>
-            
-            <div className="grid-2col mb-lg">
-              <div>
-                <label className="form-label">
-                  Provider
-                </label>
-                <select
-                  value={config.patternRecognitionProvider || 'anthropic'}
-                  onChange={(e) => handleChange('patternRecognitionProvider', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai">OpenAI GPT</option>
-                  <option value="ollama">Ollama (Local)</option>
-                  <option value="bedrock">AWS Bedrock</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Model
-                </label>
-                {renderModelSelector(
-                  config.patternRecognitionProvider || 'anthropic',
-                  config.patternRecognitionModel || 'claude-sonnet-4-5-20250929',
-                  (value) => handleChange('patternRecognitionModel', value)
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* NL Parser Service */}
-          <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">📝 NL Parser Service</h4>
-            <p className="config-subsection-description">
-              Natural language task parsing and date extraction
-            </p>
-            
-            <div className="grid-2col mb-lg">
-              <div>
-                <label className="form-label">
-                  Provider
-                </label>
-                <select
-                  value={config.nlParserProvider || 'anthropic'}
-                  onChange={(e) => handleChange('nlParserProvider', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="anthropic">Anthropic Claude</option>
-                  <option value="openai">OpenAI GPT</option>
-                  <option value="ollama">Ollama (Local)</option>
-                  <option value="bedrock">AWS Bedrock</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Model
-                </label>
-                {renderModelSelector(
-                  config.nlParserProvider || 'anthropic',
-                  config.nlParserModel || 'claude-sonnet-4-5-20250929',
-                  (value) => handleChange('nlParserModel', value)
-                )}
-              </div>
-            </div>
-          </div>
-            </>
-          )}
-        </div>
 
         {/* AI Prompts - Profile-Specific */}
         <div className="card mb-xl">

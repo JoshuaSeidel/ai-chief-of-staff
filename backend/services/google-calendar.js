@@ -55,9 +55,10 @@ async function getOAuthClient(profileId = 2) {
 
 /**
  * Generate OAuth URL for user to authorize
+ * @param {number} profileId - Profile ID to include in state for callback
  */
-async function getAuthUrl() {
-  const oauth2Client = await getOAuthClient();
+async function getAuthUrl(profileId = 2) {
+  const oauth2Client = await getOAuthClient(profileId);
   
   const scopes = [
     'https://www.googleapis.com/auth/calendar.events'
@@ -66,7 +67,8 @@ async function getAuthUrl() {
   const url = oauth2Client.generateAuthUrl({
     access_type: 'offline',
     scope: scopes,
-    prompt: 'consent' // Force consent screen to get refresh token
+    prompt: 'consent', // Force consent screen to get refresh token
+    state: profileId.toString() // Include profileId in state for callback
   });
   
   return url;

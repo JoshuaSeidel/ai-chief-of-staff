@@ -155,7 +155,8 @@ router.get('/google/debug-redirect', async (req, res) => {
  */
 router.get('/google/auth', async (req, res) => {
   try {
-    const authUrl = await googleCalendar.getAuthUrl();
+    const profileId = req.profileId || 2;
+    const authUrl = await googleCalendar.getAuthUrl(profileId);
     res.json({ authUrl });
   } catch (error) {
     logger.error('Error generating auth URL', error);
@@ -241,7 +242,8 @@ router.post('/google/disconnect', async (req, res) => {
  */
 router.get('/microsoft/auth', async (req, res) => {
   try {
-    const authUrl = await microsoftCalendar.getAuthUrl();
+    const profileId = req.profileId || 2;
+    const authUrl = await microsoftCalendar.getAuthUrl(profileId);
     res.json({ authUrl });
   } catch (error) {
     logger.error('Error generating Microsoft auth URL', error);

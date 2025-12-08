@@ -54,6 +54,8 @@ export const configAPI = {
 export const calendarAPI = {
   getEvents: () => api.get('/calendar/events'),
   createBlock: (eventData) => api.post('/calendar/block', eventData),
+  getGoogleStatus: () => api.get('/calendar/google/status'),
+  getMicrosoftStatus: () => api.get('/calendar/microsoft/status'),
 };
 
 // Tasks API (commitments, actions, follow-ups, risks)

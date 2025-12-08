@@ -65,8 +65,12 @@ async function getOAuthClient(profileId = 2) {
 /**
  * Generate OAuth URL for user to authorize (includes Calendar and Tasks scopes)
  */
-async function getAuthUrl() {
-  const { clientId, redirectUri } = await getOAuthClient();
+/**
+ * Generate OAuth URL for user to authorize
+ * @param {number} profileId - Profile ID to include in state for callback
+ */
+async function getAuthUrl(profileId = 2) {
+  const { clientId, redirectUri } = await getOAuthClient(profileId);
   
   // Microsoft OAuth2 authorization endpoint - using /common for multi-tenant support
   // Includes both Calendar and Tasks scopes for unified Microsoft integration
@@ -82,14 +86,14 @@ async function getAuthUrl() {
     redirect_uri: redirectUri,
     response_mode: 'query',
     scope: scopes,
-    state: 'microsoft-integration-auth',
+    state: profileId.toString(), // Include profileId in state for callback
     prompt: 'select_account' // Allow user to choose which account to use
   });
   
   // Use /common for multi-tenant support (works with any org or personal accounts)
   const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
   
-  logger.info('Generated Microsoft OAuth URL (Calendar + Tasks)');
+  logger.info(`Generated Microsoft OAuth URL (Calendar + Tasks) for profile ${profileId}`);
   return url;
 }
 
