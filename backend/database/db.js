@@ -897,6 +897,10 @@ async function runMigrations() {
     const migration006 = require('./migrations/006_fix_profile_integrations_schema');
     await migration006.runMigration(db, pool, dbType);
     
+    // Run migration 007: Recover calendar tokens
+    const migration007 = require('./migrations/007_recover_calendar_tokens');
+    await migration007.runMigration(db, pool, dbType);
+    
     // Run migration 005: Add AI provider preferences to profiles
     const migration005 = require('./migrations/005_profile_ai_preferences');
     await migration005.runMigration(dbType === 'postgres' ? pool : db, dbType);
