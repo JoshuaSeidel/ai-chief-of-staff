@@ -3596,28 +3596,23 @@ summary {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  padding: 1.25rem;
+  padding: 0.75rem 1rem;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .profile-card:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
-.profile-card-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.profile-card-header .profile-icon {
-  width: 3rem;
-  height: 3rem;
-  font-size: 1.5rem;
+.profile-card .profile-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1.25rem;
   flex-shrink: 0;
   border-radius: 10px;
   display: flex;
@@ -3630,23 +3625,44 @@ summary {
   min-width: 0;
 }
 
+.profile-card-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.125rem;
+}
+
 .profile-card-info h3 {
-  font-size: 1.1rem;
-  margin: 0 0 0.25rem 0;
+  font-size: 1rem;
+  margin: 0;
   color: #f1f5f9;
   font-weight: 600;
 }
 
 .profile-card-info p {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #cbd5e1;
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-badges {
+  display: flex;
+  gap: 0.375rem;
 }
 
 .profile-card-actions {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.profile-card-actions .btn-sm {
+  padding: 0.375rem 0.5rem;
+  font-size: 1rem;
+  min-width: auto;
 }
 
 .profile-badge {
@@ -3676,11 +3692,11 @@ summary {
     font-size: 0.85rem;
   }
 
-  .profile-name {
+  .profile-selector .profile-name {
     display: none;
   }
 
-  .profile-icon {
+  .profile-selector .profile-icon {
     width: 1.75rem;
     height: 1.75rem;
     font-size: 0.85rem;
@@ -3692,10 +3708,28 @@ summary {
   }
 
   .profile-card {
-    padding: 1rem;
+    padding: 0.625rem 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .profile-card .profile-icon {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1rem;
+  }
+
+  .profile-card-info {
+    flex: 1 1 100%;
+    order: 2;
+    margin-top: 0.5rem;
+  }
+
+  .profile-card-info p {
+    white-space: normal;
   }
 
   .profile-card-actions {
-    margin-top: 0.75rem;
+    order: 1;
+    margin-left: auto;
   }
 }

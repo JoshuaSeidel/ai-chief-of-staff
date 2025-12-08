@@ -176,29 +176,30 @@ function ProfileManagement() {
       <div className="profiles-list">
         {profiles.map(profile => (
           <div key={profile.id} className="profile-card">
-            <div className="profile-card-header">
-              <span className="profile-icon" style={{ backgroundColor: profile.color }}>
-                {profile.icon || '👤'}
-              </span>
-              <div className="profile-card-info">
+            <span className="profile-icon" style={{ backgroundColor: profile.color }}>
+              {profile.icon || '👤'}
+            </span>
+            <div className="profile-card-info">
+              <div className="profile-card-name">
                 <h3>{profile.name}</h3>
-                {profile.description && <p>{profile.description}</p>}
+                <div className="profile-badges">
+                  {profile.is_default && (
+                    <span className="profile-badge">Default</span>
+                  )}
+                  {profile.id === currentProfile?.id && (
+                    <span className="profile-badge profile-badge-active">Active</span>
+                  )}
+                </div>
               </div>
-              {profile.is_default && (
-                <span className="profile-badge">Default</span>
-              )}
-              {profile.id === currentProfile?.id && (
-                <span className="profile-badge profile-badge-active">Active</span>
-              )}
+              {profile.description && <p>{profile.description}</p>}
             </div>
-
             <div className="profile-card-actions">
-              <button className="btn-secondary btn-sm" onClick={() => handleEdit(profile)}>
-                Edit
+              <button className="btn-secondary btn-sm" onClick={() => handleEdit(profile)} title="Edit profile">
+                ✏️
               </button>
               {!profile.is_default && (
-                <button className="btn-secondary btn-sm" onClick={() => handleSetDefault(profile.id)}>
-                  Set Default
+                <button className="btn-secondary btn-sm" onClick={() => handleSetDefault(profile.id)} title="Set as default">
+                  ⭐
                 </button>
               )}
               {profiles.length > 1 && (
@@ -210,8 +211,9 @@ function ProfileManagement() {
                     const firstOther = profiles.find(p => p.id !== profile.id);
                     setMigrateToId(firstOther?.id);
                   }}
+                  title="Delete profile"
                 >
-                  Delete
+                  🗑️
                 </button>
               )}
             </div>
