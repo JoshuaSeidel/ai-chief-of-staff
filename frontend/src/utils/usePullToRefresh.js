@@ -46,15 +46,19 @@ export function usePullToRefresh(onRefresh, options = {}) {
       touchStartY = e.touches[0].clientY;
       const atTop = checkScrollTop();
       
+      // Check if we're in PWA mode
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                    window.navigator.standalone === true ||
+                    document.referrer.includes('android-app://');
+      
       // Only start if we're at the top
       if (atTop) {
         isPulling = true;
-        // In PWA mode, prevent default immediately to block browser pull-to-refresh
-        if (window.matchMedia('(display-mode: standalone)').matches || 
-            window.navigator.standalone === true ||
-            document.referrer.includes('android-app://')) {
-          // This is a PWA - be more aggressive
-          console.log('[PullToRefresh] PWA mode detected, touch start at top');
+        // In iOS PWA mode, prevent default immediately to block native pull-to-refresh
+        if (isPWA) {
+          // iOS Safari PWA requires preventDefault on touchstart to block native pull-to-refresh
+          e.preventDefault();
+          console.log('[PullToRefresh] iOS PWA mode - preventing default on touchstart');
         } else {
           console.log('[PullToRefresh] Touch start at top, enabled');
         }
@@ -67,21 +71,27 @@ export function usePullToRefresh(onRefresh, options = {}) {
       const touchY = e.touches[0].clientY;
       const deltaY = touchY - touchStartY;
       const atTop = checkScrollTop();
+      
+      // Check if we're in PWA mode
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                    window.navigator.standalone === true ||
+                    document.referrer.includes('android-app://');
 
       // Only allow pull-to-refresh if at the top and pulling down
       if (deltaY > 0 && atTop) {
-        // In PWA mode, we need to be more aggressive with preventDefault
+        // Always prevent default when pulling down at top to block native pull-to-refresh
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
         
         // Prevent default browser pull-to-refresh
-        if (window.scrollY === 0 || document.documentElement.scrollTop === 0) {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+        if (scrollTop === 0) {
           const distance = Math.min(deltaY / resistance, threshold * 1.5);
           setPullDistance(distance);
           pullDistanceRef.current = distance;
           if (distance > 10 && distance % 20 < 5) {
-            console.log('[PullToRefresh] Pulling:', Math.round(distance), 'px');
+            console.log('[PullToRefresh] Pulling:', Math.round(distance), 'px', isPWA ? '(PWA)' : '');
           }
         }
       } else if (deltaY <= 0 || !atTop) {
@@ -135,15 +145,26 @@ export function usePullToRefresh(onRefresh, options = {}) {
 
     // Attach to document for better capture
     // Use capture phase to intercept before other handlers
-    // In PWA, we need to be more aggressive with event handling
-    document.addEventListener('touchstart', handleTouchStart, { passive: false, capture: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true });
+    // In iOS PWA, we need to be more aggressive with event handling
+    // Use { passive: false } to allow preventDefault
+    const options = { passive: false, capture: true };
+    document.addEventListener('touchstart', handleTouchStart, options);
+    document.addEventListener('touchmove', handleTouchMove, options);
     document.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
+    
+    // Also attach to window for iOS PWA compatibility
+    window.addEventListener('touchstart', handleTouchStart, options);
+    window.addEventListener('touchmove', handleTouchMove, options);
+    window.addEventListener('touchend', handleTouchEnd, { passive: true, capture: true });
 
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart, { capture: true });
-      document.removeEventListener('touchmove', handleTouchMove, { capture: true });
-      document.removeEventListener('touchend', handleTouchEnd, { capture: true });
+      const options = { capture: true };
+      document.removeEventListener('touchstart', handleTouchStart, options);
+      document.removeEventListener('touchmove', handleTouchMove, options);
+      document.removeEventListener('touchend', handleTouchEnd, options);
+      window.removeEventListener('touchstart', handleTouchStart, options);
+      window.removeEventListener('touchmove', handleTouchMove, options);
+      window.removeEventListener('touchend', handleTouchEnd, options);
     };
   }, [threshold, resistance, onRefresh, disabled, checkScrollTop]);
 

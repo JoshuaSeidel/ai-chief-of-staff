@@ -41,6 +41,12 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
     animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none'
   };
 
+  // Check if we're in iOS PWA mode
+  const isIOSPWA = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches || 
+    window.navigator.standalone === true
+  );
+
   return (
     <div 
       ref={elementRef} 
@@ -52,10 +58,15 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
         // Prevent browser pull-to-refresh in PWA
         overscrollBehavior: 'none',
         overscrollBehaviorY: 'none',
-        // Allow vertical panning but prevent default pull-to-refresh
-        touchAction: 'pan-y',
+        // For iOS PWA, use 'pan-y pinch-zoom' to allow scrolling but block pull-to-refresh
+        // For regular browsers, 'pan-y' is sufficient
+        touchAction: isIOSPWA ? 'pan-y pinch-zoom' : 'pan-y',
         // Ensure we can capture touch events
-        WebkitOverflowScrolling: 'touch'
+        WebkitOverflowScrolling: 'touch',
+        // Prevent iOS rubber band effect
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none'
       }}
     >
       <style>{`

@@ -13,6 +13,13 @@ html, body, #root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
+  /* Prevent iOS Safari native pull-to-refresh */
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  /* Allow touch events but prevent default pull-to-refresh */
+  touch-action: pan-y;
+  /* Prevent iOS rubber band effect */
+  -webkit-overflow-scrolling: touch;
 }
 
 code {
