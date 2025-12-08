@@ -68,7 +68,7 @@ if (fs.existsSync(CA_CERT_PATH)) {
 /**
  * Helper function to call microservices with error handling
  */
-async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = null, params = null) {
+async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = null, params = null, headers = {}) {
   try {
     const config = {
       method,
@@ -76,7 +76,8 @@ async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = nu
       timeout: MICROSERVICE_TIMEOUT,
       httpsAgent: httpsAgent,
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...headers
       }
     };
 
@@ -86,11 +87,13 @@ async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = nu
     const response = await axios(config);
     return response.data;
   } catch (error) {
-    // Log error but provide graceful fallback
-    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+    // Only fallback for connection/timeout errors, not for HTTP errors (4xx/5xx)
+    // HTTP errors should be returned to caller, not trigger fallback
+    if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
       logger.warn(`Microservice ${serviceUrl} unavailable: ${error.message}`);
       throw new Error(`Microservice unavailable - please try again later`);
     } else if (error.response) {
+      // HTTP error response - log but don't treat as unavailable
       logger.error(`Microservice error (${error.response.status}):`, error.response.data);
       throw new Error(error.response.data.detail || error.response.data.error || 'Microservice error');
     } else {
@@ -119,15 +122,22 @@ router.post('/estimate-effort', async (req, res) => {
         AI_INTELLIGENCE_URL,
         '/estimate-effort',
         'POST',
-        { description, context: context || '' }
+        { description, context: context || '' },
+        null,
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      const { estimateEffort } = require('./intelligence-local');
-      const result = await estimateEffort(description, context, req.profileId);
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        const { estimateEffort } = require('./intelligence-local');
+        const result = await estimateEffort(description, context, req.profileId);
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -158,15 +168,22 @@ router.post('/classify-energy', async (req, res) => {
         AI_INTELLIGENCE_URL,
         '/classify-energy',
         'POST',
-        { description }
+        { description },
+        null,
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      const { classifyEnergy } = require('./intelligence-local');
-      const result = await classifyEnergy(description, req.profileId);
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        const { classifyEnergy } = require('./intelligence-local');
+        const result = await classifyEnergy(description, req.profileId);
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -197,15 +214,22 @@ router.post('/cluster-tasks', async (req, res) => {
         AI_INTELLIGENCE_URL,
         '/cluster-tasks',
         'POST',
-        { tasks }
+        { tasks },
+        null,
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      const { clusterTasks } = require('./intelligence-local');
-      const result = await clusterTasks(tasks, req.profileId);
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        const { clusterTasks } = require('./intelligence-local');
+        const result = await clusterTasks(tasks, req.profileId);
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -236,15 +260,22 @@ router.post('/parse-task', async (req, res) => {
         NL_PARSER_URL,
         '/parse',
         'POST',
-        { text }
+        { text },
+        null,
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`NL Parser microservice unavailable (${NL_PARSER_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      const { parseTask } = require('./intelligence-local');
-      const result = await parseTask(text, req.profileId);
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`NL Parser microservice unavailable (${NL_PARSER_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        const { parseTask } = require('./intelligence-local');
+        const result = await parseTask(text, req.profileId);
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -263,25 +294,36 @@ router.post('/parse-task', async (req, res) => {
 router.post('/analyze-patterns', async (req, res) => {
   try {
     const { user_id, time_range } = req.body;
+    const profileId = req.profileId || 2;
 
-    logger.info(`Analyzing patterns for user ${user_id || 'default'}`);
+    logger.info(`Analyzing patterns for profile ${profileId}, time_range: ${time_range || '30d'}`);
 
     // Try microservice first (has direct database access)
     try {
-      const response = await axios.post(
-        `${PATTERN_RECOGNITION_URL}/analyze-patterns`,
-        { time_range },
-        { timeout: 30000 }
+      const result = await callMicroservice(
+        PATTERN_RECOGNITION_URL,
+        '/analyze-patterns',
+        'POST',
+        { time_range: time_range || '30d' },
+        null,
+        { 'X-Profile-Id': profileId.toString() }
       );
       logger.info('Pattern analysis completed by microservice');
-      return res.json(response.data);
-    } catch (microserviceErr) {
-      logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message} - using local implementation`);
-      
-      // Fall back to local implementation
-      const { analyzeTaskPatterns } = require('./intelligence-local');
-      const result = await analyzeTaskPatterns(req, time_range);
       return res.json(result);
+    } catch (microserviceErr) {
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message} - using local implementation`);
+        
+        // Fall back to local implementation
+        const { analyzeTaskPatterns } = require('./intelligence-local');
+        const result = await analyzeTaskPatterns(req, time_range || '30d');
+        return res.json(result);
+      } else {
+        // HTTP error from microservice - return it
+        logger.error(`Pattern Recognition microservice error: ${microserviceErr.message}`);
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -309,16 +351,22 @@ router.get('/insights', async (req, res) => {
         '/insights',
         'GET',
         null,
-        { user_id }
+        { user_id },
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      // Use analyze patterns as fallback for insights
-      const { analyzeTaskPatterns } = require('./intelligence-local');
-      const result = await analyzeTaskPatterns(req, '30d');
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        // Use analyze patterns as fallback for insights
+        const { analyzeTaskPatterns } = require('./intelligence-local');
+        const result = await analyzeTaskPatterns(req, '30d');
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -351,15 +399,22 @@ router.post('/extract-dates', async (req, res) => {
         NL_PARSER_URL,
         '/extract-dates',
         'POST',
-        { text }
+        { text },
+        null,
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`NL Parser microservice unavailable (${NL_PARSER_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      const { extractDates } = require('./intelligence-local');
-      const result = await extractDates(text, req.profileId);
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`NL Parser microservice unavailable (${NL_PARSER_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        const { extractDates } = require('./intelligence-local');
+        const result = await extractDates(text, req.profileId);
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -522,15 +577,21 @@ router.get('/context', async (req, res) => {
         '/context',
         'GET',
         null,
-        { category, source, limit, active_only }
+        { category, source, limit, active_only },
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      const { getContext } = require('./intelligence-local');
-      const result = await getContext(req, category, source, limit || 50, active_only !== 'false');
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        const { getContext } = require('./intelligence-local');
+        const result = await getContext(req, category, source, limit || 50, active_only !== 'false');
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -554,15 +615,23 @@ router.get('/context/rolling', async (req, res) => {
       const result = await callMicroservice(
         CONTEXT_SERVICE_URL,
         '/context/rolling',
-        'GET'
+        'GET',
+        null,
+        null,
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      const { getContext } = require('./intelligence-local');
-      const result = await getContext(null, null, 100, true);
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        const { getContext } = require('./intelligence-local');
+        const result = await getContext(req, null, null, 100, true);
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
@@ -593,15 +662,22 @@ router.post('/context/search', async (req, res) => {
         CONTEXT_SERVICE_URL,
         '/context/search',
         'POST',
-        { query, category, limit }
+        { query, category, limit },
+        null,
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local implementation');
-      const { searchContext } = require('./intelligence-local');
-      const result = await searchContext(req, query, category, limit || 20);
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`Context Service microservice unavailable (${CONTEXT_SERVICE_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local implementation');
+        const { searchContext } = require('./intelligence-local');
+        const result = await searchContext(req, query, category, limit || 20);
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
