@@ -29,7 +29,7 @@ async function migrateSQLite(db) {
           name TEXT NOT NULL UNIQUE,
           description TEXT,
           color TEXT DEFAULT '#3B82F6',
-          icon TEXT DEFAULT 'briefcase',
+          icon TEXT DEFAULT '💼',
           is_default BOOLEAN DEFAULT 0,
           display_order INTEGER DEFAULT 0,
           preferences TEXT DEFAULT '{}',
@@ -45,8 +45,8 @@ async function migrateSQLite(db) {
       db.run(`
         INSERT OR IGNORE INTO profiles (id, name, description, color, icon, is_default, display_order)
         VALUES 
-          (1, 'Personal', 'Personal life, hobbies, and non-work commitments', '#10B981', 'home', 0, 2),
-          (2, 'Work', 'Professional work and career commitments', '#3B82F6', 'briefcase', 1, 1)
+          (1, 'Personal', 'Personal life, hobbies, and non-work commitments', '#10B981', '🏠', 0, 2),
+          (2, 'Work', 'Professional work and career commitments', '#3B82F6', '💼', 1, 1)
       `, (err) => {
         if (err) logger.error('Error inserting default profiles:', err);
         else logger.info('✓ Created default profiles: Personal, Work');
@@ -213,7 +213,7 @@ async function migratePostgreSQL(pool) {
         name VARCHAR(100) NOT NULL UNIQUE,
         description TEXT,
         color VARCHAR(7) DEFAULT '#3B82F6',
-        icon VARCHAR(50) DEFAULT 'briefcase',
+        icon VARCHAR(50) DEFAULT '💼',
         is_default BOOLEAN DEFAULT FALSE,
         display_order INTEGER DEFAULT 0,
         preferences JSONB DEFAULT '{}',
@@ -227,8 +227,8 @@ async function migratePostgreSQL(pool) {
     await client.query(`
       INSERT INTO profiles (id, name, description, color, icon, is_default, display_order)
       VALUES 
-        (1, 'Personal', 'Personal life, hobbies, and non-work commitments', '#10B981', 'home', false, 2),
-        (2, 'Work', 'Professional work and career commitments', '#3B82F6', 'briefcase', true, 1)
+        (1, 'Personal', 'Personal life, hobbies, and non-work commitments', '#10B981', '🏠', false, 2),
+        (2, 'Work', 'Professional work and career commitments', '#3B82F6', '💼', true, 1)
       ON CONFLICT (id) DO NOTHING
     `);
     logger.info('✓ Created default profiles: Personal, Work');

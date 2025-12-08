@@ -20,11 +20,20 @@ function ProfileManagement() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [migrateToId, setMigrateToId] = useState(null);
 
-  const iconOptions = ['briefcase', 'home', 'graduation-cap', 'heart', 'star', 'rocket', 'lightbulb', 'book'];
+  const iconOptions = [
+    { value: '💼', label: 'Briefcase' },
+    { value: '🏠', label: 'Home' },
+    { value: '📚', label: 'Books' },
+    { value: '🎯', label: 'Target' },
+    { value: '💡', label: 'Lightbulb' },
+    { value: '🚀', label: 'Rocket' },
+    { value: '🎨', label: 'Art' },
+    { value: '🌟', label: 'Star' }
+  ];
   const colorOptions = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#6366F1'];
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', color: '#3B82F6', icon: 'briefcase' });
+    setFormData({ name: '', description: '', color: '#3B82F6', icon: '💼' });
     setShowCreateForm(false);
     setEditingId(null);
     setError(null);
@@ -125,12 +134,13 @@ function ProfileManagement() {
             <div className="icon-picker">
               {iconOptions.map(icon => (
                 <button
-                  key={icon}
+                  key={icon.value}
                   type="button"
-                  className={`icon-option ${formData.icon === icon ? 'selected' : ''}`}
-                  onClick={() => setFormData({ ...formData, icon })}
+                  className={`icon-option ${formData.icon === icon.value ? 'selected' : ''}`}
+                  onClick={() => setFormData({ ...formData, icon: icon.value })}
+                  title={icon.label}
                 >
-                  {icon}
+                  {icon.value}
                 </button>
               ))}
             </div>
