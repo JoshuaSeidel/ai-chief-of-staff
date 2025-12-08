@@ -130,7 +130,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
         // Create Microsoft Planner task
         if (isMicrosoftConnected) {
           try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
             await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
             logger.info(`Created Microsoft task ${microsoftTask.id} for commitment ${insertedId}`);
           } catch (msError) {
@@ -194,7 +194,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
         // Create Microsoft Planner task
         if (isMicrosoftConnected) {
           try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'action' });
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
             await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
             logger.info(`Created Microsoft task ${microsoftTask.id} for action ${insertedId}`);
           } catch (msError) {
@@ -259,7 +259,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
         // Create Microsoft Planner task
         if (isMicrosoftConnected) {
           try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
             await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
             logger.info(`Created Microsoft task ${microsoftTask.id} for follow-up ${insertedId}`);
           } catch (msError) {

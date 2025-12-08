@@ -73,8 +73,9 @@ router.get('/microsoft/callback', async (req, res) => {
  */
 router.get('/microsoft/status', async (req, res) => {
   try {
-    const connected = await microsoftPlanner.isConnected();
-    res.json({ connected });
+    const profileId = req.profileId || 2;
+    const connected = await microsoftPlanner.isConnected(profileId);
+    res.json({ connected, profileId });
   } catch (error) {
     logger.error('Error checking Microsoft Planner status', error);
     res.json({ connected: false });
@@ -86,7 +87,8 @@ router.get('/microsoft/status', async (req, res) => {
  */
 router.post('/microsoft/disconnect', async (req, res) => {
   try {
-    await microsoftPlanner.disconnect();
+    const profileId = req.profileId || 2;
+    await microsoftPlanner.disconnect(profileId);
     res.json({ success: true, message: 'Microsoft Planner disconnected' });
   } catch (error) {
     logger.error('Error disconnecting Microsoft Planner', error);
@@ -156,7 +158,7 @@ router.post('/microsoft/sync', async (req, res) => {
     
     for (const task of tasks) {
       try {
-        const microsoftTask = await microsoftPlanner.createTaskFromCommitment(task);
+        const microsoftTask = await microsoftPlanner.createTaskFromCommitment(task, req.profileId);
         
         // Store Microsoft task ID
         await db.run(

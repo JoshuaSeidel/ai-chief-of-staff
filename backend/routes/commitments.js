@@ -200,9 +200,9 @@ router.put('/:id', async (req, res) => {
     // Complete Microsoft Planner task if task is completed and has a Microsoft task ID
     if (status === 'completed' && updatedTask && updatedTask.microsoft_task_id) {
       try {
-        const isMicrosoftConnected = await microsoftPlanner.isConnected();
+        const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
         if (isMicrosoftConnected) {
-          await microsoftPlanner.completeTask(updatedTask.microsoft_task_id, req.body.completion_note);
+          await microsoftPlanner.completeTask(updatedTask.microsoft_task_id, req.body.completion_note, req.profileId);
           logger.info(`Completed Microsoft task ${updatedTask.microsoft_task_id} for completed task ${id}`);
         }
       } catch (msError) {
@@ -279,17 +279,11 @@ router.delete('/:id', async (req, res) => {
     // Delete from Microsoft Planner if task exists
     if (task.microsoft_task_id) {
       try {
-        const isMicrosoftConnected = await microsoftPlanner.isConnected();
+        const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
         if (isMicrosoftConnected) {
-          await microsoftPlanner.deleteTask(task.microsoft_task_id);
+          await microsoftPlanner.deleteTask(task.microsoft_task_id, req.profileId);
           deletionResults.microsoft = 'success';
-          logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);
-        }
-      } catch (msError) {
-        deletionResults.microsoft = 'failed';
-        logger.warn(`Failed to delete Microsoft task: ${msError.message}`);
-      }
-    }
+          logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);\n        }\n      } catch (msError) {\n        deletionResults.microsoft = 'failed';\n        logger.warn(`Failed to delete Microsoft task: ${msError.message}`);\n      }\n    }
     
     // Delete from database
     const result = await db.run('DELETE FROM commitments WHERE id = ?', [id]);
@@ -479,12 +473,12 @@ router.post('/', async (req, res) => {
       }
     }
     
-    // Create Microsoft Planner task if applicable (not for risks)
-    if (taskType !== 'risk') {
-      const isMicrosoftConnected = await microsoftPlanner.isConnected();
-      if (isMicrosoftConnected && deadline && isUserTask && !requiresConfirmation) {
+    // Create Microsoft Planner task if applicable (only for user tasks with deadlines, not risks)
+    if (taskType !== 'risk' && deadline && isUserTask && !requiresConfirmation) {
+      const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
+      if (isMicrosoftConnected) {
         try {
-          const microsoftTask = await microsoftPlanner.createTaskFromCommitment(taskData);
+          const microsoftTask = await microsoftPlanner.createTaskFromCommitment(taskData, req.profileId);
           await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
           logger.info(`Created Microsoft task ${microsoftTask.id} for manual task ${insertedId}`);
         } catch (msError) {
