@@ -41,7 +41,7 @@ router.post('/email', async (req, res) => {
     try {
       // Extract commitments using Claude
       logger.info('Extracting commitments from email...');
-      const extracted = await extractCommitments(content);
+      const extracted = await extractCommitments(content, null, req.profileId);
       logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
 
       // Save commitments

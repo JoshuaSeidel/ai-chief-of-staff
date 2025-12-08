@@ -90,7 +90,7 @@ router.post('/generate', async (req, res) => {
         };
       }
       
-      const brief = await generateDailyBrief(contextData);
+      const brief = await generateDailyBrief(contextData, req.profileId);
       logger.info('Brief generated successfully');
 
       // Save brief to database
@@ -305,7 +305,7 @@ router.post('/weekly-report', async (req, res) => {
     };
 
     logger.info('Calling Claude API to generate weekly report...');
-    const report = await generateWeeklyReport(weekData);
+    const report = await generateWeeklyReport(weekData, req.profileId);
     logger.info('Weekly report generated successfully');
 
     res.json({ 
@@ -349,7 +349,7 @@ router.post('/patterns', async (req, res) => {
     }
     
     logger.info(`Analyzing ${transcripts.length} transcripts for patterns`);
-    const patterns = await detectPatterns(transcripts);
+    const patterns = await detectPatterns(transcripts, req.profileId);
     
     res.json({
       patterns,
@@ -388,7 +388,7 @@ router.post('/risks', async (req, res) => {
     
     logger.info(`Analyzing ${commitments.length} commitments and ${context.length} context items for risks`);
     
-    const risks = await flagRisks({ commitments, context });
+    const risks = await flagRisks({ commitments, context }, req.profileId);
     
     res.json({
       risks,

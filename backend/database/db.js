@@ -885,6 +885,14 @@ async function runMigrations() {
     const migration002 = require('./migrations/002_add_profiles');
     await migration002.runMigration(db, pool, dbType);
     
+    // Run migration 003: Migrate existing integrations to profiles
+    const migration003 = require('./migrations/003_migrate_integrations_to_profiles');
+    await migration003.runMigration(db, pool, dbType);
+    
+    // Run migration 005: Add AI provider preferences to profiles
+    const migration005 = require('./migrations/005_profile_ai_preferences');
+    await migration005.runMigration(dbType === 'postgres' ? pool : db, dbType);
+    
     if (dbType === 'postgres') {
       // Migration 1: Add urgency and suggested_approach columns to commitments table
       try {

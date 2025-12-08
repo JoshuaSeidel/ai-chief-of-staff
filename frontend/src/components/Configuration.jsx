@@ -1073,7 +1073,15 @@ function Configuration() {
           </div>
         )}
 
-        {/* Old AI Provider Configuration section removed - now consolidated in AI Models & Providers below */}
+        {/* GLOBAL SETTINGS SECTION */}
+        <div className="settings-section-divider">
+          <h2 className="settings-section-header">
+            <span className="scope-badge scope-global">🌐 Global Settings</span>
+          </h2>
+          <p className="settings-section-description">
+            These settings apply to all profiles and require administrative access.
+          </p>
+        </div>
 
         {/* Plaud Integration - Hidden until implemented */}
         {false && (
@@ -1109,22 +1117,22 @@ function Configuration() {
           </div>
         )}
 
-        {/* AI Configuration - Per Service */}
+        {/* AI API Keys - Global */}
         <details open className="mb-2xl">
           <summary className="config-section-header">
-            <span>🤖 AI Models & Providers</span>
+            <span>🔑 AI API Keys</span>
           </summary>
           <p className="config-section-description">
-            Configure AI providers and models for the main application and each microservice. Each service can use a different provider/model combination.
+            API keys are shared across all profiles. Each profile can choose which provider/model to use (configured in Profile-Specific Settings below).
           </p>
           
           {/* Main Application AI Configuration */}
           <div className="glass-panel mb-xl border-primary">
             <h4 className="config-subsection-title mt-0 text-primary">
-              🏠 Main Application
+              🤖 Microservice AI Configuration
             </h4>
             <p className="config-subsection-description">
-              Primary AI provider for transcript processing, daily briefs, and task extraction
+              AI provider selection for microservices (Pattern Recognition, Voice Processor, etc.). These are global and affect all profiles.
             </p>
             
             <div className="grid-2col mb-lg">
@@ -1596,11 +1604,94 @@ function Configuration() {
           </div>
         </details>
 
+        {/* PROFILE-SPECIFIC SETTINGS SECTION */}
+        <div className="settings-section-divider">
+          <h2 className="settings-section-header">
+            <span className="scope-badge scope-profile">👤 Profile-Specific Settings</span>
+          </h2>
+          <p className="settings-section-description">
+            These settings are isolated per profile. Changes here only affect the current profile: <strong>{currentProfile?.name || 'Unknown'}</strong>
+          </p>
+        </div>
+
+        {/* AI Provider Selection - Per Profile */}
         <div className="mb-xl">
-          <h3>🔌 Integrations <ScopeBadge scope="global" /></h3>
-          <p className="section-note">⚠️ Integration settings are currently <strong>shared across all profiles</strong>. Connecting a calendar or task system will affect all profiles.</p>
+          <h3>🤖 AI Provider & Model</h3>
+          <p className="config-section-description">
+            Select AI provider and model for this profile. Each profile can use different models for its briefs and task processing.
+          </p>
+          
+          <div className="glass-panel mb-lg">
+            <div className="grid-2col mb-lg">
+              <div>
+                <label className="form-label">
+                  Provider
+                </label>
+                <select
+                  value={config.aiProvider || 'anthropic'}
+                  onChange={(e) => {
+                    const newProvider = e.target.value;
+                    handleChange('aiProvider', newProvider);
+                    if (newProvider === 'anthropic' || newProvider === 'openai' || newProvider === 'ollama') {
+                      loadModelsForProvider(newProvider);
+                    }
+                  }}
+                  className="form-input"
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="form-label">
+                  Model
+                </label>
+                {renderModelSelector(
+                  config.aiProvider || 'anthropic',
+                  config.aiProvider === 'anthropic' ? config.claudeModel || 'claude-sonnet-4-5-20250929' :
+                  config.aiProvider === 'openai' ? config.openaiModel || 'gpt-4o' :
+                  config.aiProvider === 'ollama' ? config.ollamaModel || 'llama3.1' :
+                  'claude-sonnet-4-5-20250929',
+                  (value) => {
+                    if (config.aiProvider === 'anthropic') {
+                      handleChange('claudeModel', value);
+                    } else if (config.aiProvider === 'openai') {
+                      handleChange('openaiModel', value);
+                    } else if (config.aiProvider === 'ollama') {
+                      handleChange('ollamaModel', value);
+                    }
+                  }
+                )}
+              </div>
+            </div>
+            
+            <div>
+              <label className="form-label">
+                Max Tokens (Advanced)
+              </label>
+              <input
+                type="number"
+                value={config.aiMaxTokens || '4096'}
+                onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
+                placeholder="4096"
+                min="1000"
+                max="8192"
+                className="form-input"
+              />
+              <p className="form-hint">
+                Maximum tokens for AI responses (1000-8192). Higher values allow longer responses but cost more.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-xl">
+          <h3>🔌 Integrations</h3>
           <p className="text-sm-muted-mb-md">
-            Enable or disable integrations. Only enabled integrations will be shown below.
+            Enable or disable integrations for this profile. Only enabled integrations will be shown below.
           </p>
           
           <div className="integration-box">
@@ -1673,7 +1764,7 @@ function Configuration() {
 
         {enabledIntegrations.googleCalendar && (
         <div className="mb-xl">
-          <h3>📅 Calendar Integration <ScopeBadge scope="global" /></h3>
+          <h3>📅 Google Calendar Integration</h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -1839,7 +1930,7 @@ function Configuration() {
 
         {enabledIntegrations.microsoft && (
         <div className="mb-xl">
-          <h3>📅 Microsoft Integration (Calendar + Planner) <ScopeBadge scope="global" /></h3>
+          <h3>📅 Microsoft Integration (Calendar + Planner)</h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -2083,7 +2174,7 @@ function Configuration() {
 
         {enabledIntegrations.jira && (
         <div className="mb-xl">
-          <h3>🎯 Jira Integration <ScopeBadge scope="global" /></h3>
+          <h3>🎯 Jira Integration</h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -2220,7 +2311,7 @@ function Configuration() {
 
         {enabledIntegrations.trello && (
         <div className="mb-xl">
-          <h3>📋 Trello Integration <ScopeBadge scope="global" /></h3>
+          <h3>📋 Trello Integration</h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 
@@ -2385,7 +2476,7 @@ function Configuration() {
 
         {enabledIntegrations.monday && (
         <div className="mb-xl">
-          <h3>📊 Monday.com Integration <ScopeBadge scope="global" /></h3>
+          <h3>📊 Monday.com Integration</h3>
           
           <div style={{ 
             backgroundColor: '#18181b', 

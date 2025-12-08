@@ -187,9 +187,9 @@ router.put('/:id', async (req, res) => {
     // Close Jira issue if task is completed and has a Jira issue key
     if (status === 'completed' && updatedTask && updatedTask.jira_task_id) {
       try {
-        const isJiraConnected = await jira.isConnected();
+        const isJiraConnected = await jira.isConnected(req.profileId);
         if (isJiraConnected) {
-          await jira.closeIssue(updatedTask.jira_task_id, req.body.completion_note);
+          await jira.closeIssue(updatedTask.jira_task_id, req.body.completion_note, req.profileId);
           logger.info(`Closed Jira issue ${updatedTask.jira_task_id} for completed task ${id}`);
         }
       } catch (jiraError) {
@@ -264,9 +264,9 @@ router.delete('/:id', async (req, res) => {
     // Delete from Jira if issue exists
     if (task.jira_task_id) {
       try {
-        const isJiraConnected = await jira.isConnected();
+        const isJiraConnected = await jira.isConnected(req.profileId);
         if (isJiraConnected) {
-          await jira.deleteIssue(task.jira_task_id);
+          await jira.deleteIssue(task.jira_task_id, req.profileId);
           deletionResults.jira = 'success';
           logger.info(`Deleted Jira issue ${task.jira_task_id}`);
         }
@@ -489,10 +489,10 @@ router.post('/', async (req, res) => {
     
     // Create Jira issue if applicable (not for risks)
     if (taskType !== 'risk') {
-      const isJiraConnected = await jira.isConnected();
+      const isJiraConnected = await jira.isConnected(req.profileId);
       if (isJiraConnected) {
         try {
-          const jiraIssue = await jira.createIssueFromCommitment(taskData);
+          const jiraIssue = await jira.createIssueFromCommitment(taskData, req.profileId);
           await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?', [jiraIssue.key, insertedId, req.profileId]);
           logger.info(`Created Jira issue ${jiraIssue.key} for manual task ${insertedId}`);
         } catch (jiraError) {

@@ -283,7 +283,7 @@ router.get('/jira/projects', async (req, res) => {
 router.get('/jira/issue-types/:projectKey', async (req, res) => {
   try {
     const { projectKey } = req.params;
-    const issueTypes = await jira.getIssueTypes(projectKey);
+    const issueTypes = await jira.getIssueTypes(projectKey, req.profileId);
     res.json({ issueTypes });
   } catch (error) {
     logger.error('Error getting Jira issue types', error);
@@ -354,7 +354,7 @@ router.post('/jira/sync', async (req, res) => {
     
     for (const task of tasks) {
       try {
-        const jiraIssue = await jira.createIssueFromCommitment(task);
+        const jiraIssue = await jira.createIssueFromCommitment(task, req.profileId);
         
         // Store Jira issue key (e.g., PROJ-123)
         await db.run(
@@ -419,7 +419,7 @@ router.post('/jira/sync-failed', async (req, res) => {
     
     for (const task of tasks) {
       try {
-        const jiraIssue = await jira.createIssueFromCommitment(task);
+        const jiraIssue = await jira.createIssueFromCommitment(task, req.profileId);
         
         // Store Jira issue key (e.g., PROJ-123)
         await db.run(
@@ -462,7 +462,7 @@ router.get('/jira/issues', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const projectKey = req.query.projectKey || null;
-    const issues = await jira.listIssues(projectKey, limit);
+    const issues = await jira.listIssues(projectKey, limit, req.profileId);
     res.json({ issues });
   } catch (error) {
     logger.error('Error listing Jira issues', error);

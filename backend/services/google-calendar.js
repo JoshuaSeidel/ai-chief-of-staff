@@ -247,7 +247,7 @@ async function createEventFromCommitment(commitment, profileId = 2) {
     logger.info(`Generating AI description for task: ${commitment.description.substring(0, 50)}...`);
     let description;
     try {
-      description = await generateEventDescription(commitment, commitment.transcriptContext);
+      description = await generateEventDescription(commitment, commitment.transcriptContext, profileId);
     } catch (err) {
       logger.warn('Failed to generate AI description, using fallback', err.message);
       // Fallback to basic description

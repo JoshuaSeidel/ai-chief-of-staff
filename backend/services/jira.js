@@ -5,40 +5,60 @@ const logger = createModuleLogger('JIRA');
 
 /**
  * Get Jira configuration from database
+ * @param {number} profileId - Profile ID to get config for
  */
-async function getJiraConfig() {
+async function getJiraConfig(profileId = 2) {
   const db = getDb();
   
-  const baseUrlRow = await db.get('SELECT value FROM config WHERE key = ?', ['jiraBaseUrl']);
-  const emailRow = await db.get('SELECT value FROM config WHERE key = ?', ['jiraEmail']);
-  const apiTokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['jiraApiToken']);
-  const projectKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['jiraProjectKey']);
+  const configRow = await db.get(
+    'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'task', 'jira']
+  );
+  
+  if (!configRow || !configRow.token_data) {
+    const error = new Error('Jira credentials not configured. Please configure in the Configuration page.');
+    error.code = 'NOT_CONFIGURED';
+    throw error;
+  }
+  
+  let config;
+  try {
+    config = JSON.parse(configRow.token_data);
+  } catch (err) {
+    const error = new Error('Invalid Jira configuration. Please reconfigure in the Configuration page.');
+    error.code = 'NOT_CONFIGURED';
+    throw error;
+  }
   
   const missing = [];
-  if (!baseUrlRow || !baseUrlRow.value) missing.push('Base URL');
-  if (!emailRow || !emailRow.value) missing.push('Email');
-  if (!apiTokenRow || !apiTokenRow.value) missing.push('API Token');
-  if (!projectKeyRow || !projectKeyRow.value) missing.push('Project Key');
+  if (!config.baseUrl) missing.push('Base URL');
+  if (!config.email) missing.push('Email');
+  if (!config.apiToken) missing.push('API Token');
+  if (!config.projectKey) missing.push('Project Key');
   
   if (missing.length > 0) {
-    const error = new Error(`Jira credentials not configured. Missing: ${missing.join(', ')}. Please configure in the Configuration page.`);
+    const error = new Error(`Jira credentials incomplete. Missing: ${missing.join(', ')}. Please configure in the Configuration page.`);
     error.code = 'NOT_CONFIGURED';
     throw error;
   }
   
   return {
-    baseUrl: baseUrlRow.value.replace(/\/$/, ''), // Remove trailing slash
-    email: emailRow.value,
-    apiToken: apiTokenRow.value,
-    projectKey: projectKeyRow.value
+    baseUrl: config.baseUrl.replace(/\/$/, ''), // Remove trailing slash
+    email: config.email,
+    apiToken: config.apiToken,
+    projectKey: config.projectKey
   };
 }
 
 /**
  * Make authenticated request to Jira API
+ * @param {string} endpoint - API endpoint
+ * @param {string} method - HTTP method
+ * @param {object} body - Request body
+ * @param {number} profileId - Profile ID to use
  */
-async function jiraRequest(endpoint, method = 'GET', body = null) {
-  const { baseUrl, email, apiToken } = await getJiraConfig();
+async function jiraRequest(endpoint, method = 'GET', body = null, profileId = 2) {
+  const { baseUrl, email, apiToken } = await getJiraConfig(profileId);
   
   // Create Basic Auth header (email:apiToken base64 encoded)
   const auth = Buffer.from(`${email}:${apiToken}`).toString('base64');
@@ -86,12 +106,13 @@ async function jiraRequest(endpoint, method = 'GET', body = null) {
 
 /**
  * Check if Jira is configured and accessible
+ * @param {number} profileId - Profile ID to check
  */
-async function isConnected() {
+async function isConnected(profileId = 2) {
   try {
-    const config = await getJiraConfig();
+    const config = await getJiraConfig(profileId);
     // Test connection by getting current user
-    await jiraRequest('/myself');
+    await jiraRequest('/myself', 'GET', null, profileId);
     return true;
   } catch (error) {
     // If credentials aren't configured, that's fine - just return false silently
@@ -105,43 +126,53 @@ async function isConnected() {
 }
 
 /**
- * Disconnect Jira (clear credentials)
+ * Disconnect Jira for a profile
+ * @param {number} profileId - Profile ID to disconnect
  */
-async function disconnect() {
+async function disconnect(profileId = 2) {
   const db = getDb();
-  await db.run('DELETE FROM config WHERE key IN (?, ?, ?, ?)', 
-    ['jiraBaseUrl', 'jiraEmail', 'jiraApiToken', 'jiraProjectKey']);
-  logger.info('Jira disconnected');
+  await db.run(
+    'DELETE FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'task', 'jira']
+  );
+  logger.info(`Jira disconnected for profile ${profileId}`);
 }
 
 /**
  * Get project information
+ * @param {string} projectKey - Jira project key
+ * @param {number} profileId - Profile ID to use
  */
-async function getProject(projectKey) {
-  return await jiraRequest(`/project/${projectKey}`);
+async function getProject(projectKey, profileId = 2) {
+  return await jiraRequest(`/project/${projectKey}`, 'GET', null, profileId);
 }
 
 /**
  * List available projects
+ * @param {number} profileId - Profile ID to use
  */
-async function listProjects() {
-  const projects = await jiraRequest('/project');
+async function listProjects(profileId = 2) {
+  const projects = await jiraRequest('/project', 'GET', null, profileId);
   return projects || [];
 }
 
 /**
  * Get issue types for a project
+ * @param {string} projectKey - Jira project key
+ * @param {number} profileId - Profile ID to use
  */
-async function getIssueTypes(projectKey) {
-  const project = await getProject(projectKey);
+async function getIssueTypes(projectKey, profileId = 2) {
+  const project = await getProject(projectKey, profileId);
   return project.issueTypes || [];
 }
 
 /**
  * Create a Jira issue (story/task)
+ * @param {object} issueData - Issue data
+ * @param {number} profileId - Profile ID to use
  */
-async function createIssue(issueData) {
-  const { projectKey } = await getJiraConfig();
+async function createIssue(issueData, profileId = 2) {
+  const { projectKey } = await getJiraConfig(profileId);
   
   const {
     summary,
@@ -153,7 +184,7 @@ async function createIssue(issueData) {
   } = issueData;
   
   // Get project to find issue type ID
-  const project = await getProject(projectKey);
+  const project = await getProject(projectKey, profileId);
   let issueTypeObj = project.issueTypes.find(type => 
     type.name === issueType || type.name.toLowerCase() === issueType.toLowerCase()
   );
@@ -222,7 +253,7 @@ async function createIssue(issueData) {
   if (assignee) {
     // Try to find user by email or accountId
     try {
-      const users = await jiraRequest(`/user/search?query=${encodeURIComponent(assignee)}`);
+      const users = await jiraRequest(`/user/search?query=${encodeURIComponent(assignee)}`, 'GET', null, profileId);
       if (users && users.length > 0) {
         issue.fields.assignee = {
           accountId: users[0].accountId
@@ -245,24 +276,24 @@ async function createIssue(issueData) {
   // Try to create issue with assignee first
   let createdIssue;
   try {
-    createdIssue = await jiraRequest('/issue', 'POST', issue);
+    createdIssue = await jiraRequest('/issue', 'POST', issue, profileId);
   } catch (error) {
     // If creation fails due to assignee issue, retry without assignee
     if (error.message && error.message.includes('assignee') && issue.fields.assignee) {
       logger.warn(`Issue creation failed due to assignee, retrying without assignee: ${error.message}`);
       delete issue.fields.assignee;
-      createdIssue = await jiraRequest('/issue', 'POST', issue);
+      createdIssue = await jiraRequest('/issue', 'POST', issue, profileId);
       
       // Try to assign after creation (this can fail silently - expected behavior)
       if (assignee && createdIssue && createdIssue.key) {
         try {
-          const users = await jiraRequest(`/user/search?query=${encodeURIComponent(assignee)}`);
+          const users = await jiraRequest(`/user/search?query=${encodeURIComponent(assignee)}`, 'GET', null, profileId);
           if (users && users.length > 0) {
             // Use a wrapper to catch assignment errors without logging them as errors
             try {
               await jiraRequest(`/issue/${createdIssue.key}/assignee`, 'PUT', {
                 accountId: users[0].accountId
-              });
+              }, profileId);
               logger.info(`Assigned issue ${createdIssue.key} to ${assignee}`);
             } catch (assignError) {
               // Assignment failures are expected (permissions, project settings) - don't log as error
@@ -293,8 +324,11 @@ async function createIssue(issueData) {
 
 /**
  * Transition a Jira issue to Done/Closed status
+ * @param {string} issueKey - Jira issue key
+ * @param {string} completionNote - Optional completion note
+ * @param {number} profileId - Profile ID to use
  */
-async function closeIssue(issueKey, completionNote = null) {
+async function closeIssue(issueKey, completionNote = null, profileId = 2) {
   try {
     // Add completion note as comment if provided
     if (completionNote) {
@@ -315,7 +349,7 @@ async function closeIssue(issueKey, completionNote = null) {
               }
             ]
           }
-        });
+        }, profileId);
         logger.info(`Added completion note to Jira issue ${issueKey}`);
       } catch (commentError) {
         logger.warn(`Failed to add comment to Jira issue ${issueKey}: ${commentError.message}`);
@@ -324,7 +358,7 @@ async function closeIssue(issueKey, completionNote = null) {
     }
     
     // First, get available transitions for this issue
-    const transitions = await jiraRequest(`/issue/${issueKey}/transitions`);
+    const transitions = await jiraRequest(`/issue/${issueKey}/transitions`, 'GET', null, profileId);
     
     // Find the "Done" or "Closed" transition
     // Common transition names: "Done", "Close", "Resolve", "Closed"
@@ -347,7 +381,7 @@ async function closeIssue(issueKey, completionNote = null) {
       transition: {
         id: doneTransition.id
       }
-    });
+    }, profileId);
     
     logger.info(`Transitioned Jira issue ${issueKey} to Done`);
     return true;
@@ -359,10 +393,12 @@ async function closeIssue(issueKey, completionNote = null) {
 
 /**
  * Delete a Jira issue permanently
+ * @param {string} issueKey - Jira issue key
+ * @param {number} profileId - Profile ID to use
  */
-async function deleteIssue(issueKey) {
+async function deleteIssue(issueKey, profileId = 2) {
   try {
-    await jiraRequest(`/issue/${issueKey}`, 'DELETE');
+    await jiraRequest(`/issue/${issueKey}`, 'DELETE', null, profileId);
     logger.info(`Deleted Jira issue ${issueKey}`);
     return true;
   } catch (error) {
@@ -373,8 +409,10 @@ async function deleteIssue(issueKey) {
 
 /**
  * Create issue from commitment
+ * @param {object} commitment - Commitment/task data
+ * @param {number} profileId - Profile ID to use
  */
-async function createIssueFromCommitment(commitment) {
+async function createIssueFromCommitment(commitment, profileId = 2) {
   try {
     // Map urgency to priority
     const urgencyMap = {
@@ -400,7 +438,7 @@ async function createIssueFromCommitment(commitment) {
       priority: urgencyMap[commitment.urgency] || 'Medium'
     };
     
-    return await createIssue(issueData);
+    return await createIssue(issueData, profileId);
   } catch (error) {
     logger.error('Error creating Jira issue from commitment', error);
     throw error;
@@ -409,21 +447,26 @@ async function createIssueFromCommitment(commitment) {
 
 /**
  * Get issue by key
+ * @param {string} issueKey - Jira issue key
+ * @param {number} profileId - Profile ID to use
  */
-async function getIssue(issueKey) {
-  return await jiraRequest(`/issue/${issueKey}`);
+async function getIssue(issueKey, profileId = 2) {
+  return await jiraRequest(`/issue/${issueKey}`, 'GET', null, profileId);
 }
 
 /**
  * List issues in project
+ * @param {string} projectKey - Jira project key (optional)
+ * @param {number} limit - Maximum number of issues
+ * @param {number} profileId - Profile ID to use
  */
-async function listIssues(projectKey = null, limit = 50) {
-  const { projectKey: configProjectKey } = await getJiraConfig();
+async function listIssues(projectKey = null, limit = 50, profileId = 2) {
+  const { projectKey: configProjectKey } = await getJiraConfig(profileId);
   const searchProjectKey = projectKey || configProjectKey;
   
   // JQL (Jira Query Language) query
   const jql = `project = ${searchProjectKey} ORDER BY created DESC`;
-  const issues = await jiraRequest(`/search?jql=${encodeURIComponent(jql)}&maxResults=${limit}`);
+  const issues = await jiraRequest(`/search?jql=${encodeURIComponent(jql)}&maxResults=${limit}`, 'GET', null, profileId);
   
   return issues.issues || [];
 }

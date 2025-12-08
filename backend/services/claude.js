@@ -22,12 +22,15 @@ async function getClaudeModel() {
 
 /**
  * Generate a daily brief from context
+ * @param {object} contextData - Context data for brief generation
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function generateDailyBrief(contextData) {
+async function generateDailyBrief(contextData, profileId = 2) {
   logger.info('Generating daily brief', {
     contextCount: contextData.context?.length || 0,
     commitmentCount: contextData.commitments?.length || 0,
-    transcriptCount: contextData.recentTranscripts?.length || 0
+    transcriptCount: contextData.recentTranscripts?.length || 0,
+    profileId
   });
 
   const prompt = `You are an AI executive assistant. Based on the following context from the last 2 weeks, generate a concise daily brief for your executive.
@@ -89,7 +92,8 @@ IMPORTANT:
     const result = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      Math.min(maxTokens, 4096)
+      Math.min(maxTokens, 4096),
+      profileId
     );
 
     const duration = Date.now() - startTime;
@@ -109,8 +113,9 @@ IMPORTANT:
  * Extract commitments and action items from transcript
  * @param {string} transcriptText - The meeting transcript
  * @param {string} meetingDate - Optional meeting date (ISO format)
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function extractCommitments(transcriptText, meetingDate = null) {
+async function extractCommitments(transcriptText, meetingDate = null, profileId = 2) {
   logger.info('Extracting commitments from transcript', {
     transcriptLength: transcriptText.length,
     meetingDate
@@ -203,7 +208,8 @@ Return ONLY valid JSON (no markdown, no explanations):
     const result = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      maxTokens
+      maxTokens,
+      profileId
     );
 
     const duration = Date.now() - startTime;
@@ -283,8 +289,10 @@ Return ONLY valid JSON (no markdown, no explanations):
 
 /**
  * Generate weekly report
+ * @param {object} weekData - Week data for report generation
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function generateWeeklyReport(weekData) {
+async function generateWeeklyReport(weekData, profileId = 2) {
   logger.info('Generating weekly report', {
     dataKeys: Object.keys(weekData)
   });
@@ -314,7 +322,8 @@ Keep it executive-level: clear, concise, outcome-focused.`;
     const result = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      1500
+      1500,
+      profileId
     );
 
     const duration = Date.now() - startTime;
@@ -331,8 +340,10 @@ Keep it executive-level: clear, concise, outcome-focused.`;
 
 /**
  * Detect patterns across multiple transcripts
+ * @param {Array} transcripts - Array of transcript objects
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function detectPatterns(transcripts) {
+async function detectPatterns(transcripts, profileId = 2) {
   logger.info('Detecting patterns across transcripts', {
     transcriptCount: transcripts.length
   });
@@ -367,11 +378,12 @@ Return results as JSON:
     const result = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      4096
+      4096,
+      profileId
     );
 
     const duration = Date.now() - startTime;
-    const responseText = message.content[0].text;
+    const responseText = result.text;
     
     // Extract JSON from response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -398,8 +410,10 @@ Return results as JSON:
 
 /**
  * Flag risks in commitments and context
+ * @param {object} data - Commitments and context data
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function flagRisks(data) {
+async function flagRisks(data, profileId = 2) {
   logger.info('Analyzing risks', {
     commitments: data.commitments?.length || 0,
     context: data.context?.length || 0
@@ -436,7 +450,8 @@ Return results as JSON:
     const result = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      1500
+      1500,
+      profileId
     );
 
     const duration = Date.now() - startTime;
@@ -467,8 +482,11 @@ Return results as JSON:
 
 /**
  * Generate detailed calendar event description for a task
+ * @param {object} task - Task object
+ * @param {string} transcriptContext - Optional transcript context
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function generateEventDescription(task, transcriptContext = '') {
+async function generateEventDescription(task, transcriptContext = '', profileId = 2) {
   const prompt = `Generate a detailed, actionable calendar event description for this task:
 
 Task Type: ${task.type || task.task_type || 'Task'}
@@ -494,7 +512,8 @@ Make it actionable and specific. Use markdown formatting.`;
     const result = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      Math.min(maxTokens, 1500)
+      Math.min(maxTokens, 1500),
+      profileId
     );
 
     return result.text;

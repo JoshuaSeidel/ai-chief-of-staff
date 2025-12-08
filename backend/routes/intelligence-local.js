@@ -137,7 +137,8 @@ Format as markdown with sections. Be specific and actionable.`;
     const aiResponse = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      2048
+      2048,
+      req.profileId
     );
     
     const insights = aiResponse.content;
@@ -167,8 +168,11 @@ Format as markdown with sections. Be specific and actionable.`;
 
 /**
  * Estimate effort required for a task using AI
+ * @param {string} description - Task description
+ * @param {string} context - Optional context
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function estimateEffort(description, context = '') {
+async function estimateEffort(description, context = '', profileId = 2) {
   try {
     logger.info(`Estimating effort for task: ${description.substring(0, 50)}...`);
     
@@ -191,12 +195,13 @@ Format as JSON:
   "reasoning": "...",
   "breakdown": ["Step 1 (30min)", "Step 2 (1hr)"],
   "risks": ["May need additional review time"]
-}`;
+}";
 
     const aiResponse = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      1024
+      1024,
+      profileId
     );
     
     // Try to parse JSON from response
@@ -220,8 +225,10 @@ Format as JSON:
 
 /**
  * Classify energy level required for a task
+ * @param {string} description - Task description
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function classifyEnergy(description) {
+async function classifyEnergy(description, profileId = 2) {
   try {
     logger.info(`Classifying energy for task: ${description.substring(0, 50)}...`);
     
@@ -238,15 +245,7 @@ Respond with JSON:
 {
   "energy_level": "High|Medium|Low",
   "reasoning": "...",
-  "best_time": "When to do this task for optimal results",
-  "duration_recommendation": "Suggested time block"
-}`;
-
-    const aiResponse = await callAI(
-      [{ role: 'user', content: prompt }],
-      null,
-      512
-    );
+  \"best_time\": \"When to do this task for optimal results\",\n  \"duration_recommendation\": \"Suggested time block\"\n}\";\n\n    const aiResponse = await callAI(\n      [{ role: 'user', content: prompt }],\n      null,\n      512,\n      profileId\n    );
     
     let result;
     try {
@@ -268,8 +267,10 @@ Respond with JSON:
 
 /**
  * Cluster related tasks together
+ * @param {Array} tasks - Array of task objects
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function clusterTasks(tasks) {
+async function clusterTasks(tasks, profileId = 2) {
   try {
     logger.info(`Clustering ${tasks.length} tasks`);
     
@@ -302,7 +303,8 @@ Respond with JSON:
     const aiResponse = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      1024
+      1024,
+      req.profileId
     );
     
     let result;
@@ -325,8 +327,10 @@ Respond with JSON:
 
 /**
  * Parse natural language task into structured format
+ * @param {string} text - Task text to parse
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function parseTask(text) {
+async function parseTask(text, profileId = 2) {
   try {
     logger.info(`Parsing task: ${text.substring(0, 50)}...`);
     
@@ -350,12 +354,13 @@ Respond with JSON:
   "priority": "High|Medium|Low",
   "tags": ["tag1", "tag2"],
   "assignee": "name" or "unassigned"
-}`;
+}";
 
     const aiResponse = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      512
+      512,
+      profileId
     );
     
     let result;
@@ -383,8 +388,10 @@ Respond with JSON:
 
 /**
  * Extract dates from text
+ * @param {string} text - Text to extract dates from
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function extractDates(text) {
+async function extractDates(text, profileId = 2) {
   try {
     logger.info(`Extracting dates from text: ${text.substring(0, 50)}...`);
     
@@ -401,12 +408,13 @@ Respond with JSON:
       "type": "deadline|meeting|event"
     }
   ]
-}`;
+}";
 
     const aiResponse = await callAI(
       [{ role: 'user', content: prompt }],
       null,
-      512
+      512,
+      profileId
     );
     
     let result;

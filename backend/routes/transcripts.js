@@ -143,7 +143,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       // Create Jira issue for all commitments (regardless of deadline or assignment)
       if (isJiraConnected) {
         try {
-          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, req.profileId);
           await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?', [jiraIssue.key, insertedId, req.profileId]);
           logger.info(`Created Jira issue ${jiraIssue.key} for commitment ${insertedId}`);
         } catch (jiraError) {
@@ -207,7 +207,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       // Create Jira issue for all actions (regardless of deadline or assignment)
       if (isJiraConnected) {
         try {
-          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'action' });
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'action' }, req.profileId);
           await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?', [jiraIssue.key, insertedId, req.profileId]);
           logger.info(`Created Jira issue ${jiraIssue.key} for action ${insertedId}`);
         } catch (jiraError) {
@@ -272,7 +272,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       // Create Jira issue for all follow-ups (regardless of deadline or assignment)
       if (isJiraConnected) {
         try {
-          const jiraIssue = await jira.createIssueFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, req.profileId);
           await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?', [jiraIssue.key, insertedId, req.profileId]);
           logger.info(`Created Jira issue ${jiraIssue.key} for follow-up ${insertedId}`);
         } catch (jiraError) {
@@ -655,7 +655,7 @@ async function processTranscriptAsync(id, transcript, db, req) {
     
     // Extract commitments using Claude (use meeting_date if available)
     const meetingDate = transcript.meeting_date || null;
-    const extracted = await extractCommitments(transcript.content, meetingDate);
+    const extracted = await extractCommitments(transcript.content, meetingDate, req.profileId);
     logger.info('Commitments extracted successfully', {
       commitments: extracted.commitments?.length || 0,
       actionItems: extracted.actionItems?.length || 0,
@@ -674,7 +674,7 @@ async function processTranscriptAsync(id, transcript, db, req) {
     // Generate meeting notes
     try {
       const aiService = require('../services/ai-service');
-      const meetingNotes = await aiService.generateMeetingNotes(transcript.content);
+      const meetingNotes = await aiService.generateMeetingNotes(transcript.content, req.profileId);
       await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ? AND profile_id = ?', [meetingNotes, id, req.profileId]);
       logger.info(`Generated meeting notes for transcript ${id}`);
     } catch (notesError) {
@@ -729,7 +729,7 @@ router.get('/:id/meeting-notes', async (req, res) => {
     // Generate new meeting notes
     logger.info(`Generating meeting notes for transcript ${id}`);
     const aiService = require('../services/ai-service');
-    const notes = await aiService.generateMeetingNotes(transcript.content);
+    const notes = await aiService.generateMeetingNotes(transcript.content, req.profileId);
 
     // Save notes to database
     await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ? AND profile_id = ?', [notes, id, req.profileId]);

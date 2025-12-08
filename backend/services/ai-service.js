@@ -15,10 +15,28 @@ const PROVIDERS = {
 };
 
 /**
- * Get configured AI provider from database
+ * Get configured AI provider from profile preferences or fallback to global config
+ * @param {number} profileId - Profile ID to get preferences from
  */
-async function getAIProvider() {
+async function getAIProvider(profileId = 2) {
   const db = getDb();
+  
+  // Try to get from profile preferences first
+  if (profileId) {
+    const profileRow = await db.get('SELECT preferences FROM profiles WHERE id = ?', [profileId]);
+    if (profileRow && profileRow.preferences) {
+      try {
+        const prefs = JSON.parse(profileRow.preferences);
+        if (prefs.aiProvider) {
+          return prefs.aiProvider.trim();
+        }
+      } catch (e) {
+        // Invalid JSON, fall through to global config
+      }
+    }
+  }
+  
+  // Fallback to global config
   const row = await db.get('SELECT value FROM config WHERE key = ?', ['aiProvider']);
   return row?.value?.trim() || PROVIDERS.ANTHROPIC; // Default to Anthropic
 }
@@ -85,9 +103,11 @@ async function getOllamaBaseUrl() {
 }
 
 /**
- * Get configured model for the current provider
+ * Get configured model for the current provider from profile preferences or global config
+ * @param {string} provider - AI provider name
+ * @param {number} profileId - Profile ID to get preferences from
  */
-async function getModel(provider) {
+async function getModel(provider, profileId = 2) {
   const db = getDb();
   
   let modelKey;
@@ -105,6 +125,22 @@ async function getModel(provider) {
       modelKey = 'claudeModel';
   }
   
+  // Try to get from profile preferences first
+  if (profileId) {
+    const profileRow = await db.get('SELECT preferences FROM profiles WHERE id = ?', [profileId]);
+    if (profileRow && profileRow.preferences) {
+      try {
+        const prefs = JSON.parse(profileRow.preferences);
+        if (prefs[modelKey]) {
+          return prefs[modelKey].trim();
+        }
+      } catch (e) {
+        // Invalid JSON, fall through to global config
+      }
+    }
+  }
+  
+  // Fallback to global config
   const row = await db.get('SELECT value FROM config WHERE key = ?', [modelKey]);
   
   // Default models for each provider
@@ -125,10 +161,31 @@ async function getModel(provider) {
 }
 
 /**
- * Get configured max tokens or default
+ * Get configured max tokens from profile preferences or default
+ * @param {number} profileId - Profile ID to get preferences from
  */
-async function getMaxTokens() {
+async function getMaxTokens(profileId = 2) {
   const db = getDb();
+  
+  // Try to get from profile preferences first
+  if (profileId) {
+    const profileRow = await db.get('SELECT preferences FROM profiles WHERE id = ?', [profileId]);
+    if (profileRow && profileRow.preferences) {
+      try {
+        const prefs = JSON.parse(profileRow.preferences);
+        if (prefs.aiMaxTokens) {
+          const maxTokens = parseInt(prefs.aiMaxTokens);
+          if (!isNaN(maxTokens)) {
+            return Math.min(Math.max(maxTokens, 1000), 8192);
+          }
+        }
+      } catch (e) {
+        // Invalid JSON, fall through to global config
+      }
+    }
+  }
+  
+  // Fallback to global config
   const row = await db.get('SELECT value FROM config WHERE key = ?', ['aiMaxTokens']);
   const maxTokens = row?.value ? parseInt(row.value) : 4096;
   return isNaN(maxTokens) ? 4096 : Math.min(Math.max(maxTokens, 1000), 8192);
@@ -137,10 +194,10 @@ async function getMaxTokens() {
 /**
  * Call Anthropic API
  */
-async function callAnthropic(messages, systemPrompt = null, maxTokens = null) {
+async function callAnthropic(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
   const client = await getAnthropicClient();
-  const model = await getModel(PROVIDERS.ANTHROPIC);
-  const tokens = maxTokens || await getMaxTokens();
+  const model = await getModel(PROVIDERS.ANTHROPIC, profileId);
+  const tokens = maxTokens || await getMaxTokens(profileId);
   
   const params = {
     model,
@@ -168,10 +225,10 @@ async function callAnthropic(messages, systemPrompt = null, maxTokens = null) {
 /**
  * Call OpenAI API
  */
-async function callOpenAI(messages, systemPrompt = null, maxTokens = null) {
+async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
   const client = await getOpenAIClient();
-  const model = await getModel(PROVIDERS.OPENAI);
-  const tokens = maxTokens || await getMaxTokens();
+  const model = await getModel(PROVIDERS.OPENAI, profileId);
+  const tokens = maxTokens || await getMaxTokens(profileId);
   
   const messageArray = [];
   
@@ -206,10 +263,10 @@ async function callOpenAI(messages, systemPrompt = null, maxTokens = null) {
 /**
  * Call Ollama API
  */
-async function callOllama(messages, systemPrompt = null, maxTokens = null) {
+async function callOllama(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
   const baseUrl = await getOllamaBaseUrl();
-  const model = await getModel(PROVIDERS.OLLAMA);
-  const tokens = maxTokens || await getMaxTokens();
+  const model = await getModel(PROVIDERS.OLLAMA, profileId);
+  const tokens = maxTokens || await getMaxTokens(profileId);
   
   // Combine system prompt with messages
   const messageArray = [];
@@ -261,19 +318,23 @@ async function callOllama(messages, systemPrompt = null, maxTokens = null) {
 
 /**
  * Unified AI call function - automatically uses the configured provider
+ * @param {Array} messages - Array of message objects
+ * @param {string} systemPrompt - Optional system prompt
+ * @param {number} maxTokens - Optional max tokens override
+ * @param {number} profileId - Profile ID for preferences (default: 2)
  */
-async function callAI(messages, systemPrompt = null, maxTokens = null) {
-  const provider = await getAIProvider();
+async function callAI(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
+  const provider = await getAIProvider(profileId);
   
-  logger.info(`Using AI provider: ${provider}`);
+  logger.info(`Using AI provider: ${provider} for profile ${profileId}`);
   
   switch (provider) {
     case PROVIDERS.ANTHROPIC:
-      return await callAnthropic(messages, systemPrompt, maxTokens);
+      return await callAnthropic(messages, systemPrompt, maxTokens, profileId);
     case PROVIDERS.OPENAI:
-      return await callOpenAI(messages, systemPrompt, maxTokens);
+      return await callOpenAI(messages, systemPrompt, maxTokens, profileId);
     case PROVIDERS.OLLAMA:
-      return await callOllama(messages, systemPrompt, maxTokens);
+      return await callOllama(messages, systemPrompt, maxTokens, profileId);
     default:
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
@@ -281,17 +342,23 @@ async function callAI(messages, systemPrompt = null, maxTokens = null) {
 
 /**
  * Generate a response from a single prompt (convenience function)
+ * @param {string} prompt - User prompt
+ * @param {string} systemPrompt - Optional system prompt
+ * @param {number} maxTokens - Optional max tokens override
+ * @param {number} profileId - Profile ID for preferences (default: 2)
  */
-async function generateResponse(prompt, systemPrompt = null, maxTokens = null) {
+async function generateResponse(prompt, systemPrompt = null, maxTokens = null, profileId = 2) {
   const messages = [{ role: 'user', content: prompt }];
-  const result = await callAI(messages, systemPrompt, maxTokens);
+  const result = await callAI(messages, systemPrompt, maxTokens, profileId);
   return result.text;
 }
 
 /**
  * Generate meeting notes/recap from transcript content
+ * @param {string} transcriptContent - Transcript content
+ * @param {number} profileId - Profile ID for AI preferences
  */
-async function generateMeetingNotes(transcriptContent) {
+async function generateMeetingNotes(transcriptContent, profileId = 2) {
   const systemPrompt = `You are an expert meeting analyst. Generate a comprehensive yet concise meeting recap that captures the key information from the transcript.
 
 Your recap should include:
@@ -312,7 +379,7 @@ Provide a well-structured recap following the format requested.`;
   logger.info('Generating meeting notes from transcript');
   
   try {
-    const notes = await generateResponse(userPrompt, systemPrompt, 2000);
+    const notes = await generateResponse(userPrompt, systemPrompt, 2000, profileId);
     logger.info('Successfully generated meeting notes');
     return notes;
   } catch (error) {

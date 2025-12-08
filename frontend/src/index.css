@@ -3706,6 +3706,41 @@ summary {
   border: 1px solid rgba(234, 179, 8, 0.3);
 }
 
+/* Settings Section Dividers */
+.settings-section-divider {
+  margin: 3rem 0 2rem 0;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-section-header {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.settings-section-header .scope-badge {
+  margin-left: 0;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.settings-section-description {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.settings-section-description strong {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
 .section-note {
   margin: 0.75rem 0 1.5rem 0;
   padding: 0.75rem 1rem;

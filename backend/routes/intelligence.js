@@ -126,7 +126,7 @@ router.post('/estimate-effort', async (req, res) => {
       logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
       logger.info('Falling back to local implementation');
       const { estimateEffort } = require('./intelligence-local');
-      const result = await estimateEffort(description, context);
+      const result = await estimateEffort(description, context, req.profileId);
       return res.json(result);
     }
 
@@ -165,7 +165,7 @@ router.post('/classify-energy', async (req, res) => {
       logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
       logger.info('Falling back to local implementation');
       const { classifyEnergy } = require('./intelligence-local');
-      const result = await classifyEnergy(description);
+      const result = await classifyEnergy(description, req.profileId);
       return res.json(result);
     }
 
@@ -204,7 +204,7 @@ router.post('/cluster-tasks', async (req, res) => {
       logger.warn(`AI Intelligence microservice unavailable (${AI_INTELLIGENCE_URL}): ${microserviceErr.message}`);
       logger.info('Falling back to local implementation');
       const { clusterTasks } = require('./intelligence-local');
-      const result = await clusterTasks(tasks);
+      const result = await clusterTasks(tasks, req.profileId);
       return res.json(result);
     }
 
@@ -243,7 +243,7 @@ router.post('/parse-task', async (req, res) => {
       logger.warn(`NL Parser microservice unavailable (${NL_PARSER_URL}): ${microserviceErr.message}`);
       logger.info('Falling back to local implementation');
       const { parseTask } = require('./intelligence-local');
-      const result = await parseTask(text);
+      const result = await parseTask(text, req.profileId);
       return res.json(result);
     }
 
@@ -358,7 +358,7 @@ router.post('/extract-dates', async (req, res) => {
       logger.warn(`NL Parser microservice unavailable (${NL_PARSER_URL}): ${microserviceErr.message}`);
       logger.info('Falling back to local implementation');
       const { extractDates } = require('./intelligence-local');
-      const result = await extractDates(text);
+      const result = await extractDates(text, req.profileId);
       return res.json(result);
     }
 
@@ -398,7 +398,7 @@ router.post('/predict-completion', async (req, res) => {
       logger.info('Falling back to local effort estimation');
       // Use effort estimation as fallback
       const { estimateEffort } = require('./intelligence-local');
-      const result = await estimateEffort(task_description);
+      const result = await estimateEffort(task_description, '', req.profileId);
       return res.json(result);
     }
 
