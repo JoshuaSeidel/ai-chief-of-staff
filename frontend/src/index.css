@@ -3341,6 +3341,8 @@ summary {
     min-height: 44px;
     -webkit-appearance: none;
     box-sizing: border-box;
+    background-color: #18181b !important;
+    color: #e4e4e7 !important;
   }
   
   /* Ensure model selector maintains height */
