@@ -42,7 +42,7 @@ router.post('/generate', async (req, res) => {
 
     const transcriptsQuery = `
       SELECT * FROM transcripts 
-      WHERE upload_date >= ?
+      WHERE upload_date >= ? AND profile_id = ?
       ORDER BY upload_date DESC
     `;
 
