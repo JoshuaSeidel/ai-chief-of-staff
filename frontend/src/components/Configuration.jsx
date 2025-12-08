@@ -1038,32 +1038,15 @@ function Configuration() {
   return (
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="configuration">
-      {/* Active Profile Widget - Info Only */}
-      {currentProfile && (
-        <div className="card mb-lg">
-          <div className="profile-context-banner">
-            <span className="profile-icon" style={{ backgroundColor: currentProfile.color }}>
-              {currentProfile.icon}
-            </span>
-            <div className="profile-context-info">
-              <strong>Active Profile:</strong> {currentProfile.name}
-              <span className="profile-context-note">
-                Data like transcripts, briefs, and commitments are isolated per profile. 
-                Settings marked as <span className="scope-badge scope-global">🌐 Global</span> affect all profiles.
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="card">
         <ProfileManagement />
       </div>
 
+      {/* PROFILE-SPECIFIC SETTINGS CARD */}
       <div className="card">
-        <h2>Configuration</h2>
+        <h2>👤 Profile-Specific Settings</h2>
         <p className="text-muted-mb-lg">
-          Configure your AI Chief of Staff application settings. All settings persist across container restarts.
+          These settings are isolated per profile. Changes here only affect the current profile: <strong>{currentProfile?.name || 'Unknown'}</strong>
         </p>
 
         {message && (
@@ -1075,16 +1058,6 @@ function Configuration() {
             {message.text}
           </div>
         )}
-
-        {/* PROFILE-SPECIFIC SETTINGS SECTION - Most Used, Shown First */}
-        <div className="settings-section-divider">
-          <h2 className="settings-section-header">
-            <span className="scope-badge scope-profile">👤 Profile-Specific Settings</span>
-          </h2>
-          <p className="settings-section-description">
-            These settings are isolated per profile. Changes here only affect the current profile: <strong>{currentProfile?.name || 'Unknown'}</strong>
-          </p>
-        </div>
 
         {/* AI Provider Selection - Per Profile */}
         <div className="mb-xl">
@@ -1166,7 +1139,7 @@ function Configuration() {
             Enable or disable integrations for this profile. Only enabled integrations will be shown below.
           </p>
           
-          <div className="integration-box">
+          <div className="glass-panel">
             <label className="integration-label">
               <input
                 type="checkbox"
@@ -1238,13 +1211,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📅 Google Calendar Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">🗓️</span>
               Google Calendar (Recommended)
@@ -1404,13 +1371,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📅 Microsoft Integration (Calendar + Planner)</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">📅</span>
               Microsoft Outlook Calendar & Planner
@@ -1483,7 +1444,6 @@ function Configuration() {
                       fontSize: '1rem',
                       fontFamily: 'inherit',
                       marginBottom: '1rem',
-                      backgroundColor: '#18181b',
                       color: '#e5e5e7'
                     }}
                   >
@@ -1648,13 +1608,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>🎯 Jira Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">🎯</span>
               Jira (Cloud or On-Prem)
@@ -1734,7 +1688,6 @@ function Configuration() {
                     fontSize: '1rem',
                     fontFamily: 'inherit',
                     marginBottom: '1rem',
-                    backgroundColor: '#18181b',
                     color: '#e5e5e7'
                   }}
                 />
@@ -1785,13 +1738,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📋 Trello Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">📋</span>
               Trello Board Management
@@ -1894,7 +1841,6 @@ function Configuration() {
                         fontSize: '1rem',
                         fontFamily: 'inherit',
                         marginBottom: '1rem',
-                        backgroundColor: '#18181b',
                         color: '#e5e5e7'
                       }}
                     >
@@ -1920,7 +1866,6 @@ function Configuration() {
                             fontSize: '1rem',
                             fontFamily: 'inherit',
                             marginBottom: '1rem',
-                            backgroundColor: '#18181b',
                             color: '#e5e5e7'
                           }}
                         >
@@ -1950,13 +1895,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📊 Monday.com Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">📊</span>
               Monday.com Workspace
@@ -2045,7 +1984,6 @@ function Configuration() {
                         fontSize: '1rem',
                         fontFamily: 'inherit',
                         marginBottom: '1rem',
-                        backgroundColor: '#18181b',
                         color: '#e5e5e7'
                       }}
                     >
@@ -2071,7 +2009,6 @@ function Configuration() {
                             fontSize: '1rem',
                             fontFamily: 'inherit',
                             marginBottom: '1rem',
-                            backgroundColor: '#18181b',
                             color: '#e5e5e7'
                           }}
                         >
@@ -2101,13 +2038,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📆 CalDAV Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">📆</span>
               CalDAV Server (Radicale, Nextcloud, etc.)
@@ -2134,7 +2065,6 @@ function Configuration() {
                 fontSize: '1rem',
                 fontFamily: 'inherit',
                 marginBottom: '1rem',
-                backgroundColor: '#18181b',
                 color: '#e5e5e7'
               }}
             />
@@ -2158,7 +2088,6 @@ function Configuration() {
                 fontSize: '1rem',
                 fontFamily: 'inherit',
                 marginBottom: '1rem',
-                backgroundColor: '#18181b',
                 color: '#e5e5e7'
               }}
             />
@@ -2179,7 +2108,6 @@ function Configuration() {
                 fontSize: '1rem',
                 fontFamily: 'inherit',
                 marginBottom: '1rem',
-                backgroundColor: '#18181b',
                 color: '#e5e5e7'
               }}
             />
@@ -2488,7 +2416,6 @@ function Configuration() {
           ) : prompts.length === 0 ? (
             <div style={{ 
               padding: '2rem', 
-              backgroundColor: '#18181b', 
               borderRadius: '8px',
               border: '1px solid #3f3f46',
               textAlign: 'center'
@@ -2522,7 +2449,6 @@ function Configuration() {
                 style={{ 
                   marginBottom: '1rem',
                   padding: '1rem',
-                  backgroundColor: '#18181b',
                   borderRadius: '8px',
                   border: '1px solid #3f3f46'
                 }}
@@ -2646,16 +2572,14 @@ function Configuration() {
             ))
           )}
         </div>
+      </div>
 
-        {/* GLOBAL SETTINGS SECTION - Rarely Changed */}
-        <div className="settings-section-divider">
-          <h2 className="settings-section-header">
-            <span className="scope-badge scope-global">🌐 Global Settings</span>
-          </h2>
-          <p className="settings-section-description">
-            These settings apply to all profiles and require administrative access. Rarely changed.
-          </p>
-        </div>
+      {/* GLOBAL SETTINGS CARD */}
+      <div className="card">
+        <h2>🌐 Global Settings</h2>
+        <p className="text-muted-mb-lg">
+          These settings apply to all profiles and require administrative access. Rarely changed.
+        </p>
 
         {/* AI API Keys - Global */}
         <details open className="mb-2xl">
@@ -2770,7 +2694,6 @@ function Configuration() {
               fontSize: '1rem',
               fontFamily: 'inherit',
               marginBottom: '1rem',
-              backgroundColor: '#18181b',
               color: '#e5e5e7'
             }}
           >
@@ -2847,11 +2770,12 @@ function Configuration() {
         <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '1rem' }}>
           💾 All settings are saved to <code>/app/data/config.json</code> and the database, and persist across container restarts.
         </p>
-      </div>
 
-      {/* Notifications Card */}
-      <div className="card">
-        <h2>🔔 Push Notifications <ScopeBadge scope="global" /></h2>
+        {/* Separator */}
+        <div style={{ marginTop: '2rem', marginBottom: '2rem', borderTop: '1px solid #3f3f46' }}></div>
+
+        {/* Push Notifications */}
+        <h2>🔔 Push Notifications</h2>
         <p className="text-muted-mb-lg">
           Enable push notifications to receive task reminders, overdue alerts, and sync notifications on this device.
         </p>
@@ -3014,7 +2938,7 @@ function Configuration() {
         </button>
 
         {/* Notification Repeat Limits */}
-        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #3f3f46' }}>
+        <div className="glass-panel" style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #3f3f46' }}>
           <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#e4e4e7' }}>
             Notification Repeat Limits
           </h3>
@@ -3035,7 +2959,6 @@ function Configuration() {
               style={{ 
                 width: '100px',
                 padding: '0.5rem',
-                backgroundColor: '#18181b',
                 border: '1px solid #3f3f46',
                 borderRadius: '4px',
                 color: '#e4e4e7'
@@ -3062,7 +2985,6 @@ function Configuration() {
               style={{ 
                 width: '100px',
                 padding: '0.5rem',
-                backgroundColor: '#18181b',
                 border: '1px solid #3f3f46',
                 borderRadius: '4px',
                 color: '#e4e4e7'
@@ -3093,12 +3015,9 @@ function Configuration() {
           </button>
         </div>
 
-        <div style={{ 
+        <div className="glass-panel" style={{ 
           marginTop: '1.5rem', 
-          padding: '1rem', 
-          backgroundColor: '#1e3a5f', 
-          borderRadius: '8px',
-          border: '1px solid #2563eb' 
+          padding: '1rem'
         }}>
           <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#60a5fa' }}>📋 Notification Types</h3>
           <ul style={{ color: '#bfdbfe', fontSize: '0.9rem', lineHeight: '1.8', paddingLeft: '1.5rem' }}>

@@ -889,6 +889,10 @@ async function runMigrations() {
     const migration003 = require('./migrations/003_migrate_integrations_to_profiles');
     await migration003.runMigration(db, pool, dbType);
     
+    // Run migration 006: Fix profile_integrations schema (add missing columns)
+    const migration006 = require('./migrations/006_fix_profile_integrations_schema');
+    await migration006.runMigration(db, pool, dbType);
+    
     // Run migration 005: Add AI provider preferences to profiles
     const migration005 = require('./migrations/005_profile_ai_preferences');
     await migration005.runMigration(dbType === 'postgres' ? pool : db, dbType);
