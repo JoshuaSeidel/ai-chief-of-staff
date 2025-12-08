@@ -44,7 +44,9 @@ function App() {
 
     // Check for updates every 5 minutes
     const intervalId = setInterval(() => {
-      swRegistration.update();
+      swRegistration.update().catch((error) => {
+        console.log('Service worker update check failed:', error);
+      });
     }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(intervalId);
