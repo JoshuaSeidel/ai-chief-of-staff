@@ -32,10 +32,10 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
       [startDate.toISOString(), req.profileId]
     );
     
-    // Get completed tasks (only those created AND completed in time range)
+    // Get completed tasks (completed in time range, regardless of when created)
     const completedTasks = await db.all(
-      'SELECT * FROM commitments WHERE status = ? AND created_date >= ? AND completed_date >= ? AND profile_id = ? ORDER BY completed_date DESC',
-      ['completed', startDate.toISOString(), startDate.toISOString(), req.profileId]
+      'SELECT * FROM commitments WHERE status = ? AND completed_date >= ? AND completed_date IS NOT NULL AND profile_id = ? ORDER BY completed_date DESC',
+      ['completed', startDate.toISOString(), req.profileId]
     );
     
     // Get pending tasks
