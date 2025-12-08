@@ -445,16 +445,23 @@ router.post('/predict-completion', async (req, res) => {
         PATTERN_RECOGNITION_URL,
         '/predict-completion',
         'POST',
-        { task_description, user_id }
+        { task_description, user_id },
+        null,
+        { 'X-Profile-Id': (req.profileId || 2).toString() }
       );
       return res.json(result);
     } catch (microserviceErr) {
-      logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message}`);
-      logger.info('Falling back to local effort estimation');
-      // Use effort estimation as fallback
-      const { estimateEffort } = require('./intelligence-local');
-      const result = await estimateEffort(task_description, '', req.profileId);
-      return res.json(result);
+      // Only fallback for connection errors, not HTTP errors
+      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
+        logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message}`);
+        logger.info('Falling back to local effort estimation');
+        // Use effort estimation as fallback
+        const { estimateEffort } = require('./intelligence-local');
+        const result = await estimateEffort(task_description, '', req.profileId);
+        return res.json(result);
+      } else {
+        throw microserviceErr;
+      }
     }
 
   } catch (err) {
