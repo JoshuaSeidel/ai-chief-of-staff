@@ -19,6 +19,7 @@
     "@anthropic-ai/sdk": "^0.70.1",
     "@microsoft/microsoft-graph-client": "^3.0.7",
     "axios": "^1.6.7",
+    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",

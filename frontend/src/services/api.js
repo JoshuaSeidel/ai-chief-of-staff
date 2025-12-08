@@ -122,5 +122,16 @@ export const microservicesAPI = {
     api.get('/config/microservices'),
 };
 
+// Profiles API
+export const profilesAPI = {
+  getAll: () => api.get('/profiles'),
+  getById: (id) => api.get(`/profiles/${id}`),
+  create: (data) => api.post('/profiles', data),
+  update: (id, data) => api.put(`/profiles/${id}`, data),
+  delete: (id, migrateToProfileId) => api.delete(`/profiles/${id}`, { data: { migrateToProfileId } }),
+  setDefault: (id) => api.post(`/profiles/${id}/set-default`),
+  reorder: (profileIds) => api.post('/profiles/reorder', { profileIds }),
+};
+
 export default api;
 // Version 2.0.0 - Force rebuild

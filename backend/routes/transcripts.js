@@ -13,11 +13,12 @@ const logger = createModuleLogger('TRANSCRIPTS');
 /**
  * Save all task types (commitments, actions, follow-ups, risks) and create calendar events
  */
-async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
-  const isGoogleConnected = await googleCalendar.isConnected();
-  const isMicrosoftConnected = await microsoftPlanner.isConnected();
-  const isJiraConnected = await jira.isConnected();
-  logger.info(`Google Calendar connected: ${isGoogleConnected}, Microsoft Planner connected: ${isMicrosoftConnected}, Jira connected: ${isJiraConnected}`);
+async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
+  const profileId = req.profileId || 2;
+  const isGoogleConnected = await googleCalendar.isConnected(profileId);
+  const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
+  const isJiraConnected = await jira.isConnected(profileId);
+  logger.info(`Profile ${profileId} - Google Calendar connected: ${isGoogleConnected}, Microsoft Planner connected: ${isMicrosoftConnected}, Jira connected: ${isJiraConnected}`);
 
   // Get user names from config
   let userNames = [];
@@ -56,7 +57,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
   
   // Prepare statement for all task types (with needs_confirmation)
   const stmt = db.prepare(
-    'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach, task_type, priority, status, needs_confirmation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach, task_type, priority, status, needs_confirmation, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
 
   // Save commitments
@@ -106,7 +107,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         'commitment',
         item.urgency || 'medium',
         'pending',
-        getBooleanValue(requiresConfirmation) // needs_confirmation
+        getBooleanValue(requiresConfirmation), // needs_confirmation
+        req.profileId
       );
       
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
@@ -117,8 +119,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         // Create Google Calendar event
         if (isGoogleConnected) {
           try {
-            const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
-            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
+            const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
+            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
             calendarEventsCreated++;
           } catch (calError) {
             logger.warn(`Failed to create calendar event: ${calError.message}`);
@@ -128,8 +130,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         // Create Microsoft Planner task
         if (isMicrosoftConnected) {
           try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
-            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ?', [microsoftTask.id, insertedId]);
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
+            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
             logger.info(`Created Microsoft task ${microsoftTask.id} for commitment ${insertedId}`);
           } catch (msError) {
             logger.warn(`Failed to create Microsoft task: ${msError.message}`);
@@ -141,8 +143,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       // Create Jira issue for all commitments (regardless of deadline or assignment)
       if (isJiraConnected) {
         try {
-          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'commitment' });
-          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, req.profileId);
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?', [jiraIssue.key, insertedId, req.profileId]);
           logger.info(`Created Jira issue ${jiraIssue.key} for commitment ${insertedId}`);
         } catch (jiraError) {
           logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
@@ -169,7 +171,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         'action',
         item.priority || 'medium',
         'pending',
-        getBooleanValue(requiresConfirmation)
+        getBooleanValue(requiresConfirmation),
+        req.profileId
       );
       
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
@@ -180,8 +183,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         // Create Google Calendar event
         if (isGoogleConnected) {
           try {
-            const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' });
-            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
+            const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
+            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
             calendarEventsCreated++;
           } catch (calError) {
             logger.warn(`Failed to create calendar event: ${calError.message}`);
@@ -191,8 +194,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         // Create Microsoft Planner task
         if (isMicrosoftConnected) {
           try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'action' });
-            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ?', [microsoftTask.id, insertedId]);
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
+            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
             logger.info(`Created Microsoft task ${microsoftTask.id} for action ${insertedId}`);
           } catch (msError) {
             logger.warn(`Failed to create Microsoft task: ${msError.message}`);
@@ -204,8 +207,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       // Create Jira issue for all actions (regardless of deadline or assignment)
       if (isJiraConnected) {
         try {
-          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'action' });
-          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, id: insertedId, task_type: 'action' }, req.profileId);
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?', [jiraIssue.key, insertedId, req.profileId]);
           logger.info(`Created Jira issue ${jiraIssue.key} for action ${insertedId}`);
         } catch (jiraError) {
           logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
@@ -233,7 +236,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         'follow-up',
         item.priority || 'medium',
         'pending',
-        getBooleanValue(requiresConfirmation)
+        getBooleanValue(requiresConfirmation),
+        req.profileId
       );
       
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
@@ -244,8 +248,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         // Create Google Calendar event
         if (isGoogleConnected) {
           try {
-            const event = await googleCalendar.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
-            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
+            const event = await googleCalendar.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
+            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
             calendarEventsCreated++;
           } catch (calError) {
             logger.warn(`Failed to create calendar event: ${calError.message}`);
@@ -255,8 +259,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         // Create Microsoft Planner task
         if (isMicrosoftConnected) {
           try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
-            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ?', [microsoftTask.id, insertedId]);
+            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
+            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
             logger.info(`Created Microsoft task ${microsoftTask.id} for follow-up ${insertedId}`);
           } catch (msError) {
             logger.warn(`Failed to create Microsoft task: ${msError.message}`);
@@ -268,8 +272,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
       // Create Jira issue for all follow-ups (regardless of deadline or assignment)
       if (isJiraConnected) {
         try {
-          const jiraIssue = await jira.createIssueFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' });
-          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          const jiraIssue = await jira.createIssueFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, req.profileId);
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?', [jiraIssue.key, insertedId, req.profileId]);
           logger.info(`Created Jira issue ${jiraIssue.key} for follow-up ${insertedId}`);
         } catch (jiraError) {
           logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
@@ -293,7 +297,8 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted) {
         'risk',
         item.impact || 'high',
         'pending',
-        getBooleanValue(false) // needs_confirmation = false for risks
+        getBooleanValue(false), // needs_confirmation = false for risks
+        req.profileId
       );
       
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
@@ -351,8 +356,8 @@ router.post('/upload', (req, res) => {
 
       // Save to database with processing status
       const result = await db.run(
-        'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress) VALUES (?, ?, ?, ?, ?, ?)',
-        [req.file.originalname, content, 'upload', meetingDate, 'processing', 0]
+        'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [req.file.originalname, content, 'upload', meetingDate, 'processing', 0, req.profileId]
       );
 
       const transcriptId = result.lastID;
@@ -375,7 +380,7 @@ router.post('/upload', (req, res) => {
 
       // Process in background
       const transcript = { id: transcriptId, filename: req.file.originalname, content, meeting_date: meetingDate };
-      processTranscriptAsync(transcriptId, transcript, db).catch(err => {
+      processTranscriptAsync(transcriptId, transcript, db, req).catch(err => {
         logger.error(`Background processing error for transcript ${transcriptId}:`, err);
       });
     } catch (error) {
@@ -408,8 +413,8 @@ router.post('/upload-text', async (req, res) => {
 
     // Save to database with processing status
     const result = await db.run(
-      'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress) VALUES (?, ?, ?, ?, ?, ?)',
-      [filename, content, source || 'manual', meetingDateValue, 'processing', 0]
+      'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [filename, content, source || 'manual', meetingDateValue, 'processing', 0, req.profileId]
     );
 
     const transcriptId = result.lastID;
@@ -425,7 +430,7 @@ router.post('/upload-text', async (req, res) => {
 
     // Process in background
     const transcript = { id: transcriptId, filename, content, meeting_date: meetingDateValue };
-    processTranscriptAsync(transcriptId, transcript, db).catch(err => {
+    processTranscriptAsync(transcriptId, transcript, db, req).catch(err => {
       logger.error(`Background processing error for transcript ${transcriptId}:`, err);
     });
   } catch (error) {
@@ -447,8 +452,8 @@ router.get('/', async (req, res) => {
   try {
     const db = getDb();
     const rows = await db.all(
-      'SELECT id, filename, upload_date, processed, source, processing_status, processing_progress FROM transcripts ORDER BY upload_date DESC LIMIT ?',
-      [limit]
+      'SELECT id, filename, upload_date, processed, source, processing_status, processing_progress FROM transcripts WHERE profile_id = ? ORDER BY upload_date DESC LIMIT ?',
+      [req.profileId, limit]
     );
     
     logger.info(`Returning ${rows.length} transcripts`);
@@ -472,8 +477,8 @@ router.get('/:id', async (req, res) => {
   try {
     const db = getDb();
     const row = await db.get(
-      'SELECT * FROM transcripts WHERE id = ?',
-      [id]
+      'SELECT * FROM transcripts WHERE id = ? AND profile_id = ?',
+      [id, req.profileId]
     );
     
     if (!row) {
@@ -502,8 +507,8 @@ router.delete('/:id', async (req, res) => {
   try {
     const db = getDb();
     const result = await db.run(
-      'DELETE FROM transcripts WHERE id = ?',
-      [id]
+      'DELETE FROM transcripts WHERE id = ? AND profile_id = ?',
+      [id, req.profileId]
     );
     
     if (result.changes === 0) {
@@ -532,8 +537,8 @@ router.get('/:id/commitments', async (req, res) => {
   try {
     const db = getDb();
     const rows = await db.all(
-      'SELECT * FROM commitments WHERE transcript_id = ? ORDER BY created_date DESC',
-      [id]
+      'SELECT * FROM commitments WHERE transcript_id = ? AND profile_id = ? ORDER BY created_date DESC',
+      [id, req.profileId]
     );
     
     logger.info(`Found ${rows.length} commitments for transcript ${id}`);
@@ -557,8 +562,8 @@ router.get('/:id/context', async (req, res) => {
   try {
     const db = getDb();
     const rows = await db.all(
-      'SELECT * FROM context WHERE transcript_id = ? ORDER BY created_date DESC',
-      [id]
+      'SELECT * FROM context WHERE transcript_id = ? AND profile_id = ? ORDER BY created_date DESC',
+      [id, req.profileId]
     );
     
     logger.info(`Found ${rows.length} context items for transcript ${id}`);
@@ -583,7 +588,7 @@ router.post('/:id/reprocess', async (req, res) => {
     const db = getDb();
     
     // Get the transcript
-    const transcript = await db.get('SELECT * FROM transcripts WHERE id = ?', [id]);
+    const transcript = await db.get('SELECT * FROM transcripts WHERE id = ? AND profile_id = ?', [id, req.profileId]);
     
     if (!transcript) {
       logger.warn(`Transcript ${id} not found for reprocessing`);
@@ -591,7 +596,7 @@ router.post('/:id/reprocess', async (req, res) => {
     }
     
     // Set status to processing immediately
-    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ? WHERE id = ?', ['processing', 0, id]);
+    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ? WHERE id = ? AND profile_id = ?', ['processing', 0, id, req.profileId]);
     
     logger.info(`Reprocessing transcript: ${transcript.filename}`);
     
@@ -603,7 +608,7 @@ router.post('/:id/reprocess', async (req, res) => {
     });
     
     // Process in background
-    processTranscriptAsync(id, transcript, db).catch(err => {
+    processTranscriptAsync(id, transcript, db, req).catch(err => {
       logger.error(`Background processing error for transcript ${id}:`, err);
     });
     
@@ -619,21 +624,21 @@ router.post('/:id/reprocess', async (req, res) => {
 /**
  * Process transcript in background
  */
-async function processTranscriptAsync(id, transcript, db) {
+async function processTranscriptAsync(id, transcript, db, req) {
   try {
     // Update progress: Deleting old data
-    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [10, id]);
+    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ? AND profile_id = ?', [10, id, req.profileId]);
     
     // Delete existing commitments and context for this transcript
     // Get existing calendar event IDs before deleting
-    const existingTasks = await db.all('SELECT calendar_event_id FROM commitments WHERE transcript_id = ? AND calendar_event_id IS NOT NULL', [id]);
+    const existingTasks = await db.all('SELECT calendar_event_id FROM commitments WHERE transcript_id = ? AND profile_id = ? AND calendar_event_id IS NOT NULL', [id, req.profileId]);
     const eventIdsToDelete = existingTasks.map(t => t.calendar_event_id).filter(Boolean);
     
     // Delete calendar events if Google Calendar is connected
-    if (eventIdsToDelete.length > 0 && await googleCalendar.isConnected()) {
+    if (eventIdsToDelete.length > 0 && await googleCalendar.isConnected(req.profileId)) {
       logger.info(`Deleting ${eventIdsToDelete.length} calendar events for transcript ${id}`);
       try {
-        await googleCalendar.deleteEvents(eventIdsToDelete);
+        await googleCalendar.deleteEvents(eventIdsToDelete, req.profileId);
         logger.info(`Deleted calendar events successfully`);
       } catch (calError) {
         logger.warn(`Failed to delete some calendar events:`, calError.message);
@@ -641,16 +646,16 @@ async function processTranscriptAsync(id, transcript, db) {
     }
     
     // Delete tasks and context from database
-    await db.run('DELETE FROM commitments WHERE transcript_id = ?', [id]);
-    await db.run('DELETE FROM context WHERE transcript_id = ?', [id]);
+    await db.run('DELETE FROM commitments WHERE transcript_id = ? AND profile_id = ?', [id, req.profileId]);
+    await db.run('DELETE FROM context WHERE transcript_id = ? AND profile_id = ?', [id, req.profileId]);
     logger.info(`Cleared existing tasks and context for transcript ${id}`);
     
     // Update progress: Extracting with AI
-    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [30, id]);
+    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ? AND profile_id = ?', [30, id, req.profileId]);
     
     // Extract commitments using Claude (use meeting_date if available)
     const meetingDate = transcript.meeting_date || null;
-    const extracted = await extractCommitments(transcript.content, meetingDate);
+    const extracted = await extractCommitments(transcript.content, meetingDate, req.profileId);
     logger.info('Commitments extracted successfully', {
       commitments: extracted.commitments?.length || 0,
       actionItems: extracted.actionItems?.length || 0,
@@ -658,19 +663,19 @@ async function processTranscriptAsync(id, transcript, db) {
     });
     
     // Update progress: Saving tasks
-    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [70, id]);
+    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ? AND profile_id = ?', [70, id, req.profileId]);
     
     // Save commitments and create calendar events
-    const taskStats = await saveAllTasksWithCalendar(db, id, extracted);
+    const taskStats = await saveAllTasksWithCalendar(db, id, extracted, req);
     
     // Update progress: Generating meeting notes
-    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ?', [85, id]);
+    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ? AND profile_id = ?', [85, id, req.profileId]);
     
     // Generate meeting notes
     try {
       const aiService = require('../services/ai-service');
-      const meetingNotes = await aiService.generateMeetingNotes(transcript.content);
-      await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ?', [meetingNotes, id]);
+      const meetingNotes = await aiService.generateMeetingNotes(transcript.content, req.profileId);
+      await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ? AND profile_id = ?', [meetingNotes, id, req.profileId]);
       logger.info(`Generated meeting notes for transcript ${id}`);
     } catch (notesError) {
       logger.warn(`Failed to generate meeting notes for transcript ${id}:`, notesError.message);
@@ -678,8 +683,8 @@ async function processTranscriptAsync(id, transcript, db) {
     }
     
     // Update progress: Complete
-    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ?', 
-      ['completed', 100, true, id]);
+    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ? AND profile_id = ?', 
+      ['completed', 100, true, id, req.profileId]);
     
     logger.info(`Transcript ${id} reprocessing completed successfully`, taskStats);
     
@@ -687,8 +692,8 @@ async function processTranscriptAsync(id, transcript, db) {
     logger.error(`Error in background processing for transcript ${id}:`, error);
     
     // Mark as failed
-    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ?', 
-      ['failed', 0, true, id]);
+    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ? AND profile_id = ?', 
+      ['failed', 0, true, id, req.profileId]);
   }
 }
 
@@ -705,7 +710,7 @@ router.get('/:id/meeting-notes', async (req, res) => {
     logger.info(`Fetching meeting notes for transcript ${id}`, { regenerate: regenerate === 'true' });
 
     // Get transcript
-    const transcript = await db.get('SELECT * FROM transcripts WHERE id = ?', [id]);
+    const transcript = await db.get('SELECT * FROM transcripts WHERE id = ? AND profile_id = ?', [id, req.profileId]);
     
     if (!transcript) {
       return res.status(404).json({ success: false, message: 'Transcript not found' });
@@ -724,10 +729,10 @@ router.get('/:id/meeting-notes', async (req, res) => {
     // Generate new meeting notes
     logger.info(`Generating meeting notes for transcript ${id}`);
     const aiService = require('../services/ai-service');
-    const notes = await aiService.generateMeetingNotes(transcript.content);
+    const notes = await aiService.generateMeetingNotes(transcript.content, req.profileId);
 
     // Save notes to database
-    await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ?', [notes, id]);
+    await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ? AND profile_id = ?', [notes, id, req.profileId]);
     
     logger.info(`Meeting notes generated and saved for transcript ${id}`);
 
@@ -764,14 +769,14 @@ router.post('/:id/meeting-notes', async (req, res) => {
     logger.info(`Saving manual meeting notes for transcript ${id}`);
 
     // Verify transcript exists
-    const transcript = await db.get('SELECT id FROM transcripts WHERE id = ?', [id]);
+    const transcript = await db.get('SELECT id FROM transcripts WHERE id = ? AND profile_id = ?', [id, req.profileId]);
     
     if (!transcript) {
       return res.status(404).json({ success: false, message: 'Transcript not found' });
     }
 
     // Save notes
-    await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ?', [notes, id]);
+    await db.run('UPDATE transcripts SET meeting_notes = ? WHERE id = ? AND profile_id = ?', [notes, id, req.profileId]);
     
     logger.info(`Meeting notes manually saved for transcript ${id}`);
 

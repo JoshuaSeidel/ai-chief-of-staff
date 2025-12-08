@@ -7,11 +7,12 @@ const logger = createModuleLogger('GOOGLE-CALENDAR');
 
 /**
  * Get OAuth2 client with credentials from database
+ * @param {number} profileId - Profile ID to get tokens for
  */
-async function getOAuthClient() {
+async function getOAuthClient(profileId = 2) {
   const db = getDb();
   
-  // Get Google OAuth credentials from config
+  // Get Google OAuth credentials from config (global settings)
   const clientIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientId']);
   const clientSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientSecret']);
   
@@ -34,11 +35,15 @@ async function getOAuthClient() {
     redirectUri
   );
   
-  // Get stored access token if exists
-  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleCalendarToken']);
-  if (tokenRow && tokenRow.value) {
+  // Get stored access token for this profile from profile_integrations
+  const tokenRow = await db.get(
+    'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'calendar', 'google']
+  );
+  
+  if (tokenRow && tokenRow.token_data) {
     try {
-      const tokens = JSON.parse(tokenRow.value);
+      const tokens = JSON.parse(tokenRow.token_data);
       oauth2Client.setCredentials(tokens);
     } catch (err) {
       logger.warn('Failed to parse stored token', err);
@@ -69,38 +74,51 @@ async function getAuthUrl() {
 
 /**
  * Exchange authorization code for tokens
+ * @param {string} code - OAuth authorization code
+ * @param {number} profileId - Profile ID to associate tokens with
  */
-async function getTokenFromCode(code) {
-  const oauth2Client = await getOAuthClient();
+async function getTokenFromCode(code, profileId = 2) {
+  const oauth2Client = await getOAuthClient(profileId);
   const { tokens } = await oauth2Client.getToken(code);
   
-  // Store tokens in database
+  // Store tokens in profile_integrations table
   const db = getDb();
   await db.run(
-    'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-    ['googleCalendarToken', JSON.stringify(tokens)]
+    `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     ON CONFLICT (profile_id, integration_type, integration_name)
+     DO UPDATE SET token_data = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
+    [profileId, 'calendar', 'google', JSON.stringify(tokens), true, JSON.stringify(tokens), true]
   );
   
-  logger.info('Google Calendar tokens stored successfully');
+  logger.info(`Google Calendar tokens stored successfully for profile ${profileId}`);
   return tokens;
 }
 
 /**
- * Check if user has connected Google Calendar
+ * Check if user has connected Google Calendar for a profile
+ * @param {number} profileId - Profile ID to check
  */
-async function isConnected() {
+async function isConnected(profileId = 2) {
   const db = getDb();
-  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleCalendarToken']);
-  return !!(tokenRow && tokenRow.value);
+  const tokenRow = await db.get(
+    'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ? AND is_enabled = ?',
+    [profileId, 'calendar', 'google', true]
+  );
+  return !!(tokenRow && tokenRow.token_data);
 }
 
 /**
- * Disconnect Google Calendar
+ * Disconnect Google Calendar for a profile
+ * @param {number} profileId - Profile ID to disconnect
  */
-async function disconnect() {
+async function disconnect(profileId = 2) {
   const db = getDb();
-  await db.run('DELETE FROM config WHERE key = ?', ['googleCalendarToken']);
-  logger.info('Google Calendar disconnected');
+  await db.run(
+    'DELETE FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'calendar', 'google']
+  );
+  logger.info(`Google Calendar disconnected for profile ${profileId}`);
 }
 
 /**
@@ -116,10 +134,12 @@ async function getCalendarId() {
 
 /**
  * Create a calendar event
+ * @param {object} eventData - Event data
+ * @param {number} profileId - Profile ID to use
  */
-async function createEvent(eventData) {
+async function createEvent(eventData, profileId = 2) {
   try {
-    const oauth2Client = await getOAuthClient();
+    const oauth2Client = await getOAuthClient(profileId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     const calendarId = await getCalendarId();
     
@@ -163,10 +183,12 @@ async function createEvent(eventData) {
 
 /**
  * List upcoming events
+ * @param {number} maxResults - Maximum number of results
+ * @param {number} profileId - Profile ID to use
  */
-async function listEvents(maxResults = 50) {
+async function listEvents(maxResults = 50, profileId = 2) {
   try {
-    const oauth2Client = await getOAuthClient();
+    const oauth2Client = await getOAuthClient(profileId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     const calendarId = await getCalendarId();
     
@@ -198,8 +220,10 @@ async function listEvents(maxResults = 50) {
 
 /**
  * Create calendar event from commitment
+ * @param {object} commitment - Commitment/task data
+ * @param {number} profileId - Profile ID to use
  */
-async function createEventFromCommitment(commitment) {
+async function createEventFromCommitment(commitment, profileId = 2) {
   try {
     // Parse deadline to create event time
     const deadline = new Date(commitment.deadline);
@@ -223,7 +247,7 @@ async function createEventFromCommitment(commitment) {
     logger.info(`Generating AI description for task: ${commitment.description.substring(0, 50)}...`);
     let description;
     try {
-      description = await generateEventDescription(commitment, commitment.transcriptContext);
+      description = await generateEventDescription(commitment, commitment.transcriptContext, profileId);
     } catch (err) {
       logger.warn('Failed to generate AI description, using fallback', err.message);
       // Fallback to basic description
@@ -260,7 +284,7 @@ async function createEventFromCommitment(commitment) {
       endTime,
       description,
       timeZone: 'America/New_York'
-    });
+    }, profileId);
     
     logger.info(`Created calendar event for ${taskType} ${commitment.id}: ${event.id}`);
     return event;
@@ -272,10 +296,12 @@ async function createEventFromCommitment(commitment) {
 
 /**
  * Delete a calendar event by ID
+ * @param {string} eventId - Calendar event ID
+ * @param {number} profileId - Profile ID to use
  */
-async function deleteEvent(eventId) {
+async function deleteEvent(eventId, profileId = 2) {
   try {
-    const oauth2Client = await getOAuthClient();
+    const oauth2Client = await getOAuthClient(profileId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     
     const db = getDb();
@@ -301,12 +327,14 @@ async function deleteEvent(eventId) {
 
 /**
  * Delete multiple calendar events by IDs
+ * @param {string[]} eventIds - Array of calendar event IDs
+ * @param {number} profileId - Profile ID to use
  */
-async function deleteEvents(eventIds) {
+async function deleteEvents(eventIds, profileId = 2) {
   const results = [];
   for (const eventId of eventIds) {
     try {
-      const deleted = await deleteEvent(eventId);
+      const deleted = await deleteEvent(eventId, profileId);
       results.push({ eventId, deleted });
     } catch (error) {
       logger.error(`Failed to delete event ${eventId}:`, error.message);
@@ -318,10 +346,11 @@ async function deleteEvents(eventIds) {
 
 /**
  * List all calendars accessible to the user
+ * @param {number} profileId - Profile ID to use
  */
-async function listCalendars() {
+async function listCalendars(profileId = 2) {
   try {
-    const oauth2Client = await getOAuthClient();
+    const oauth2Client = await getOAuthClient(profileId);
     const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
     
     const response = await calendar.calendarList.list();

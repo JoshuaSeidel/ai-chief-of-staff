@@ -6,6 +6,8 @@ import Calendar from './components/Calendar';
 import Tasks from './components/Tasks';
 import Intelligence from './components/Intelligence';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import ProfileSelector from './components/ProfileSelector';
+import { ProfileProvider } from './contexts/ProfileContext';
 
 function App() {
   // Get initial tab from URL hash or default to dashboard
@@ -149,22 +151,24 @@ function App() {
   };
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="header-content">
-          <h1>AI Chief of Staff</h1>
-          <button 
-            className="mobile-menu-toggle"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            <span className={`hamburger ${mobileMenuOpen ? 'open' : ''}`}>
-              <span></span>
-              <span></span>
-              <span></span>
-            </span>
-          </button>
-        </div>
+    <ProfileProvider>
+      <div className="app">
+        <header className="header">
+          <div className="header-content">
+            <h1>AI Chief of Staff</h1>
+            <ProfileSelector />
+            <button 
+              className="mobile-menu-toggle"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              <span className={`hamburger ${mobileMenuOpen ? 'open' : ''}`}>
+                <span></span>
+                <span></span>
+                <span></span>
+              </span>
+            </button>
+          </div>
         <nav className={`nav ${mobileMenuOpen ? 'mobile-open' : ''}`}>
           {navItems.map(item => (
             <button 
@@ -223,6 +227,7 @@ function App() {
         </div>
       )}
     </div>
+    </ProfileProvider>
   );
 }
 

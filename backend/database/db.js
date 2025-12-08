@@ -881,6 +881,26 @@ async function runMigrations() {
   try {
     dbLogger.info('Running database migrations...');
     
+    // Run migration 002: Add profiles system
+    const migration002 = require('./migrations/002_add_profiles');
+    await migration002.runMigration(db, pool, dbType);
+    
+    // Run migration 003: Migrate existing integrations to profiles
+    const migration003 = require('./migrations/003_migrate_integrations_to_profiles');
+    await migration003.runMigration(db, pool, dbType);
+    
+    // Run migration 004: Add completion_note to commitments table
+    const migration004 = require('./migrations/004_add_completion_note');
+    await migration004.runMigration(db, pool, dbType);
+    
+    // Run migration 006: Fix profile_integrations schema (add missing columns)
+    const migration006 = require('./migrations/006_fix_profile_integrations_schema');
+    await migration006.runMigration(db, pool, dbType);
+    
+    // Run migration 005: Add AI provider preferences to profiles
+    const migration005 = require('./migrations/005_profile_ai_preferences');
+    await migration005.runMigration(dbType === 'postgres' ? pool : db, dbType);
+    
     if (dbType === 'postgres') {
       // Migration 1: Add urgency and suggested_approach columns to commitments table
       try {

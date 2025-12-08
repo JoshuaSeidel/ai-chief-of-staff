@@ -31,8 +31,8 @@ router.post('/email', async (req, res) => {
     // Save email as transcript
     const filename = `Email: ${subject || 'No Subject'}.txt`;
     const result = await db.run(
-      'INSERT INTO transcripts (filename, content, source) VALUES (?, ?, ?)',
-      [filename, content, 'email']
+      'INSERT INTO transcripts (filename, content, source, profile_id) VALUES (?, ?, ?, ?)',
+      [filename, content, 'email', req.profileId]
     );
 
     const transcriptId = result.lastID;
@@ -41,15 +41,15 @@ router.post('/email', async (req, res) => {
     try {
       // Extract commitments using Claude
       logger.info('Extracting commitments from email...');
-      const extracted = await extractCommitments(content);
+      const extracted = await extractCommitments(content, null, req.profileId);
       logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
 
       // Save commitments
       if (extracted.commitments && extracted.commitments.length > 0) {
-        const stmt = db.prepare('INSERT INTO commitments (transcript_id, description, assignee, deadline) VALUES (?, ?, ?, ?)');
+        const stmt = db.prepare('INSERT INTO commitments (transcript_id, description, assignee, deadline, profile_id) VALUES (?, ?, ?, ?, ?)');
         
         for (const commitment of extracted.commitments) {
-          stmt.run(transcriptId, commitment.description, commitment.assignee || null, commitment.deadline || null);
+          stmt.run(transcriptId, commitment.description, commitment.assignee || null, commitment.deadline || null, req.profileId);
         }
         
         await stmt.finalize();
@@ -58,10 +58,10 @@ router.post('/email', async (req, res) => {
 
       // Save context items
       if (extracted.actionItems && extracted.actionItems.length > 0) {
-        const stmt = db.prepare('INSERT INTO context (transcript_id, context_type, content, priority) VALUES (?, ?, ?, ?)');
+        const stmt = db.prepare('INSERT INTO context (transcript_id, context_type, content, priority, profile_id) VALUES (?, ?, ?, ?, ?)');
         
         for (const item of extracted.actionItems) {
-          stmt.run(transcriptId, 'action_item', item.description, item.priority || 'medium');
+          stmt.run(transcriptId, 'action_item', item.description, item.priority || 'medium', req.profileId);
         }
         
         await stmt.finalize();

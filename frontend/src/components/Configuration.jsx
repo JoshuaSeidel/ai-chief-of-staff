@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { configAPI, intelligenceAPI, microservicesAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
+import ProfileManagement from './ProfileManagement';
+import { useProfile } from '../contexts/ProfileContext';
+
+// Scope badge component
+function ScopeBadge({ scope }) {
+  if (scope === 'profile') {
+    return <span className="scope-badge scope-profile" title="This setting is specific to the current profile">👤 Profile</span>;
+  }
+  if (scope === 'global') {
+    return <span className="scope-badge scope-global" title="This setting applies to all profiles">🌐 Global</span>;
+  }
+  return null;
+}
 
 // Version info component
 function VersionInfo() {
@@ -87,6 +100,7 @@ function VersionInfo() {
 }
 
 function Configuration() {
+  const { currentProfile } = useProfile();
   const [config, setConfig] = useState({
     aiProvider: 'anthropic',
     anthropicApiKey: '',
@@ -96,6 +110,7 @@ function Configuration() {
     ollamaBaseUrl: 'http://localhost:11434',
     ollamaModel: 'llama3.1',
     aiMaxTokens: '4096',
+    aiTemperature: '0.7',
     plaudApiKey: '',
     plaudApiUrl: 'https://api.plaud.ai',
     googleClientId: '',
@@ -394,6 +409,7 @@ function Configuration() {
         ollamaBaseUrl: appData.ollamaBaseUrl || 'http://localhost:11434',
         ollamaModel: appData.ollamaModel || 'llama3.1',
         aiMaxTokens: appData.aiMaxTokens || appData.claudeMaxTokens || '4096',
+        aiTemperature: appData.aiTemperature !== undefined ? appData.aiTemperature : '0.7',
         plaudApiKey: appData.plaudApiKey ? '••••••••' : '',
         plaudApiUrl: appData.plaudApiUrl || 'https://api.plaud.ai',
         googleClientId: appData.googleClientId || '',
@@ -861,6 +877,7 @@ function Configuration() {
       appUpdates.ollamaBaseUrl = config.ollamaBaseUrl;
       appUpdates.ollamaModel = config.ollamaModel;
       appUpdates.aiMaxTokens = config.aiMaxTokens;
+      appUpdates.aiTemperature = config.aiTemperature !== undefined ? config.aiTemperature : '0.7';
       appUpdates.plaudApiUrl = config.plaudApiUrl;
       
       // Save API keys only if they've been changed (not masked anymore)
@@ -1025,9 +1042,14 @@ function Configuration() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="configuration">
       <div className="card">
-        <h2>Configuration</h2>
+        <ProfileManagement />
+      </div>
+
+      {/* PROFILE-SPECIFIC SETTINGS CARD */}
+      <div className="card">
+        <h2>👤 Profile-Specific Settings</h2>
         <p className="text-muted-mb-lg">
-          Configure your AI Chief of Staff application settings. All settings persist across container restarts.
+          These settings are isolated per profile. Changes here only affect the current profile: <strong>{currentProfile?.name || 'Unknown'}</strong>
         </p>
 
         {message && (
@@ -1040,60 +1062,14 @@ function Configuration() {
           </div>
         )}
 
-        {/* Old AI Provider Configuration section removed - now consolidated in AI Models & Providers below */}
-
-        {/* Plaud Integration - Hidden until implemented */}
-        {false && (
-          <div className="mb-xl">
-            <h3>Plaud Integration</h3>
-            <label className="form-label-muted">
-              Plaud API Key (Optional)
-            </label>
-            <input
-              type="password"
-              value={config.plaudApiKey}
-              onChange={(e) => handleChange('plaudApiKey', e.target.value)}
-              placeholder="Your Plaud API key"
-            />
-            {config.plaudApiKey.includes('•') && (
-              <p className="text-sm text-success mt-negative-sm">
-                ✓ API key is configured (change to update)
-              </p>
-            )}
-            
-            <label className="form-label-muted mt-lg">
-              Plaud API URL
-            </label>
-            <input
-              type="url"
-              value={config.plaudApiUrl}
-              onChange={(e) => handleChange('plaudApiUrl', e.target.value)}
-              placeholder="https://api.plaud.ai"
-            />
-            <p className="text-sm text-muted mt-neg-sm">
-              Configure to automatically pull transcripts from Plaud
-            </p>
-          </div>
-        )}
-
-        {/* AI Configuration - Per Service */}
-        <details open className="mb-2xl">
-          <summary className="config-section-header">
-            <span>🤖 AI Models & Providers</span>
-          </summary>
+        {/* AI Provider Selection - Per Profile */}
+        <div className="mb-xl">
+          <h3>🤖 AI Provider & Model</h3>
           <p className="config-section-description">
-            Configure AI providers and models for the main application and each microservice. Each service can use a different provider/model combination.
+            Select AI provider and model for this profile. Each profile can use different models for its briefs and task processing.
           </p>
           
-          {/* Main Application AI Configuration */}
-          <div className="glass-panel mb-xl border-primary">
-            <h4 className="config-subsection-title mt-0 text-primary">
-              🏠 Main Application
-            </h4>
-            <p className="config-subsection-description">
-              Primary AI provider for transcript processing, daily briefs, and task extraction
-            </p>
-            
+          <div className="glass-panel mb-lg">
             <div className="grid-2col mb-lg">
               <div>
                 <label className="form-label">
@@ -1104,7 +1080,6 @@ function Configuration() {
                   onChange={(e) => {
                     const newProvider = e.target.value;
                     handleChange('aiProvider', newProvider);
-                    // Load models for new provider if API key is configured
                     if (newProvider === 'anthropic' || newProvider === 'openai' || newProvider === 'ollama') {
                       loadModelsForProvider(newProvider);
                     }
@@ -1124,49 +1099,72 @@ function Configuration() {
                 </label>
                 {renderModelSelector(
                   config.aiProvider || 'anthropic',
-                  config.claudeModel || 'claude-sonnet-4-5-20250929',
-                  (value) => handleChange('claudeModel', value)
+                  config.aiProvider === 'anthropic' ? config.claudeModel || 'claude-sonnet-4-5-20250929' :
+                  config.aiProvider === 'openai' ? config.openaiModel || 'gpt-4o' :
+                  config.aiProvider === 'ollama' ? config.ollamaModel || 'llama3.1' :
+                  'claude-sonnet-4-5-20250929',
+                  (value) => {
+                    if (config.aiProvider === 'anthropic') {
+                      handleChange('claudeModel', value);
+                    } else if (config.aiProvider === 'openai') {
+                      handleChange('openaiModel', value);
+                    } else if (config.aiProvider === 'ollama') {
+                      handleChange('ollamaModel', value);
+                    }
+                  }
                 )}
               </div>
             </div>
             
-            <div className="grid-2col mt-lg">
+            <div className="grid-2col">
               <div>
                 <label className="form-label">
-                  Max Tokens (Response Length)
+                  Max Tokens (Advanced)
                 </label>
-                <select
+                <input
+                  type="number"
                   value={config.aiMaxTokens || '4096'}
                   onChange={(e) => handleChange('aiMaxTokens', e.target.value)}
+                  placeholder="4096"
+                  min="1000"
+                  max="8192"
                   className="form-input"
-                >
-                  <option value="2048">2048 - Short meetings (cheaper)</option>
-                  <option value="4096">4096 - Normal meetings (recommended)</option>
-                  <option value="6144">6144 - Long meetings</option>
-                  <option value="8192">8192 - Very long meetings (max)</option>
-                </select>
+                  style={{ width: '100%' }}
+                />
                 <p className="form-hint">
-                  Higher = longer/complete responses but more cost
+                  Maximum tokens for AI responses (1000-8192). Higher values allow longer responses but cost more.
                 </p>
               </div>
               
               <div>
                 <label className="form-label">
-                  Your Name(s) (Comma-separated)
+                  Temperature
                 </label>
                 <input
-                  type="text"
-                  value={config.userNames || ''}
-                  onChange={(e) => handleChange('userNames', e.target.value)}
-                  placeholder="John Smith, J. Smith"
+                  type="number"
+                  step="0.1"
+                  value={config.aiTemperature !== undefined ? config.aiTemperature : '0.7'}
+                  onChange={(e) => handleChange('aiTemperature', parseFloat(e.target.value) || 0.7)}
+                  placeholder="0.7"
+                  min="0"
+                  max="2"
                   className="form-input"
+                  style={{ width: '100%' }}
                 />
                 <p className="form-hint">
-                  For automatic task assignment from transcripts
+                  Controls randomness (0-2). Lower = more focused, Higher = more creative. Default: 0.7
                 </p>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Microservice AI Configuration - Profile-Specific */}
+        <div className="mb-xl">
+          <h3>🤖 Microservice AI Configuration</h3>
+          <p className="config-section-description">
+            AI provider selection for microservices (Pattern Recognition, Voice Processor, etc.) for this profile.
+          </p>
           
           <div className="mt-xl-mb-md">
             <h4 
@@ -1256,50 +1254,52 @@ function Configuration() {
             {/* Voice Storage Configuration */}
             <div className="section-divider">
               <h5 className="config-subsection-subtitle mt-0">💾 Storage Configuration</h5>
-              <p className="config-subsection-hint">
-                Configure where voice recordings are stored
+              <p className="config-subsection-description">
+                Configure where transcribed audio files are stored
               </p>
               
-              <div className="mb-md">
-                <label className="form-label">
-                  Storage Type
-                </label>
-                <select
-                  value={config.storageType || 'local'}
-                  onChange={(e) => handleChange('storageType', e.target.value)}
-                  className="form-input"
-                >
-                  <option value="local">Local Filesystem</option>
-                  <option value="s3">S3 Compatible (AWS S3, MinIO, etc.)</option>
-                </select>
-              </div>
-              
-              {config.storageType === 'local' && (
+              <div className="grid-2col mb-lg">
                 <div>
                   <label className="form-label">
-                    Local Storage Path
+                    Storage Type
                   </label>
-                  <input
-                    type="text"
-                    value={config.storagePath || '/app/data/voice-recordings'}
-                    onChange={(e) => handleChange('storagePath', e.target.value)}
-                    placeholder="/app/data/voice-recordings"
-                    className="form-input-mono"
-                  />
+                  <select
+                    value={config.storageType || 'local'}
+                    onChange={(e) => handleChange('storageType', e.target.value)}
+                    className="form-input"
+                  >
+                    <option value="local">Local Filesystem</option>
+                    <option value="s3">AWS S3</option>
+                  </select>
                 </div>
-              )}
-              
-              {config.storageType === 's3' && (
-                <div className="flex flex-col gap-md">
+                
+                {config.storageType === 'local' && (
                   <div>
                     <label className="form-label">
-                      S3 Bucket Name
+                      Storage Path
+                    </label>
+                    <input
+                      type="text"
+                      value={config.storagePath || '/app/data/voice-recordings'}
+                      onChange={(e) => handleChange('storagePath', e.target.value)}
+                      placeholder="/app/data/voice-recordings"
+                      className="form-input"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {config.storageType === 's3' && (
+                <div className="grid-2col">
+                  <div>
+                    <label className="form-label">
+                      S3 Bucket
                     </label>
                     <input
                       type="text"
                       value={config.s3Bucket || ''}
                       onChange={(e) => handleChange('s3Bucket', e.target.value)}
-                      placeholder="my-voice-recordings"
+                      placeholder="my-bucket"
                       className="form-input"
                     />
                   </div>
@@ -1316,48 +1316,6 @@ function Configuration() {
                       className="form-input"
                     />
                   </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Access Key ID
-                    </label>
-                    <input
-                      type="password"
-                      value={config.s3AccessKeyId || ''}
-                      onChange={(e) => handleChange('s3AccessKeyId', e.target.value)}
-                      placeholder="AKIA..."
-                      className="form-input-mono"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Secret Access Key
-                    </label>
-                    <input
-                      type="password"
-                      value={config.s3SecretAccessKey || ''}
-                      onChange={(e) => handleChange('s3SecretAccessKey', e.target.value)}
-                      placeholder="..."
-                      className="form-input-mono"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="form-label">
-                      S3 Endpoint (Optional - for MinIO or custom S3)
-                    </label>
-                    <input
-                      type="url"
-                      value={config.s3Endpoint || ''}
-                      onChange={(e) => handleChange('s3Endpoint', e.target.value)}
-                      placeholder="https://minio.example.com"
-                      className="form-input"
-                    />
-                    <p className="form-hint">
-                      Leave empty for AWS S3
-                    </p>
-                  </div>
                 </div>
               )}
             </div>
@@ -1365,9 +1323,9 @@ function Configuration() {
           
           {/* Pattern Recognition Service */}
           <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">📊 Pattern Recognition Service</h4>
+            <h4 className="config-subsection-title mt-0">🔍 Pattern Recognition Service</h4>
             <p className="config-subsection-description">
-              Behavioral patterns and productivity insights
+              Behavioral pattern detection and task clustering
             </p>
             
             <div className="grid-2col mb-lg">
@@ -1391,43 +1349,20 @@ function Configuration() {
                 <label className="form-label">
                   Model
                 </label>
-                <select
-                  value={config.patternRecognitionModel || 'claude-sonnet-4-5-20250929'}
-                  onChange={(e) => handleChange('patternRecognitionModel', e.target.value)}
-                  className="form-input"
-                >
-                  {(config.patternRecognitionProvider || 'anthropic') === 'anthropic' && (
-                    <>
-                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
-                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                    </>
-                  )}
-                  {(config.patternRecognitionProvider || 'anthropic') === 'openai' && (
-                    <>
-                      <option value="gpt-4">GPT-4</option>
-                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                    </>
-                  )}
-                  {(config.patternRecognitionProvider || 'anthropic') === 'ollama' && (
-                    <>
-                      <option value="mistral:latest">Mistral Latest</option>
-                      <option value="llama2:latest">Llama 2 Latest</option>
-                    </>
-                  )}
-                  {(config.patternRecognitionProvider || 'anthropic') === 'bedrock' && (
-                    <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
-                  )}
-                </select>
+                {renderModelSelector(
+                  config.patternRecognitionProvider || 'anthropic',
+                  config.patternRecognitionModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('patternRecognitionModel', value)
+                )}
               </div>
             </div>
           </div>
           
           {/* NL Parser Service */}
           <div className="glass-panel mb-xl">
-            <h4 className="config-subsection-title mt-0">💬 Natural Language Parser</h4>
+            <h4 className="config-subsection-title mt-0">📝 NL Parser Service</h4>
             <p className="config-subsection-description">
-              Parse natural language into structured tasks
+              Natural language task parsing and date extraction
             </p>
             
             <div className="grid-2col mb-lg">
@@ -1451,125 +1386,25 @@ function Configuration() {
                 <label className="form-label">
                   Model
                 </label>
-                <select
-                  value={config.nlParserModel || 'claude-sonnet-4-5-20250929'}
-                  onChange={(e) => handleChange('nlParserModel', e.target.value)}
-                  className="form-input"
-                >
-                  {(config.nlParserProvider || 'anthropic') === 'anthropic' && (
-                    <>
-                      <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Latest)</option>
-                      <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
-                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-                    </>
-                  )}
-                  {(config.nlParserProvider || 'anthropic') === 'openai' && (
-                    <>
-                      <option value="gpt-4">GPT-4</option>
-                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                    </>
-                  )}
-                  {(config.nlParserProvider || 'anthropic') === 'ollama' && (
-                    <>
-                      <option value="mistral:latest">Mistral Latest</option>
-                      <option value="llama2:latest">Llama 2 Latest</option>
-                    </>
-                  )}
-                  {(config.nlParserProvider || 'anthropic') === 'bedrock' && (
-                    <option value="anthropic.claude-sonnet-4-5-20250929-v1:0">Claude Sonnet 4.5</option>
-                  )}
-                </select>
+                {renderModelSelector(
+                  config.nlParserProvider || 'anthropic',
+                  config.nlParserModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('nlParserModel', value)
+                )}
               </div>
             </div>
           </div>
             </>
           )}
-          
-          {/* API Keys Section */}
-          <div className="glass-panel">
-            <h4 className="config-subsection-title mt-0">🔑 API Keys</h4>
-            <p className="config-subsection-description">
-              Configure API keys for AI providers. Keys are stored securely and never displayed in full.
-            </p>
-            
-            <div className="flex flex-col gap-md">
-              <div>
-                <label className="form-label">
-                  Anthropic API Key
-                </label>
-                <input
-                  type="password"
-                  value={config.anthropicApiKey || ''}
-                  onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
-                  placeholder="sk-ant-..."
-                  className="form-input-mono"
-                />
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  OpenAI API Key
-                </label>
-                <input
-                  type="password"
-                  value={config.openaiApiKey || ''}
-                  onChange={(e) => handleChange('openaiApiKey', e.target.value)}
-                  placeholder="sk-..."
-                  className="form-input-mono"
-                />
-              </div>
-              
-              <div>
-                <label className="form-label">
-                  Ollama Base URL (for local deployment)
-                </label>
-                <input
-                  type="url"
-                  value={config.ollamaBaseUrl || 'http://localhost:11434'}
-                  onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
-                  placeholder="http://localhost:11434"
-                  className="form-input"
-                />
-              </div>
-              
-              <div className="grid-2col">
-                <div>
-                  <label className="form-label">
-                    AWS Access Key ID (for Bedrock)
-                  </label>
-                  <input
-                    type="password"
-                    value={config.awsAccessKeyId || ''}
-                    onChange={(e) => handleChange('awsAccessKeyId', e.target.value)}
-                    placeholder="AKIA..."
-                    className="form-input-mono"
-                  />
-                </div>
-                
-                <div>
-                  <label className="form-label">
-                    AWS Secret Access Key
-                  </label>
-                  <input
-                    type="password"
-                    value={config.awsSecretAccessKey || ''}
-                    onChange={(e) => handleChange('awsSecretAccessKey', e.target.value)}
-                    placeholder="..."
-                    className="form-input-mono"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </details>
+        </div>
 
         <div className="mb-xl">
           <h3>🔌 Integrations</h3>
           <p className="text-sm-muted-mb-md">
-            Enable or disable integrations. Only enabled integrations will be shown below.
+            Enable or disable integrations for this profile. Only enabled integrations will be shown below.
           </p>
           
-          <div className="integration-box">
+          <div className="glass-panel">
             <label className="integration-label">
               <input
                 type="checkbox"
@@ -1639,15 +1474,9 @@ function Configuration() {
 
         {enabledIntegrations.googleCalendar && (
         <div className="mb-xl">
-          <h3>📅 Calendar Integration</h3>
+          <h3>📅 Google Calendar Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">🗓️</span>
               Google Calendar (Recommended)
@@ -1807,13 +1636,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📅 Microsoft Integration (Calendar + Planner)</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">📅</span>
               Microsoft Outlook Calendar & Planner
@@ -1886,7 +1709,6 @@ function Configuration() {
                       fontSize: '1rem',
                       fontFamily: 'inherit',
                       marginBottom: '1rem',
-                      backgroundColor: '#18181b',
                       color: '#e5e5e7'
                     }}
                   >
@@ -2051,13 +1873,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>🎯 Jira Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">🎯</span>
               Jira (Cloud or On-Prem)
@@ -2137,7 +1953,6 @@ function Configuration() {
                     fontSize: '1rem',
                     fontFamily: 'inherit',
                     marginBottom: '1rem',
-                    backgroundColor: '#18181b',
                     color: '#e5e5e7'
                   }}
                 />
@@ -2188,13 +2003,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📋 Trello Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">📋</span>
               Trello Board Management
@@ -2297,7 +2106,6 @@ function Configuration() {
                         fontSize: '1rem',
                         fontFamily: 'inherit',
                         marginBottom: '1rem',
-                        backgroundColor: '#18181b',
                         color: '#e5e5e7'
                       }}
                     >
@@ -2323,7 +2131,6 @@ function Configuration() {
                             fontSize: '1rem',
                             fontFamily: 'inherit',
                             marginBottom: '1rem',
-                            backgroundColor: '#18181b',
                             color: '#e5e5e7'
                           }}
                         >
@@ -2353,13 +2160,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📊 Monday.com Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">📊</span>
               Monday.com Workspace
@@ -2448,7 +2249,6 @@ function Configuration() {
                         fontSize: '1rem',
                         fontFamily: 'inherit',
                         marginBottom: '1rem',
-                        backgroundColor: '#18181b',
                         color: '#e5e5e7'
                       }}
                     >
@@ -2474,7 +2274,6 @@ function Configuration() {
                             fontSize: '1rem',
                             fontFamily: 'inherit',
                             marginBottom: '1rem',
-                            backgroundColor: '#18181b',
                             color: '#e5e5e7'
                           }}
                         >
@@ -2504,13 +2303,7 @@ function Configuration() {
         <div className="mb-xl">
           <h3>📆 CalDAV Integration</h3>
           
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            border: '2px solid #3f3f46', 
-            borderRadius: '12px', 
-            padding: '1.5rem',
-            marginBottom: '1.5rem'
-          }}>
+          <div className="glass-panel mb-lg">
             <h4 className="mt-0-mb-md-flex-center">
               <span className="emoji-icon">📆</span>
               CalDAV Server (Radicale, Nextcloud, etc.)
@@ -2537,7 +2330,6 @@ function Configuration() {
                 fontSize: '1rem',
                 fontFamily: 'inherit',
                 marginBottom: '1rem',
-                backgroundColor: '#18181b',
                 color: '#e5e5e7'
               }}
             />
@@ -2561,7 +2353,6 @@ function Configuration() {
                 fontSize: '1rem',
                 fontFamily: 'inherit',
                 marginBottom: '1rem',
-                backgroundColor: '#18181b',
                 color: '#e5e5e7'
               }}
             />
@@ -2582,7 +2373,6 @@ function Configuration() {
                 fontSize: '1rem',
                 fontFamily: 'inherit',
                 marginBottom: '1rem',
-                backgroundColor: '#18181b',
                 color: '#e5e5e7'
               }}
             />
@@ -2600,6 +2390,548 @@ function Configuration() {
           </div>
         </div>
         )}
+
+        {/* Microservice AI Configuration - Profile-Specific */}
+        <div className="mb-xl">
+          <h3>🤖 Microservice AI Configuration</h3>
+          <p className="config-section-description">
+            AI provider selection for microservices (Pattern Recognition, Voice Processor, etc.) for this profile.
+          </p>
+          
+          <div className="mt-xl-mb-md">
+            <h4 
+              onClick={() => setMicroservicesExpanded(!microservicesExpanded)}
+              className="flex items-center gap-sm header-interactive"
+            >
+              <span className={`rotate-icon ${microservicesExpanded ? 'rotate-icon-open' : ''}`}>
+                ▶
+              </span>
+              Microservices Configuration (Optional)
+            </h4>
+          </div>
+          
+          {microservicesExpanded && (
+            <>
+              {/* AI Intelligence Service */}
+              <div className="glass-panel mb-xl">
+            <h4 className="config-subsection-title mt-0">🧠 AI Intelligence Service</h4>
+            <p className="config-subsection-description">
+              Task effort estimation, energy classification, and task clustering
+            </p>
+            
+            <div className="grid-2col mb-lg">
+              <div>
+                <label className="form-label">
+                  Provider
+                </label>
+                <select
+                  value={config.aiIntelligenceProvider || 'anthropic'}
+                  onChange={(e) => handleChange('aiIntelligenceProvider', e.target.value)}
+                  className="form-input"
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="form-label">
+                  Model
+                </label>
+                {renderModelSelector(
+                  config.aiIntelligenceProvider || 'anthropic',
+                  config.aiIntelligenceModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('aiIntelligenceModel', value)
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Voice Processor Service */}
+          <div className="glass-panel mb-xl">
+            <h4 className="config-subsection-title mt-0">🎤 Voice Processor Service</h4>
+            <p className="config-subsection-description">
+              Audio transcription and voice-to-text
+            </p>
+            
+            <div className="grid-2col mb-lg">
+              <div>
+                <label className="form-label">
+                  Provider
+                </label>
+                <select
+                  value={config.voiceProcessorProvider || 'openai'}
+                  onChange={(e) => handleChange('voiceProcessorProvider', e.target.value)}
+                  className="form-input"
+                >
+                  <option value="openai">OpenAI Whisper</option>
+                  <option value="ollama">Ollama Whisper</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="form-label">
+                  Model
+                </label>
+                {renderModelSelector(
+                  config.voiceProcessorProvider || 'openai',
+                  config.voiceProcessorModel || 'whisper-1',
+                  (value) => handleChange('voiceProcessorModel', value)
+                )}
+              </div>
+            </div>
+            
+            {/* Voice Storage Configuration */}
+            <div className="section-divider">
+              <h5 className="config-subsection-subtitle mt-0">💾 Storage Configuration</h5>
+              <p className="config-subsection-description">
+                Configure where transcribed audio files are stored
+              </p>
+              
+              <div className="grid-2col mb-lg">
+                <div>
+                  <label className="form-label">
+                    Storage Type
+                  </label>
+                  <select
+                    value={config.storageType || 'local'}
+                    onChange={(e) => handleChange('storageType', e.target.value)}
+                    className="form-input"
+                  >
+                    <option value="local">Local Filesystem</option>
+                    <option value="s3">AWS S3</option>
+                  </select>
+                </div>
+                
+                {config.storageType === 'local' && (
+                  <div>
+                    <label className="form-label">
+                      Storage Path
+                    </label>
+                    <input
+                      type="text"
+                      value={config.storagePath || '/app/data/voice-recordings'}
+                      onChange={(e) => handleChange('storagePath', e.target.value)}
+                      placeholder="/app/data/voice-recordings"
+                      className="form-input"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {config.storageType === 's3' && (
+                <div className="grid-2col">
+                  <div>
+                    <label className="form-label">
+                      S3 Bucket
+                    </label>
+                    <input
+                      type="text"
+                      value={config.s3Bucket || ''}
+                      onChange={(e) => handleChange('s3Bucket', e.target.value)}
+                      placeholder="my-bucket"
+                      className="form-input"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="form-label">
+                      S3 Region
+                    </label>
+                    <input
+                      type="text"
+                      value={config.s3Region || 'us-east-1'}
+                      onChange={(e) => handleChange('s3Region', e.target.value)}
+                      placeholder="us-east-1"
+                      className="form-input"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="form-label">
+                      S3 Access Key ID
+                    </label>
+                    <input
+                      type="password"
+                      value={config.s3AccessKeyId || ''}
+                      onChange={(e) => handleChange('s3AccessKeyId', e.target.value)}
+                      placeholder="AKIA..."
+                      className="form-input"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="form-label">
+                      S3 Secret Access Key
+                    </label>
+                    <input
+                      type="password"
+                      value={config.s3SecretAccessKey || ''}
+                      onChange={(e) => handleChange('s3SecretAccessKey', e.target.value)}
+                      placeholder="••••••••"
+                      className="form-input"
+                    />
+                  </div>
+                  
+                  <div className="grid-2col-span">
+                    <label className="form-label">
+                      S3 Endpoint (Optional - for S3-compatible services)
+                    </label>
+                    <input
+                      type="text"
+                      value={config.s3Endpoint || ''}
+                      onChange={(e) => handleChange('s3Endpoint', e.target.value)}
+                      placeholder="https://s3.amazonaws.com"
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Pattern Recognition Service */}
+          <div className="glass-panel mb-xl">
+            <h4 className="config-subsection-title mt-0">🔍 Pattern Recognition Service</h4>
+            <p className="config-subsection-description">
+              Behavioral pattern analysis and productivity insights
+            </p>
+            
+            <div className="grid-2col mb-lg">
+              <div>
+                <label className="form-label">
+                  Provider
+                </label>
+                <select
+                  value={config.patternRecognitionProvider || 'anthropic'}
+                  onChange={(e) => handleChange('patternRecognitionProvider', e.target.value)}
+                  className="form-input"
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="form-label">
+                  Model
+                </label>
+                {renderModelSelector(
+                  config.patternRecognitionProvider || 'anthropic',
+                  config.patternRecognitionModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('patternRecognitionModel', value)
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* NL Parser Service */}
+          <div className="glass-panel mb-xl">
+            <h4 className="config-subsection-title mt-0">📝 NL Parser Service</h4>
+            <p className="config-subsection-description">
+              Natural language task parsing and date extraction
+            </p>
+            
+            <div className="grid-2col mb-lg">
+              <div>
+                <label className="form-label">
+                  Provider
+                </label>
+                <select
+                  value={config.nlParserProvider || 'anthropic'}
+                  onChange={(e) => handleChange('nlParserProvider', e.target.value)}
+                  className="form-input"
+                >
+                  <option value="anthropic">Anthropic Claude</option>
+                  <option value="openai">OpenAI GPT</option>
+                  <option value="ollama">Ollama (Local)</option>
+                  <option value="bedrock">AWS Bedrock</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="form-label">
+                  Model
+                </label>
+                {renderModelSelector(
+                  config.nlParserProvider || 'anthropic',
+                  config.nlParserModel || 'claude-sonnet-4-5-20250929',
+                  (value) => handleChange('nlParserModel', value)
+                )}
+              </div>
+            </div>
+          </div>
+            </>
+          )}
+        </div>
+
+        {/* AI Prompts - Profile-Specific */}
+        <div className="card mb-xl">
+          <h3>🤖 AI Prompts <ScopeBadge scope="profile" /></h3>
+          <p className="text-muted-mb-lg">
+            Customize how AI extracts tasks, generates descriptions, and creates reports for this profile. Changes take effect immediately.
+          </p>
+          
+          {loadingPrompts ? (
+            <p className="text-muted">Loading prompts...</p>
+          ) : prompts.length === 0 ? (
+            <div style={{ 
+              padding: '2rem', 
+              borderRadius: '8px',
+              border: '1px solid #3f3f46',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#fbbf24', fontSize: '1.2rem', marginBottom: '1rem' }}>⚠️ No prompts found</p>
+              <p style={{ color: '#a1a1aa', marginBottom: '1rem' }}>
+                The prompts table may be empty. Restart the container to initialize default prompts.
+              </p>
+              <button 
+                onClick={() => {
+                  setLoadingPrompts(true);
+                  loadPrompts();
+                }}
+                style={{ 
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                🔄 Retry Loading
+              </button>
+            </div>
+          ) : (
+            prompts.map((prompt) => (
+              <details 
+                key={prompt.key}
+                style={{ 
+                  marginBottom: '1rem',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  border: '1px solid #3f3f46'
+                }}
+              >
+                <summary style={{ 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  padding: '0.5rem',
+                  color: '#fff',
+                  fontSize: '1rem'
+                }}>
+                  {prompt.name}
+                </summary>
+                
+                <div className="mt-md">
+                  <p className="text-sm-muted-mb-md">
+                    {prompt.description}
+                  </p>
+                  
+                  {editingPrompt === prompt.key ? (
+                    <div>
+                      <textarea
+                        value={prompt.prompt}
+                        onChange={(e) => {
+                          const newPrompts = prompts.map(p => 
+                            p.key === prompt.key ? { ...p, prompt: e.target.value } : p
+                          );
+                          setPrompts(newPrompts);
+                        }}
+                        style={{
+                          width: '100%',
+                          minHeight: '300px',
+                          padding: '1rem',
+                          backgroundColor: '#09090b',
+                          color: '#fff',
+                          border: '1px solid #3f3f46',
+                          borderRadius: '8px',
+                          fontFamily: 'monospace',
+                          fontSize: '0.9rem',
+                          marginBottom: '1rem'
+                        }}
+                      />
+                      <div className="flex gap-sm">
+                        <button 
+                          onClick={() => updatePrompt(prompt.key, prompt.prompt)}
+                          style={{ 
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#22c55e',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✅ Save
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setEditingPrompt(null);
+                            loadPrompts(); // Reload to discard changes
+                          }}
+                          style={{ 
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#6b7280',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ❌ Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <pre style={{
+                        backgroundColor: '#09090b',
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        overflow: 'auto',
+                        maxHeight: '200px',
+                        fontSize: '0.85rem',
+                        color: '#a1a1aa',
+                        marginBottom: '1rem'
+                      }}>
+                        {prompt.prompt}
+                      </pre>
+                      <div className="flex gap-sm">
+                        <button 
+                          onClick={() => setEditingPrompt(prompt.key)}
+                          style={{ 
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button 
+                          onClick={() => resetPrompt(prompt.key)}
+                          style={{ 
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#f59e0b',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          🔄 Reset to Default
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </details>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* GLOBAL SETTINGS CARD */}
+      <div className="card">
+        <h2>🌐 Global Settings</h2>
+        <p className="text-muted-mb-lg">
+          These settings apply to all profiles and require administrative access. Rarely changed.
+        </p>
+
+        {/* AI API Keys - Global */}
+        <details open className="mb-2xl">
+          <summary className="config-section-header">
+            <span>🔑 AI API Keys</span>
+          </summary>
+          <p className="config-section-description">
+            API keys are shared across all profiles. Each profile can choose which provider/model to use (configured in Profile-Specific Settings above).
+          </p>
+          
+          {/* API Keys Section */}
+          <div className="glass-panel">
+            <h4 className="config-subsection-title mt-0">🔑 API Keys</h4>
+            <p className="config-subsection-description">
+              Configure API keys for AI providers. Keys are stored securely and never displayed in full.
+            </p>
+            
+            <div className="flex flex-col gap-md">
+              <div>
+                <label className="form-label">
+                  Anthropic API Key
+                </label>
+                <input
+                  type="password"
+                  value={config.anthropicApiKey || ''}
+                  onChange={(e) => handleChange('anthropicApiKey', e.target.value)}
+                  placeholder="sk-ant-..."
+                  className="form-input-mono"
+                />
+              </div>
+              
+              <div>
+                <label className="form-label">
+                  OpenAI API Key
+                </label>
+                <input
+                  type="password"
+                  value={config.openaiApiKey || ''}
+                  onChange={(e) => handleChange('openaiApiKey', e.target.value)}
+                  placeholder="sk-..."
+                  className="form-input-mono"
+                />
+              </div>
+              
+              <div>
+                <label className="form-label">
+                  Ollama Base URL (for local deployment)
+                </label>
+                <input
+                  type="url"
+                  value={config.ollamaBaseUrl || 'http://localhost:11434'}
+                  onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
+                  placeholder="http://localhost:11434"
+                  className="form-input"
+                />
+              </div>
+              
+              <div className="grid-2col">
+                <div>
+                  <label className="form-label">
+                    AWS Access Key ID (for Bedrock)
+                  </label>
+                  <input
+                    type="password"
+                    value={config.awsAccessKeyId || ''}
+                    onChange={(e) => handleChange('awsAccessKeyId', e.target.value)}
+                    placeholder="AKIA..."
+                    className="form-input-mono"
+                  />
+                </div>
+                
+                <div>
+                  <label className="form-label">
+                    AWS Secret Access Key
+                  </label>
+                  <input
+                    type="password"
+                    value={config.awsSecretAccessKey || ''}
+                    onChange={(e) => handleChange('awsSecretAccessKey', e.target.value)}
+                    placeholder="..."
+                    className="form-input-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
 
         <details className="mb-xl">
           <summary style={{ 
@@ -2627,7 +2959,6 @@ function Configuration() {
               fontSize: '1rem',
               fontFamily: 'inherit',
               marginBottom: '1rem',
-              backgroundColor: '#18181b',
               color: '#e5e5e7'
             }}
           >
@@ -2704,10 +3035,11 @@ function Configuration() {
         <p style={{ fontSize: '0.85rem', color: '#a1a1aa', marginTop: '1rem' }}>
           💾 All settings are saved to <code>/app/data/config.json</code> and the database, and persist across container restarts.
         </p>
-      </div>
 
-      {/* Notifications Card */}
-      <div className="card">
+        {/* Separator */}
+        <div style={{ marginTop: '2rem', marginBottom: '2rem', borderTop: '1px solid #3f3f46' }}></div>
+
+        {/* Push Notifications */}
         <h2>🔔 Push Notifications</h2>
         <p className="text-muted-mb-lg">
           Enable push notifications to receive task reminders, overdue alerts, and sync notifications on this device.
@@ -2871,7 +3203,7 @@ function Configuration() {
         </button>
 
         {/* Notification Repeat Limits */}
-        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #3f3f46' }}>
+        <div className="glass-panel" style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid #3f3f46' }}>
           <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#e4e4e7' }}>
             Notification Repeat Limits
           </h3>
@@ -2892,7 +3224,6 @@ function Configuration() {
               style={{ 
                 width: '100px',
                 padding: '0.5rem',
-                backgroundColor: '#18181b',
                 border: '1px solid #3f3f46',
                 borderRadius: '4px',
                 color: '#e4e4e7'
@@ -2919,7 +3250,6 @@ function Configuration() {
               style={{ 
                 width: '100px',
                 padding: '0.5rem',
-                backgroundColor: '#18181b',
                 border: '1px solid #3f3f46',
                 borderRadius: '4px',
                 color: '#e4e4e7'
@@ -2950,12 +3280,9 @@ function Configuration() {
           </button>
         </div>
 
-        <div style={{ 
+        <div className="glass-panel" style={{ 
           marginTop: '1.5rem', 
-          padding: '1rem', 
-          backgroundColor: '#1e3a5f', 
-          borderRadius: '8px',
-          border: '1px solid #2563eb' 
+          padding: '1rem'
         }}>
           <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#60a5fa' }}>📋 Notification Types</h3>
           <ul style={{ color: '#bfdbfe', fontSize: '0.9rem', lineHeight: '1.8', paddingLeft: '1.5rem' }}>
@@ -2967,177 +3294,6 @@ function Configuration() {
             ✓ VAPID keys are automatically generated on server startup - no manual configuration needed!
           </p>
         </div>
-      </div>
-
-      {/* AI Prompts Card */}
-      <div className="card">
-        <h2>🤖 AI Prompts</h2>
-        <p className="text-muted-mb-lg">
-          Customize how AI extracts tasks, generates descriptions, and creates reports. Changes take effect immediately.
-        </p>
-        
-        {loadingPrompts ? (
-          <p className="text-muted">Loading prompts...</p>
-        ) : prompts.length === 0 ? (
-          <div style={{ 
-            padding: '2rem', 
-            backgroundColor: '#18181b', 
-            borderRadius: '8px',
-            border: '1px solid #3f3f46',
-            textAlign: 'center'
-          }}>
-            <p style={{ color: '#fbbf24', fontSize: '1.2rem', marginBottom: '1rem' }}>⚠️ No prompts found</p>
-            <p style={{ color: '#a1a1aa', marginBottom: '1rem' }}>
-              The prompts table may be empty. Restart the container to initialize default prompts.
-            </p>
-            <button 
-              onClick={() => {
-                setLoadingPrompts(true);
-                loadPrompts();
-              }}
-              style={{ 
-                padding: '0.75rem 1.5rem',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '1rem'
-              }}
-            >
-              🔄 Retry Loading
-            </button>
-          </div>
-        ) : (
-          prompts.map((prompt) => (
-            <details 
-              key={prompt.key}
-              style={{ 
-                marginBottom: '1rem',
-                padding: '1rem',
-                backgroundColor: '#18181b',
-                borderRadius: '8px',
-                border: '1px solid #3f3f46'
-              }}
-            >
-              <summary style={{ 
-                cursor: 'pointer', 
-                fontWeight: 'bold',
-                padding: '0.5rem',
-                color: '#fff',
-                fontSize: '1rem'
-              }}>
-                {prompt.name}
-              </summary>
-              
-              <div className="mt-md">
-                <p className="text-sm-muted-mb-md">
-                  {prompt.description}
-                </p>
-                
-                {editingPrompt === prompt.key ? (
-                  <div>
-                    <textarea
-                      value={prompt.prompt}
-                      onChange={(e) => {
-                        const newPrompts = prompts.map(p => 
-                          p.key === prompt.key ? { ...p, prompt: e.target.value } : p
-                        );
-                        setPrompts(newPrompts);
-                      }}
-                      style={{
-                        width: '100%',
-                        minHeight: '300px',
-                        padding: '1rem',
-                        backgroundColor: '#09090b',
-                        color: '#fff',
-                        border: '1px solid #3f3f46',
-                        borderRadius: '8px',
-                        fontFamily: 'monospace',
-                        fontSize: '0.9rem',
-                        marginBottom: '1rem'
-                      }}
-                    />
-                    <div className="flex gap-sm">
-                      <button 
-                        onClick={() => updatePrompt(prompt.key, prompt.prompt)}
-                        style={{ 
-                          padding: '0.5rem 1rem',
-                          backgroundColor: '#22c55e',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ✅ Save
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setEditingPrompt(null);
-                          loadPrompts(); // Reload to discard changes
-                        }}
-                        style={{ 
-                          padding: '0.5rem 1rem',
-                          backgroundColor: '#6b7280',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ❌ Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <pre style={{
-                      backgroundColor: '#09090b',
-                      padding: '1rem',
-                      borderRadius: '8px',
-                      overflow: 'auto',
-                      maxHeight: '200px',
-                      fontSize: '0.85rem',
-                      color: '#a1a1aa',
-                      marginBottom: '1rem'
-                    }}>
-                      {prompt.prompt}
-                    </pre>
-                    <div className="flex gap-sm">
-                      <button 
-                        onClick={() => setEditingPrompt(prompt.key)}
-                        style={{ 
-                          padding: '0.5rem 1rem',
-                          backgroundColor: '#3b82f6',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ✏️ Edit
-                      </button>
-                      <button 
-                        onClick={() => resetPrompt(prompt.key)}
-                        style={{ 
-                          padding: '0.5rem 1rem',
-                          backgroundColor: '#ef4444',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        🔄 Reset to Default
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </details>
-          ))
-        )}
       </div>
 
       <div className="card">

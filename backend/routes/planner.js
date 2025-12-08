@@ -73,8 +73,9 @@ router.get('/microsoft/callback', async (req, res) => {
  */
 router.get('/microsoft/status', async (req, res) => {
   try {
-    const connected = await microsoftPlanner.isConnected();
-    res.json({ connected });
+    const profileId = req.profileId || 2;
+    const connected = await microsoftPlanner.isConnected(profileId);
+    res.json({ connected, profileId });
   } catch (error) {
     logger.error('Error checking Microsoft Planner status', error);
     res.json({ connected: false });
@@ -86,7 +87,8 @@ router.get('/microsoft/status', async (req, res) => {
  */
 router.post('/microsoft/disconnect', async (req, res) => {
   try {
-    await microsoftPlanner.disconnect();
+    const profileId = req.profileId || 2;
+    await microsoftPlanner.disconnect(profileId);
     res.json({ success: true, message: 'Microsoft Planner disconnected' });
   } catch (error) {
     logger.error('Error disconnecting Microsoft Planner', error);
@@ -141,7 +143,9 @@ router.post('/microsoft/sync', async (req, res) => {
        WHERE status != 'completed' 
        AND (microsoft_task_id IS NULL OR microsoft_task_id = '')
        AND (task_type IS NULL OR task_type != 'risk')
-       ORDER BY created_date DESC`
+       AND profile_id = ?
+       ORDER BY created_date DESC`,
+      [req.profileId]
     );
     
     logger.info(`Syncing ${tasks.length} tasks to Microsoft Planner`);
@@ -154,12 +158,12 @@ router.post('/microsoft/sync', async (req, res) => {
     
     for (const task of tasks) {
       try {
-        const microsoftTask = await microsoftPlanner.createTaskFromCommitment(task);
+        const microsoftTask = await microsoftPlanner.createTaskFromCommitment(task, req.profileId);
         
         // Store Microsoft task ID
         await db.run(
-          'UPDATE commitments SET microsoft_task_id = ? WHERE id = ?',
-          [microsoftTask.id, task.id]
+          'UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?',
+          [microsoftTask.id, task.id, req.profileId]
         );
         
         results.success++;
@@ -279,7 +283,7 @@ router.get('/jira/projects', async (req, res) => {
 router.get('/jira/issue-types/:projectKey', async (req, res) => {
   try {
     const { projectKey } = req.params;
-    const issueTypes = await jira.getIssueTypes(projectKey);
+    const issueTypes = await jira.getIssueTypes(projectKey, req.profileId);
     res.json({ issueTypes });
   } catch (error) {
     logger.error('Error getting Jira issue types', error);
@@ -335,7 +339,9 @@ router.post('/jira/sync', async (req, res) => {
        WHERE status != 'completed' 
        AND (jira_task_id IS NULL OR jira_task_id = '')
        AND (task_type IS NULL OR task_type != 'risk')
-       ORDER BY created_date DESC`
+       AND profile_id = ?
+       ORDER BY created_date DESC`,
+      [req.profileId]
     );
     
     logger.info(`Syncing ${tasks.length} tasks to Jira`);
@@ -348,12 +354,12 @@ router.post('/jira/sync', async (req, res) => {
     
     for (const task of tasks) {
       try {
-        const jiraIssue = await jira.createIssueFromCommitment(task);
+        const jiraIssue = await jira.createIssueFromCommitment(task, req.profileId);
         
         // Store Jira issue key (e.g., PROJ-123)
         await db.run(
-          'UPDATE commitments SET jira_task_id = ? WHERE id = ?',
-          [jiraIssue.key, task.id]
+          'UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?',
+          [jiraIssue.key, task.id, req.profileId]
         );
         
         results.success++;
@@ -413,12 +419,12 @@ router.post('/jira/sync-failed', async (req, res) => {
     
     for (const task of tasks) {
       try {
-        const jiraIssue = await jira.createIssueFromCommitment(task);
+        const jiraIssue = await jira.createIssueFromCommitment(task, req.profileId);
         
         // Store Jira issue key (e.g., PROJ-123)
         await db.run(
-          'UPDATE commitments SET jira_task_id = ? WHERE id = ?',
-          [jiraIssue.key, task.id]
+          'UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?',
+          [jiraIssue.key, task.id, req.profileId]
         );
         
         results.success++;
@@ -456,7 +462,7 @@ router.get('/jira/issues', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
     const projectKey = req.query.projectKey || null;
-    const issues = await jira.listIssues(projectKey, limit);
+    const issues = await jira.listIssues(projectKey, limit, req.profileId);
     res.json({ issues });
   } catch (error) {
     logger.error('Error listing Jira issues', error);

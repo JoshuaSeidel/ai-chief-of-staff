@@ -26,8 +26,9 @@ class CustomAuthProvider {
 /**
  * Get Microsoft OAuth2 client with credentials from database
  * Uses same credentials as Microsoft Planner
+ * @param {number} profileId - Profile ID (not used for credentials, but for consistency)
  */
-async function getOAuthClient() {
+async function getOAuthClient(profileId = 2) {
   const db = getDb();
   
   // Get Microsoft OAuth credentials from config (shared with Planner)
@@ -94,9 +95,11 @@ async function getAuthUrl() {
 
 /**
  * Exchange authorization code for tokens
+ * @param {string} code - OAuth authorization code
+ * @param {number} profileId - Profile ID to associate tokens with
  */
-async function getTokenFromCode(code) {
-  const { clientId, clientSecret, redirectUri } = await getOAuthClient();
+async function getTokenFromCode(code, profileId = 2) {
+  const { clientId, clientSecret, redirectUri } = await getOAuthClient(profileId);
   
   // Use /common for multi-tenant token exchange
   const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
@@ -131,29 +134,36 @@ async function getTokenFromCode(code) {
     tokens.expires_at = Math.floor(Date.now() / 1000) + tokens.expires_in;
   }
   
-  // Store tokens in database (shared token for both Calendar and Planner)
+  // Store tokens in profile_integrations table
   const db = getDb();
   await db.run(
-    'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-    ['microsoftToken', JSON.stringify(tokens)]
+    `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     ON CONFLICT (profile_id, integration_type, integration_name)
+     DO UPDATE SET token_data = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
+    [profileId, 'calendar', 'microsoft', JSON.stringify(tokens), true, JSON.stringify(tokens), true]
   );
   
-  logger.info('Microsoft tokens stored successfully (Calendar + Tasks)');
+  logger.info(`Microsoft tokens stored successfully for profile ${profileId} (Calendar + Tasks)`);
   return tokens;
 }
 
 /**
  * Get Microsoft Graph client with stored tokens
+ * @param {number} profileId - Profile ID to get tokens for
  */
-async function getGraphClient() {
+async function getGraphClient(profileId = 2) {
   const db = getDb();
-  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftToken']);
+  const tokenRow = await db.get(
+    'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'calendar', 'microsoft']
+  );
   
-  if (!tokenRow || !tokenRow.value) {
+  if (!tokenRow || !tokenRow.token_data) {
     throw new Error('Microsoft not connected. Please connect in Configuration.');
   }
   
-  const tokens = JSON.parse(tokenRow.value);
+  const tokens = JSON.parse(tokenRow.token_data);
   
   const authProvider = new CustomAuthProvider(tokens, refreshToken);
   const client = Client.initWithMiddleware({ authProvider });
@@ -163,9 +173,11 @@ async function getGraphClient() {
 
 /**
  * Refresh access token using refresh token
+ * @param {string} refreshTokenValue - The refresh token
+ * @param {number} profileId - Profile ID to update tokens for
  */
-async function refreshToken(refreshTokenValue) {
-  const { clientId, clientSecret } = await getOAuthClient();
+async function refreshToken(refreshTokenValue, profileId = 2) {
+  const { clientId, clientSecret } = await getOAuthClient(profileId);
   
   // Use /common for multi-tenant token refresh
   const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
@@ -199,33 +211,43 @@ async function refreshToken(refreshTokenValue) {
     tokens.expires_at = Math.floor(Date.now() / 1000) + tokens.expires_in;
   }
   
-  // Store updated tokens
+  // Store updated tokens in profile_integrations
   const db = getDb();
   await db.run(
-    'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-    ['microsoftToken', JSON.stringify(tokens)]
+    `UPDATE profile_integrations 
+     SET token_data = ?, updated_date = CURRENT_TIMESTAMP 
+     WHERE profile_id = ? AND integration_type = ? AND integration_name = ?`,
+    [JSON.stringify(tokens), profileId, 'calendar', 'microsoft']
   );
   
-  logger.info('Microsoft tokens refreshed successfully');
+  logger.info(`Microsoft tokens refreshed successfully for profile ${profileId}`);
   return tokens;
 }
 
 /**
- * Check if user has connected Microsoft (shared token for Calendar and Planner)
+ * Check if user has connected Microsoft for a profile
+ * @param {number} profileId - Profile ID to check
  */
-async function isConnected() {
+async function isConnected(profileId = 2) {
   const db = getDb();
-  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftToken']);
-  return !!(tokenRow && tokenRow.value);
+  const tokenRow = await db.get(
+    'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ? AND is_enabled = ?',
+    [profileId, 'calendar', 'microsoft', true]
+  );
+  return !!(tokenRow && tokenRow.token_data);
 }
 
 /**
- * Disconnect Microsoft (removes shared token)
+ * Disconnect Microsoft for a profile
+ * @param {number} profileId - Profile ID to disconnect
  */
-async function disconnect() {
+async function disconnect(profileId = 2) {
   const db = getDb();
-  await db.run('DELETE FROM config WHERE key = ?', ['microsoftToken']);
-  logger.info('Microsoft disconnected (Calendar + Planner)');
+  await db.run(
+    'DELETE FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'calendar', 'microsoft']
+  );
+  logger.info(`Microsoft disconnected for profile ${profileId} (Calendar + Planner)`);
 }
 
 /**
@@ -241,10 +263,12 @@ async function getCalendarId() {
 
 /**
  * Create a calendar event
+ * @param {object} eventData - Event data
+ * @param {number} profileId - Profile ID to use
  */
-async function createEvent(eventData) {
+async function createEvent(eventData, profileId = 2) {
   try {
-    const client = await getGraphClient();
+    const client = await getGraphClient(profileId);
     const calendarId = await getCalendarId();
     
     const event = {
@@ -293,10 +317,12 @@ async function createEvent(eventData) {
 
 /**
  * List upcoming events
+ * @param {number} maxResults - Maximum number of results
+ * @param {number} profileId - Profile ID to use
  */
-async function listEvents(maxResults = 50) {
+async function listEvents(maxResults = 50, profileId = 2) {
   try {
-    const client = await getGraphClient();
+    const client = await getGraphClient(profileId);
     const calendarId = await getCalendarId();
     
     const endpoint = calendarId
@@ -330,8 +356,10 @@ async function listEvents(maxResults = 50) {
 
 /**
  * Create calendar event from commitment
+ * @param {object} commitment - Commitment/task data
+ * @param {number} profileId - Profile ID to use
  */
-async function createEventFromCommitment(commitment) {
+async function createEventFromCommitment(commitment, profileId = 2) {
   try {
     // Parse deadline to create event time
     const deadline = new Date(commitment.deadline);
@@ -355,7 +383,7 @@ async function createEventFromCommitment(commitment) {
     logger.info(`Generating AI description for task: ${commitment.description.substring(0, 50)}...`);
     let description;
     try {
-      description = await generateEventDescription(commitment, commitment.transcriptContext);
+      description = await generateEventDescription(commitment, commitment.transcriptContext, profileId);
     } catch (err) {
       logger.warn('Failed to generate AI description, using fallback', err.message);
       // Fallback to basic description
@@ -392,7 +420,7 @@ async function createEventFromCommitment(commitment) {
       endTime,
       description,
       timeZone: 'America/New_York'
-    });
+    }, profileId);
     
     logger.info(`Created Microsoft Calendar event for ${taskType} ${commitment.id}: ${event.id}`);
     return event;
@@ -404,10 +432,12 @@ async function createEventFromCommitment(commitment) {
 
 /**
  * Delete a calendar event by ID
+ * @param {string} eventId - Calendar event ID
+ * @param {number} profileId - Profile ID to use
  */
-async function deleteEvent(eventId) {
+async function deleteEvent(eventId, profileId = 2) {
   try {
-    const client = await getGraphClient();
+    const client = await getGraphClient(profileId);
     const calendarId = await getCalendarId();
     
     const endpoint = calendarId
@@ -430,10 +460,11 @@ async function deleteEvent(eventId) {
 
 /**
  * List all calendars accessible to the user
+ * @param {number} profileId - Profile ID to use
  */
-async function listCalendars() {
+async function listCalendars(profileId = 2) {
   try {
-    const client = await getGraphClient();
+    const client = await getGraphClient(profileId);
     
     const response = await client.api('/me/calendars').get();
     

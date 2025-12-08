@@ -17,15 +17,15 @@ router.get('/', async (req, res) => {
   
   try {
     const db = getDb();
-    let query = 'SELECT * FROM commitments';
-    const params = [];
+    let query = 'SELECT * FROM commitments WHERE profile_id = ?';
+    const params = [req.profileId];
     
     if (status && status !== 'all') {
       if (status === 'overdue') {
-        query += ' WHERE deadline < ? AND status != ?';
+        query += ' AND deadline < ? AND status != ?';
         params.push(new Date().toISOString(), 'completed');
       } else {
-        query += ' WHERE status = ?';
+        query += ' AND status = ?';
         params.push(status);
       }
     }
@@ -54,8 +54,8 @@ router.get('/:id', async (req, res) => {
   try {
     const db = getDb();
     const row = await db.get(
-      'SELECT * FROM commitments WHERE id = ?',
-      [id]
+      'SELECT * FROM commitments WHERE id = ? AND profile_id = ?',
+      [id, req.profileId]
     );
     
     if (!row) {
@@ -90,7 +90,7 @@ router.put('/:id', async (req, res) => {
     let shouldDeleteCalendarEvent = false;
     
     if (status === 'completed') {
-      task = await db.get('SELECT calendar_event_id, deadline FROM commitments WHERE id = ?', [id]);
+      task = await db.get('SELECT calendar_event_id, deadline FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
       
       if (task && task.calendar_event_id) {
         // Check if event time is in the past
@@ -169,14 +169,14 @@ router.put('/:id', async (req, res) => {
     }
     
     // Get task data for external integrations
-    const updatedTask = await db.get('SELECT jira_task_id, microsoft_task_id, calendar_event_id FROM commitments WHERE id = ?', [id]);
+    const updatedTask = await db.get('SELECT jira_task_id, microsoft_task_id, calendar_event_id FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
     
     // Delete calendar event if needed (after updating database)
     if (shouldDeleteCalendarEvent && task && task.calendar_event_id) {
       try {
-        const isConnected = await googleCalendar.isConnected();
+        const isConnected = await googleCalendar.isConnected(req.profileId);
         if (isConnected) {
-          await googleCalendar.deleteEvent(task.calendar_event_id);
+          await googleCalendar.deleteEvent(task.calendar_event_id, req.profileId);
           logger.info(`Deleted calendar event ${task.calendar_event_id} for completed task ${id}`);
         }
       } catch (calError) {
@@ -187,9 +187,9 @@ router.put('/:id', async (req, res) => {
     // Close Jira issue if task is completed and has a Jira issue key
     if (status === 'completed' && updatedTask && updatedTask.jira_task_id) {
       try {
-        const isJiraConnected = await jira.isConnected();
+        const isJiraConnected = await jira.isConnected(req.profileId);
         if (isJiraConnected) {
-          await jira.closeIssue(updatedTask.jira_task_id, req.body.completion_note);
+          await jira.closeIssue(updatedTask.jira_task_id, req.body.completion_note, req.profileId);
           logger.info(`Closed Jira issue ${updatedTask.jira_task_id} for completed task ${id}`);
         }
       } catch (jiraError) {
@@ -200,9 +200,9 @@ router.put('/:id', async (req, res) => {
     // Complete Microsoft Planner task if task is completed and has a Microsoft task ID
     if (status === 'completed' && updatedTask && updatedTask.microsoft_task_id) {
       try {
-        const isMicrosoftConnected = await microsoftPlanner.isConnected();
+        const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
         if (isMicrosoftConnected) {
-          await microsoftPlanner.completeTask(updatedTask.microsoft_task_id, req.body.completion_note);
+          await microsoftPlanner.completeTask(updatedTask.microsoft_task_id, req.body.completion_note, req.profileId);
           logger.info(`Completed Microsoft task ${updatedTask.microsoft_task_id} for completed task ${id}`);
         }
       } catch (msError) {
@@ -232,7 +232,7 @@ router.delete('/:id', async (req, res) => {
     const db = getDb();
     
     // Get task data before deleting to cleanup external integrations
-    const task = await db.get('SELECT * FROM commitments WHERE id = ?', [id]);
+    const task = await db.get('SELECT * FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
     
     if (!task) {
       logger.warn(`Commitment not found: ${id}`);
@@ -249,9 +249,9 @@ router.delete('/:id', async (req, res) => {
     // Delete from Google Calendar if event exists
     if (task.calendar_event_id) {
       try {
-        const isConnected = await googleCalendar.isConnected();
+        const isConnected = await googleCalendar.isConnected(req.profileId);
         if (isConnected) {
-          await googleCalendar.deleteEvent(task.calendar_event_id);
+          await googleCalendar.deleteEvent(task.calendar_event_id, req.profileId);
           deletionResults.calendar = 'success';
           logger.info(`Deleted calendar event ${task.calendar_event_id}`);
         }
@@ -264,9 +264,9 @@ router.delete('/:id', async (req, res) => {
     // Delete from Jira if issue exists
     if (task.jira_task_id) {
       try {
-        const isJiraConnected = await jira.isConnected();
+        const isJiraConnected = await jira.isConnected(req.profileId);
         if (isJiraConnected) {
-          await jira.deleteIssue(task.jira_task_id);
+          await jira.deleteIssue(task.jira_task_id, req.profileId);
           deletionResults.jira = 'success';
           logger.info(`Deleted Jira issue ${task.jira_task_id}`);
         }
@@ -279,9 +279,9 @@ router.delete('/:id', async (req, res) => {
     // Delete from Microsoft Planner if task exists
     if (task.microsoft_task_id) {
       try {
-        const isMicrosoftConnected = await microsoftPlanner.isConnected();
+        const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
         if (isMicrosoftConnected) {
-          await microsoftPlanner.deleteTask(task.microsoft_task_id);
+          await microsoftPlanner.deleteTask(task.microsoft_task_id, req.profileId);
           deletionResults.microsoft = 'success';
           logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);
         }
@@ -393,7 +393,7 @@ router.post('/', async (req, res) => {
     
     // Insert task into database (transcript_id is null for manual tasks)
     const result = await db.run(
-      'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach, task_type, priority, status, needs_confirmation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO commitments (transcript_id, description, assignee, deadline, urgency, suggested_approach, task_type, priority, status, needs_confirmation, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         null, // transcript_id = null for manual tasks
         description,
@@ -404,7 +404,8 @@ router.post('/', async (req, res) => {
         taskType,
         finalPriority,
         'pending',
-        getBooleanValue(requiresConfirmation)
+        getBooleanValue(requiresConfirmation),
+        req.profileId
       ]
     );
     
@@ -437,8 +438,8 @@ router.post('/', async (req, res) => {
           
           if (effortResponse.data && effortResponse.data.estimated_time) {
             await db.run(
-              'UPDATE commitments SET suggested_approach = ? WHERE id = ?',
-              [`AI Estimate: ${effortResponse.data.estimated_time}. ${effortResponse.data.reasoning || ''}`.substring(0, 500), insertedId]
+              'UPDATE commitments SET suggested_approach = ? WHERE id = ? AND profile_id = ?',
+              [`AI Estimate: ${effortResponse.data.estimated_time}. ${effortResponse.data.reasoning || ''}`.substring(0, 500), insertedId, req.profileId]
             );
             logger.info(`Auto-estimated effort for task ${insertedId}: ${effortResponse.data.estimated_time}`);
           }
@@ -466,11 +467,11 @@ router.post('/', async (req, res) => {
     
     // Create calendar event if applicable (only for user tasks with deadlines, not risks)
     if (taskType !== 'risk' && deadline && isUserTask && !requiresConfirmation) {
-      const isGoogleConnected = await googleCalendar.isConnected();
+      const isGoogleConnected = await googleCalendar.isConnected(req.profileId);
       if (isGoogleConnected) {
         try {
-          const event = await googleCalendar.createEventFromCommitment(taskData);
-          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, insertedId]);
+          const event = await googleCalendar.createEventFromCommitment(taskData, req.profileId);
+          await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
           logger.info(`Created calendar event ${event.id} for manual task ${insertedId}`);
         } catch (calError) {
           logger.warn(`Failed to create calendar event: ${calError.message}`);
@@ -478,13 +479,13 @@ router.post('/', async (req, res) => {
       }
     }
     
-    // Create Microsoft Planner task if applicable (not for risks)
-    if (taskType !== 'risk') {
-      const isMicrosoftConnected = await microsoftPlanner.isConnected();
-      if (isMicrosoftConnected && deadline && isUserTask && !requiresConfirmation) {
+    // Create Microsoft Planner task if applicable (only for user tasks with deadlines, not risks)
+    if (taskType !== 'risk' && deadline && isUserTask && !requiresConfirmation) {
+      const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
+      if (isMicrosoftConnected) {
         try {
-          const microsoftTask = await microsoftPlanner.createTaskFromCommitment(taskData);
-          await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ?', [microsoftTask.id, insertedId]);
+          const microsoftTask = await microsoftPlanner.createTaskFromCommitment(taskData, req.profileId);
+          await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
           logger.info(`Created Microsoft task ${microsoftTask.id} for manual task ${insertedId}`);
         } catch (msError) {
           logger.warn(`Failed to create Microsoft task: ${msError.message}`);
@@ -494,11 +495,11 @@ router.post('/', async (req, res) => {
     
     // Create Jira issue if applicable (not for risks)
     if (taskType !== 'risk') {
-      const isJiraConnected = await jira.isConnected();
+      const isJiraConnected = await jira.isConnected(req.profileId);
       if (isJiraConnected) {
         try {
-          const jiraIssue = await jira.createIssueFromCommitment(taskData);
-          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ?', [jiraIssue.key, insertedId]);
+          const jiraIssue = await jira.createIssueFromCommitment(taskData, req.profileId);
+          await db.run('UPDATE commitments SET jira_task_id = ? WHERE id = ? AND profile_id = ?', [jiraIssue.key, insertedId, req.profileId]);
           logger.info(`Created Jira issue ${jiraIssue.key} for manual task ${insertedId}`);
         } catch (jiraError) {
           logger.warn(`Failed to create Jira issue: ${jiraError.message}`);
@@ -507,7 +508,7 @@ router.post('/', async (req, res) => {
     }
     
     // Fetch the created task to return
-    const createdTask = await db.get('SELECT * FROM commitments WHERE id = ?', [insertedId]);
+    const createdTask = await db.get('SELECT * FROM commitments WHERE id = ? AND profile_id = ?', [insertedId, req.profileId]);
     
     res.status(201).json({
       success: true,
@@ -537,7 +538,7 @@ router.post('/:id/confirm', async (req, res) => {
     
     if (confirmed) {
       // Confirm the task - remove needs_confirmation flag
-      const task = await db.get('SELECT * FROM commitments WHERE id = ?', [id]);
+      const task = await db.get('SELECT * FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
       
       if (!task) {
         return res.status(404).json({ error: 'Task not found' });
@@ -554,13 +555,13 @@ router.post('/:id/confirm', async (req, res) => {
       // If task has a deadline and Google Calendar is connected, create calendar event
       if (task.deadline) {
         try {
-          const isConnected = await googleCalendar.isConnected();
+          const isConnected = await googleCalendar.isConnected(req.profileId);
           if (isConnected && !task.calendar_event_id) {
             const event = await googleCalendar.createEventFromCommitment({
               ...task,
               task_type: task.task_type || 'commitment'
-            });
-            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ?', [event.id, id]);
+            }, req.profileId);
+            await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, id, req.profileId]);
             logger.info(`Created calendar event ${event.id} for confirmed task ${id}`);
           }
         } catch (calError) {
@@ -572,7 +573,7 @@ router.post('/:id/confirm', async (req, res) => {
       res.json({ message: 'Task confirmed successfully' });
     } else {
       // Reject the task - delete it
-      const result = await db.run('DELETE FROM commitments WHERE id = ?', [id]);
+      const result = await db.run('DELETE FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
       
       if (result.changes === 0) {
         logger.warn(`Task not found: ${id}`);

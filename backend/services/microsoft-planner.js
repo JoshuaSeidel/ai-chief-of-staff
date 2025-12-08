@@ -24,8 +24,9 @@ class CustomAuthProvider {
 
 /**
  * Get Microsoft OAuth2 client with credentials from database
+ * @param {number} profileId - Profile ID (not used for credentials, but for consistency)
  */
-async function getOAuthClient() {
+async function getOAuthClient(profileId = 2) {
   const db = getDb();
   
   // Get Microsoft OAuth credentials from config
@@ -94,9 +95,13 @@ async function getAuthUrl() {
 
 /**
  * Exchange authorization code for tokens
+ * NOTE: Microsoft Planner shares the same token as Microsoft Calendar.
+ * Token is stored in profile_integrations with integration_name='microsoft'
+ * @param {string} code - OAuth authorization code
+ * @param {number} profileId - Profile ID to associate tokens with
  */
-async function getTokenFromCode(code) {
-  const { clientId, clientSecret, redirectUri } = await getOAuthClient();
+async function getTokenFromCode(code, profileId = 2) {
+  const { clientId, clientSecret, redirectUri } = await getOAuthClient(profileId);
   
   // Use /common for multi-tenant token exchange
   // The actual tenant will be determined by the authorization code
@@ -132,31 +137,38 @@ async function getTokenFromCode(code) {
     tokens.expires_at = Math.floor(Date.now() / 1000) + tokens.expires_in;
   }
   
-  // Store tokens in database (shared token for both Calendar and Planner)
+  // Store tokens in profile_integrations table (shared with Microsoft Calendar)
   const db = getDb();
   await db.run(
-    'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-    ['microsoftToken', JSON.stringify(tokens)]
+    `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     ON CONFLICT (profile_id, integration_type, integration_name)
+     DO UPDATE SET token_data = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
+    [profileId, 'calendar', 'microsoft', JSON.stringify(tokens), true, JSON.stringify(tokens), true]
   );
   
-  logger.info('Microsoft tokens stored successfully (Calendar + Tasks)');
+  logger.info(`Microsoft tokens stored successfully for profile ${profileId} (Calendar + Tasks)`);
   return tokens;
 }
 
 /**
  * Get Microsoft Graph client with stored tokens (shared token for Calendar and Planner)
+ * @param {number} profileId - Profile ID to get tokens for
  */
-async function getGraphClient() {
+async function getGraphClient(profileId = 2) {
   const db = getDb();
-  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftToken']);
+  const tokenRow = await db.get(
+    'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'calendar', 'microsoft']
+  );
   
-  if (!tokenRow || !tokenRow.value) {
+  if (!tokenRow || !tokenRow.token_data) {
     throw new Error('Microsoft not connected. Please connect in Configuration.');
   }
   
   let tokens;
   try {
-    tokens = JSON.parse(tokenRow.value);
+    tokens = JSON.parse(tokenRow.token_data);
   } catch (err) {
     logger.error('Failed to parse stored token', err);
     throw new Error('Invalid stored token. Please reconnect.');
@@ -168,13 +180,15 @@ async function getGraphClient() {
     // Update stored token with expires_at
     const db = getDb();
     await db.run(
-      'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-      ['microsoftToken', JSON.stringify(tokens)]
+      `UPDATE profile_integrations 
+       SET token_data = ?, updated_date = CURRENT_TIMESTAMP 
+       WHERE profile_id = ? AND integration_type = ? AND integration_name = ?`,
+      [JSON.stringify(tokens), profileId, 'calendar', 'microsoft']
     );
   }
   
-  // Create custom authentication provider
-  const authProvider = new CustomAuthProvider(tokens, refreshToken);
+  // Create custom authentication provider with profileId bound
+  const authProvider = new CustomAuthProvider(tokens, (refreshTokenValue) => refreshToken(refreshTokenValue, profileId));
   
   const client = Client.initWithMiddleware({
     authProvider: authProvider
@@ -185,9 +199,11 @@ async function getGraphClient() {
 
 /**
  * Refresh access token using refresh token
+ * @param {string} refreshTokenValue - The refresh token
+ * @param {number} profileId - Profile ID to update tokens for
  */
-async function refreshToken(refreshTokenValue) {
-  const { clientId, clientSecret } = await getOAuthClient();
+async function refreshToken(refreshTokenValue, profileId = 2) {
+  const { clientId, clientSecret } = await getOAuthClient(profileId);
   
   // Use /common for multi-tenant token refresh
   // The tenant is determined by the refresh token itself
@@ -222,40 +238,49 @@ async function refreshToken(refreshTokenValue) {
     tokens.expires_at = Math.floor(Date.now() / 1000) + tokens.expires_in;
   }
   
-  // Store updated tokens (shared token for Calendar and Planner)
+  // Store updated tokens in profile_integrations (shared token for Calendar and Planner)
   const db = getDb();
   await db.run(
-    'INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)',
-    ['microsoftToken', JSON.stringify(tokens)]
+    `UPDATE profile_integrations \n     SET token_data = ?, updated_date = CURRENT_TIMESTAMP \n     WHERE profile_id = ? AND integration_type = ? AND integration_name = ?`,
+    [JSON.stringify(tokens), profileId, 'calendar', 'microsoft']
   );
   
-  logger.info('Microsoft tokens refreshed successfully (Calendar + Tasks)');
+  logger.info(`Microsoft tokens refreshed successfully for profile ${profileId} (Calendar + Tasks)`);
   return tokens;
 }
 
 /**
- * Check if user has connected Microsoft (shared token for Calendar and Planner)
+ * Check if user has connected Microsoft for a profile (shared token for Calendar and Planner)
+ * @param {number} profileId - Profile ID to check
  */
-async function isConnected() {
+async function isConnected(profileId = 2) {
   const db = getDb();
-  const tokenRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftToken']);
-  return !!(tokenRow && tokenRow.value);
+  const tokenRow = await db.get(
+    'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ? AND is_enabled = ?',
+    [profileId, 'calendar', 'microsoft', true]
+  );
+  return !!(tokenRow && tokenRow.token_data);
 }
 
 /**
- * Disconnect Microsoft (removes shared token for Calendar and Planner)
+ * Disconnect Microsoft for a profile (removes shared token for Calendar and Planner)
+ * @param {number} profileId - Profile ID to disconnect
  */
-async function disconnect() {
+async function disconnect(profileId = 2) {
   const db = getDb();
-  await db.run('DELETE FROM config WHERE key = ?', ['microsoftToken']);
-  logger.info('Microsoft disconnected (Calendar + Planner)');
+  await db.run(
+    'DELETE FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'calendar', 'microsoft']
+  );
+  logger.info(`Microsoft disconnected for profile ${profileId} (Calendar + Planner)`);
 }
 
 /**
  * List all available task lists
+ * @param {number} profileId - Profile ID to use
  */
-async function listTaskLists() {
-  const client = await getGraphClient();
+async function listTaskLists(profileId = 2) {
+  const client = await getGraphClient(profileId);
   
   // Get user's task lists
   const taskLists = await client.api('/me/todo/lists').get();
@@ -265,8 +290,9 @@ async function listTaskLists() {
 
 /**
  * Get configured task list ID or default to "My Tasks"
+ * @param {number} profileId - Profile ID to use
  */
-async function getTaskListId() {
+async function getTaskListId(profileId = 2) {
   const db = getDb();
   const listIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftTaskListId']);
   
@@ -276,7 +302,7 @@ async function getTaskListId() {
   }
   
   // Fallback: get default list
-  const client = await getGraphClient();
+  const client = await getGraphClient(profileId);
   const taskLists = await client.api('/me/todo/lists').get();
   const defaultList = taskLists.value.find(list => list.displayName === 'My Tasks') || taskLists.value[0];
   
@@ -290,9 +316,11 @@ async function getTaskListId() {
 
 /**
  * Create a task in Microsoft Planner/To Do
+ * @param {object} taskData - Task data
+ * @param {number} profileId - Profile ID to use
  */
-async function createTask(taskData) {
-  const client = await getGraphClient();
+async function createTask(taskData, profileId = 2) {
+  const client = await getGraphClient(profileId);
   
   const {
     title,
@@ -303,7 +331,7 @@ async function createTask(taskData) {
   } = taskData;
   
   // Get configured task list ID
-  const taskListId = await getTaskListId();
+  const taskListId = await getTaskListId(profileId);
   
   // Create task in Microsoft To Do
   const task = {
@@ -332,8 +360,10 @@ async function createTask(taskData) {
 
 /**
  * Create task from commitment
+ * @param {object} commitment - Commitment/task data
+ * @param {number} profileId - Profile ID to use
  */
-async function createTaskFromCommitment(commitment) {
+async function createTaskFromCommitment(commitment, profileId = 2) {
   try {
     // Map urgency to importance
     const urgencyMap = {
@@ -357,7 +387,7 @@ async function createTaskFromCommitment(commitment) {
       status: statusMap[commitment.status] || 'notStarted'
     };
     
-    return await createTask(taskData);
+    return await createTask(taskData, profileId);
   } catch (error) {
     logger.error('Error creating Microsoft task from commitment', error);
     throw error;
@@ -366,11 +396,14 @@ async function createTaskFromCommitment(commitment) {
 
 /**
  * Update task status (mark as completed)
+ * @param {string} taskId - Task ID
+ * @param {string} status - New status
+ * @param {number} profileId - Profile ID to use
  */
-async function updateTaskStatus(taskId, status) {
+async function updateTaskStatus(taskId, status, profileId = 2) {
   try {
-    const client = await getGraphClient();
-    const taskListId = await getTaskListId();
+    const client = await getGraphClient(profileId);
+    const taskListId = await getTaskListId(profileId);
     
     // Microsoft To Do API status values: notStarted, inProgress, completed, waitingOnOthers, deferred
     const validStatuses = ['notStarted', 'inProgress', 'completed', 'waitingOnOthers', 'deferred'];
@@ -394,11 +427,14 @@ async function updateTaskStatus(taskId, status) {
 
 /**
  * Mark a task as completed
+ * @param {string} taskId - Task ID
+ * @param {string} completionNote - Optional completion note
+ * @param {number} profileId - Profile ID to use
  */
-async function completeTask(taskId, completionNote = null) {
+async function completeTask(taskId, completionNote = null, profileId = 2) {
   try {
-    const client = await getGraphClient();
-    const taskListId = await getTaskListId();
+    const client = await getGraphClient(profileId);
+    const taskListId = await getTaskListId(profileId);
     
     const updateData = {
       status: 'completed'
@@ -441,11 +477,13 @@ async function completeTask(taskId, completionNote = null) {
 
 /**
  * Delete a task permanently
+ * @param {string} taskId - Task ID
+ * @param {number} profileId - Profile ID to use
  */
-async function deleteTask(taskId) {
+async function deleteTask(taskId, profileId = 2) {
   try {
-    const client = await getGraphClient();
-    const taskListId = await getTaskListId();
+    const client = await getGraphClient(profileId);
+    const taskListId = await getTaskListId(profileId);
     
     await client
       .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
@@ -461,10 +499,12 @@ async function deleteTask(taskId) {
 
 /**
  * List all tasks
+ * @param {number} limit - Maximum number of tasks to return
+ * @param {number} profileId - Profile ID to use
  */
-async function listTasks(limit = 50) {
-  const client = await getGraphClient();
-  const taskListId = await getTaskListId();
+async function listTasks(limit = 50, profileId = 2) {
+  const client = await getGraphClient(profileId);
+  const taskListId = await getTaskListId(profileId);
   
   const tasks = await client
     .api(`/me/todo/lists/${taskListId}/tasks`)

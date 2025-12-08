@@ -30,13 +30,13 @@ router.post('/generate', async (req, res) => {
     // Fetch recent context
     const contextQuery = `
       SELECT * FROM context 
-      WHERE created_date >= ? AND status = 'active'
+      WHERE created_date >= ? AND status = 'active' AND profile_id = ?
       ORDER BY created_date DESC
     `;
 
     const commitmentsQuery = `
       SELECT * FROM commitments 
-      WHERE created_date >= ? AND status != 'completed'
+      WHERE created_date >= ? AND status != 'completed' AND profile_id = ?
       ORDER BY deadline ASC
     `;
 
@@ -48,13 +48,13 @@ router.post('/generate', async (req, res) => {
 
     try {
       // Use the unified interface with await
-      const contextRows = await db.all(contextQuery, [twoWeeksAgoISO]);
+      const contextRows = await db.all(contextQuery, [twoWeeksAgoISO, req.profileId]);
       logger.info(`Found ${contextRows.length} context entries`);
       
-      const commitmentRows = await db.all(commitmentsQuery, [twoWeeksAgoISO]);
+      const commitmentRows = await db.all(commitmentsQuery, [twoWeeksAgoISO, req.profileId]);
       logger.info(`Found ${commitmentRows.length} commitments`);
       
-      const transcriptRows = await db.all(transcriptsQuery, [twoWeeksAgoISO]);
+      const transcriptRows = await db.all(transcriptsQuery, [twoWeeksAgoISO, req.profileId]);
       logger.info(`Found ${transcriptRows.length} transcripts`);
 
       const contextData = {
@@ -90,14 +90,14 @@ router.post('/generate', async (req, res) => {
         };
       }
       
-      const brief = await generateDailyBrief(contextData);
+      const brief = await generateDailyBrief(contextData, req.profileId);
       logger.info('Brief generated successfully');
 
       // Save brief to database
       const today = new Date().toISOString().split('T')[0];
       const result = await db.run(
-        'INSERT INTO briefs (brief_date, content) VALUES (?, ?)',
-        [today, brief]
+        'INSERT INTO briefs (brief_date, content, profile_id) VALUES (?, ?, ?)',
+        [today, brief, req.profileId]
       );
       
       logger.info(`Brief saved with ID: ${result.lastID}`);
@@ -135,8 +135,8 @@ router.get('/recent', async (req, res) => {
   try {
     const db = getDb();
     const rows = await db.all(
-      'SELECT * FROM briefs ORDER BY brief_date DESC LIMIT ?',
-      [limit]
+      'SELECT * FROM briefs WHERE profile_id = ? ORDER BY brief_date DESC LIMIT ?',
+      [req.profileId, limit]
     );
     
     logger.info(`Returning ${rows.length} briefs`);
@@ -160,8 +160,8 @@ router.get('/:date', async (req, res) => {
   try {
     const db = getDb();
     const row = await db.get(
-      'SELECT * FROM briefs WHERE brief_date = ?',
-      [date]
+      'SELECT * FROM briefs WHERE brief_date = ? AND profile_id = ?',
+      [date, req.profileId]
     );
     
     if (!row) {
@@ -190,8 +190,8 @@ router.delete('/:id', async (req, res) => {
   try {
     const db = getDb();
     const result = await db.run(
-      'DELETE FROM briefs WHERE id = ?',
-      [id]
+      'DELETE FROM briefs WHERE id = ? AND profile_id = ?',
+      [id, req.profileId]
     );
     
     if (result.changes === 0) {
@@ -229,35 +229,35 @@ router.post('/weekly-report', async (req, res) => {
     // Fetch transcripts from the week
     const transcriptsQuery = `
       SELECT * FROM transcripts 
-      WHERE upload_date >= ?
+      WHERE upload_date >= ? AND profile_id = ?
       ORDER BY upload_date DESC
     `;
 
     // Fetch commitments from the week
     const commitmentsQuery = `
       SELECT * FROM commitments 
-      WHERE created_date >= ?
+      WHERE created_date >= ? AND profile_id = ?
       ORDER BY status, deadline ASC
     `;
 
     // Fetch context from the week
     const contextQuery = `
       SELECT * FROM context 
-      WHERE created_date >= ? AND status = 'active'
+      WHERE created_date >= ? AND status = 'active' AND profile_id = ?
       ORDER BY created_date DESC
     `;
 
     // Fetch briefs from the week
     const briefsQuery = `
       SELECT * FROM briefs 
-      WHERE created_date >= ?
+      WHERE created_date >= ? AND profile_id = ?
       ORDER BY brief_date DESC
     `;
 
-    const transcriptRows = await db.all(transcriptsQuery, [weekAgoISO]);
-    const commitmentRows = await db.all(commitmentsQuery, [weekAgoISO]);
-    const contextRows = await db.all(contextQuery, [weekAgoISO]);
-    const briefRows = await db.all(briefsQuery, [weekAgoISO]);
+    const transcriptRows = await db.all(transcriptsQuery, [weekAgoISO, req.profileId]);
+    const commitmentRows = await db.all(commitmentsQuery, [weekAgoISO, req.profileId]);
+    const contextRows = await db.all(contextQuery, [weekAgoISO, req.profileId]);
+    const briefRows = await db.all(briefsQuery, [weekAgoISO, req.profileId]);
 
     logger.info(`Found ${transcriptRows.length} transcripts, ${commitmentRows.length} commitments, ${contextRows.length} context items`);
 
@@ -305,7 +305,7 @@ router.post('/weekly-report', async (req, res) => {
     };
 
     logger.info('Calling Claude API to generate weekly report...');
-    const report = await generateWeeklyReport(weekData);
+    const report = await generateWeeklyReport(weekData, req.profileId);
     logger.info('Weekly report generated successfully');
 
     res.json({ 
@@ -337,8 +337,8 @@ router.post('/patterns', async (req, res) => {
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
     
     const transcripts = await db.all(
-      'SELECT * FROM transcripts WHERE upload_date >= ? ORDER BY upload_date DESC LIMIT 10',
-      [twoWeeksAgo.toISOString()]
+      'SELECT * FROM transcripts WHERE upload_date >= ? AND profile_id = ? ORDER BY upload_date DESC LIMIT 10',
+      [twoWeeksAgo.toISOString(), req.profileId]
     );
     
     if (transcripts.length === 0) {
@@ -349,7 +349,7 @@ router.post('/patterns', async (req, res) => {
     }
     
     logger.info(`Analyzing ${transcripts.length} transcripts for patterns`);
-    const patterns = await detectPatterns(transcripts);
+    const patterns = await detectPatterns(transcripts, req.profileId);
     
     res.json({
       patterns,
@@ -376,19 +376,19 @@ router.post('/risks', async (req, res) => {
     
     // Get active commitments
     const commitments = await db.all(
-      'SELECT * FROM commitments WHERE status != ? ORDER BY deadline ASC',
-      ['completed']
+      'SELECT * FROM commitments WHERE status != ? AND profile_id = ? ORDER BY deadline ASC',
+      ['completed', req.profileId]
     );
     
     // Get active context
     const context = await db.all(
-      'SELECT * FROM context WHERE status = ? ORDER BY created_date DESC LIMIT 50',
-      ['active']
+      'SELECT * FROM context WHERE status = ? AND profile_id = ? ORDER BY created_date DESC LIMIT 50',
+      ['active', req.profileId]
     );
     
     logger.info(`Analyzing ${commitments.length} commitments and ${context.length} context items for risks`);
     
-    const risks = await flagRisks({ commitments, context });
+    const risks = await flagRisks({ commitments, context }, req.profileId);
     
     res.json({
       risks,

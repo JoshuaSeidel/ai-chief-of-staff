@@ -12,33 +12,36 @@ const logger = createModuleLogger('CALENDAR');
  */
 router.get('/events', async (req, res) => {
   try {
+    const profileId = req.profileId || 2;
+    
     // Get configuration
     const googleEnabled = await getConfig('googleCalendarEnabled', true);
     const microsoftEnabled = await getConfig('microsoftEnabled', false);
     
     // Try Google Calendar first (if enabled)
     if (googleEnabled) {
-      const isGoogleConnected = await googleCalendar.isConnected();
+      const isGoogleConnected = await googleCalendar.isConnected(profileId);
       if (isGoogleConnected) {
-        logger.info('Fetching events from Google Calendar');
-        const events = await googleCalendar.listEvents(50);
+        logger.info(`Fetching events from Google Calendar for profile ${profileId}`);
+        const events = await googleCalendar.listEvents(50, profileId);
         return res.json({ source: 'google', events });
       }
     }
     
     // Try Microsoft Calendar (if enabled)
     if (microsoftEnabled) {
-      const isMicrosoftConnected = await microsoftCalendar.isConnected();
+      const isMicrosoftConnected = await microsoftCalendar.isConnected(profileId);
       if (isMicrosoftConnected) {
-        logger.info('Fetching events from Microsoft Calendar');
-        const events = await microsoftCalendar.listEvents(50);
+        logger.info(`Fetching events from Microsoft Calendar for profile ${profileId}`);
+        const events = await microsoftCalendar.listEvents(50, profileId);
         return res.json({ source: 'microsoft', events });
       }
     }
     
-    return res.status(400).json({ 
-      error: 'No calendar configured',
-      message: 'Please connect Google Calendar or Microsoft Calendar in Configuration'
+    return res.status(200).json({ 
+      source: 'none',
+      events: [],
+      message: 'No calendar connected. Calendar integration is optional. Connect Google Calendar or Microsoft Calendar in Configuration to sync events.'
     });
   } catch (error) {
     logger.error('Error fetching calendar events', error);
@@ -54,6 +57,7 @@ router.get('/events', async (req, res) => {
  */
 router.post('/block', async (req, res) => {
   const { title, startTime, endTime, description, attendees } = req.body;
+  const profileId = req.profileId || 2;
 
   if (!title || !startTime || !endTime) {
     return res.status(400).json({ error: 'Title, startTime, and endTime are required' });
@@ -61,16 +65,16 @@ router.post('/block', async (req, res) => {
 
   try {
     // Try Google Calendar first
-    const isGoogleConnected = await googleCalendar.isConnected();
+    const isGoogleConnected = await googleCalendar.isConnected(profileId);
     if (isGoogleConnected) {
-      logger.info(`Creating Google Calendar event: ${title}`);
+      logger.info(`Creating Google Calendar event: ${title} for profile ${profileId}`);
       const event = await googleCalendar.createEvent({
         title,
         startTime,
         endTime,
         description,
         attendees
-      });
+      }, profileId);
       
       return res.json({
         success: true,
@@ -84,16 +88,16 @@ router.post('/block', async (req, res) => {
     }
     
     // Try Microsoft Calendar
-    const isMicrosoftConnected = await microsoftCalendar.isConnected();
+    const isMicrosoftConnected = await microsoftCalendar.isConnected(profileId);
     if (isMicrosoftConnected) {
-      logger.info(`Creating Microsoft Calendar event: ${title}`);
+      logger.info(`Creating Microsoft Calendar event: ${title} for profile ${profileId}`);
       const event = await microsoftCalendar.createEvent({
         title,
         startTime,
         endTime,
         description,
         attendees
-      });
+      }, profileId);
       
       return res.json({
         success: true,
@@ -166,7 +170,8 @@ router.get('/google/auth', async (req, res) => {
  * Google OAuth - Callback
  */
 router.get('/google/callback', async (req, res) => {
-  const { code, error } = req.query;
+  const { code, error, state } = req.query;
+  const profileId = req.profileId || parseInt(state) || 2; // Try to get from state param or default to 2
   
   if (error) {
     logger.error('OAuth callback error', error);
@@ -178,9 +183,9 @@ router.get('/google/callback', async (req, res) => {
   }
   
   try {
-    await googleCalendar.getTokenFromCode(code);
-    logger.info('Google Calendar connected successfully');
-    res.redirect('/#config?success=google_calendar_connected');
+    await googleCalendar.getTokenFromCode(code, profileId);
+    logger.info(`Google Calendar connected successfully for profile ${profileId}`);
+    res.redirect(`/#config?success=google_calendar_connected&profile=${profileId}`);
   } catch (error) {
     logger.error('Error exchanging code for token', error);
     res.redirect('/#config?error=oauth_exchange_failed');
@@ -192,8 +197,9 @@ router.get('/google/callback', async (req, res) => {
  */
 router.get('/google/status', async (req, res) => {
   try {
-    const connected = await googleCalendar.isConnected();
-    res.json({ connected });
+    const profileId = req.profileId || 2;
+    const connected = await googleCalendar.isConnected(profileId);
+    res.json({ connected, profileId });
   } catch (error) {
     res.json({ connected: false, error: error.message });
   }
@@ -204,7 +210,8 @@ router.get('/google/status', async (req, res) => {
  */
 router.get('/google/calendars', async (req, res) => {
   try {
-    const calendars = await googleCalendar.listCalendars();
+    const profileId = req.profileId || 2;
+    const calendars = await googleCalendar.listCalendars(profileId);
     res.json({ calendars });
   } catch (error) {
     logger.error('Error listing calendars', error);
@@ -220,7 +227,8 @@ router.get('/google/calendars', async (req, res) => {
  */
 router.post('/google/disconnect', async (req, res) => {
   try {
-    await googleCalendar.disconnect();
+    const profileId = req.profileId || 2;
+    await googleCalendar.disconnect(profileId);
     res.json({ message: 'Google Calendar disconnected successfully' });
   } catch (error) {
     logger.error('Error disconnecting Google Calendar', error);
@@ -248,7 +256,8 @@ router.get('/microsoft/auth', async (req, res) => {
  * Microsoft OAuth - Callback
  */
 router.get('/microsoft/callback', async (req, res) => {
-  const { code, error } = req.query;
+  const { code, error, state } = req.query;
+  const profileId = req.profileId || parseInt(state) || 2; // Try to get from state param or default to 2
   
   if (error) {
     logger.error('OAuth callback error', error);
@@ -260,9 +269,9 @@ router.get('/microsoft/callback', async (req, res) => {
   }
   
   try {
-    await microsoftCalendar.getTokenFromCode(code);
-    logger.info('Microsoft Calendar connected successfully');
-    res.redirect('/#config?success=microsoft_calendar_connected');
+    await microsoftCalendar.getTokenFromCode(code, profileId);
+    logger.info(`Microsoft Calendar connected successfully for profile ${profileId}`);
+    res.redirect(`/#config?success=microsoft_calendar_connected&profile=${profileId}`);
   } catch (error) {
     logger.error('Error exchanging code for token', error);
     res.redirect('/#config?error=microsoft_oauth_exchange_failed');
@@ -274,8 +283,9 @@ router.get('/microsoft/callback', async (req, res) => {
  */
 router.get('/microsoft/status', async (req, res) => {
   try {
-    const connected = await microsoftCalendar.isConnected();
-    res.json({ connected });
+    const profileId = req.profileId || 2;
+    const connected = await microsoftCalendar.isConnected(profileId);
+    res.json({ connected, profileId });
   } catch (error) {
     res.json({ connected: false, error: error.message });
   }
@@ -286,7 +296,8 @@ router.get('/microsoft/status', async (req, res) => {
  */
 router.get('/microsoft/calendars', async (req, res) => {
   try {
-    const calendars = await microsoftCalendar.listCalendars();
+    const profileId = req.profileId || 2;
+    const calendars = await microsoftCalendar.listCalendars(profileId);
     res.json({ calendars });
   } catch (error) {
     logger.error('Error listing Microsoft calendars', error);
@@ -302,7 +313,8 @@ router.get('/microsoft/calendars', async (req, res) => {
  */
 router.post('/microsoft/disconnect', async (req, res) => {
   try {
-    await microsoftCalendar.disconnect();
+    const profileId = req.profileId || 2;
+    await microsoftCalendar.disconnect(profileId);
     res.json({ message: 'Microsoft Calendar disconnected successfully' });
   } catch (error) {
     logger.error('Error disconnecting Microsoft Calendar', error);
