@@ -691,9 +691,9 @@ function Commitments() {
                       {commitment.deadline && <DeadlineTime date={commitment.deadline} />}
                     </div>
                     <div className="flex gap-sm mt-md flex-wrap">
-                      <Button variant="success" onClick={() => confirmTask(commitment.id, true)} icon="✅">Confirm</Button>
-                      <Button variant="error" onClick={() => confirmTask(commitment.id, false)} icon="❌">Reject</Button>
-                      <Button variant="ghost" onClick={() => deleteTask(commitment.id, commitment.description)} icon="🗑️">Delete</Button>
+                      <Button variant="success" size="sm" onClick={() => confirmTask(commitment.id, true)} icon="✅">Confirm</Button>
+                      <Button variant="error" size="sm" onClick={() => confirmTask(commitment.id, false)} icon="❌">Reject</Button>
+                      <Button variant="ghost" size="sm" onClick={() => deleteTask(commitment.id, commitment.description)} icon="🗑️">Delete</Button>
                     </div>
                   </div>
                 ))}

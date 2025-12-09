@@ -35,7 +35,8 @@ const MICROSERVICE_TIMEOUT = 30000;
 
 // Load CA certificate for validating microservice certificates
 // Note: Certs are in /app/certs which is mounted from tls-certs volume
-const CA_CERT_PATH = '/app/certs/ca.crt';
+// The generate-certs.sh script creates ca-cert.pem
+const CA_CERT_PATH = '/app/certs/ca-cert.pem';
 let httpsAgent = null;
 
 // Environment flag to allow insecure connections (development only)

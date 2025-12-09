@@ -78,14 +78,13 @@ services:
       - REDIS_URL=redis://aicos-redis:6379
       
       # Microservice discovery URLs (auto-configured via Docker network)
-      # Using HTTP for inter-container communication in development
-      # Switch to HTTPS in production with proper TLS certificates
-      - AI_INTELLIGENCE_URL=http://aicos-ai-intelligence:8001
-      - PATTERN_RECOGNITION_URL=http://aicos-pattern-recognition:8002
-      - NL_PARSER_URL=http://aicos-nl-parser:8003
-      - VOICE_PROCESSOR_URL=http://aicos-voice-processor:8004
-      - CONTEXT_SERVICE_URL=http://aicos-context-service:8005
-      - INTEGRATIONS_URL=http://aicos-integrations:8006
+      # Using HTTPS for secure inter-container communication
+      - AI_INTELLIGENCE_URL=https://aicos-ai-intelligence:8001
+      - PATTERN_RECOGNITION_URL=https://aicos-pattern-recognition:8002
+      - NL_PARSER_URL=https://aicos-nl-parser:8003
+      - VOICE_PROCESSOR_URL=https://aicos-voice-processor:8004
+      - CONTEXT_SERVICE_URL=https://aicos-context-service:8005
+      - INTEGRATIONS_URL=https://aicos-integrations:8006
       
       # ============================================
       # RUNTIME CONFIGURATION
@@ -125,7 +124,7 @@ services:
       - tls-certs:/app/certs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      test: ["CMD", "curl", "-f", "-k", "https://localhost:3001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -173,7 +172,7 @@ services:
           memory: 512M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8001/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--no-check-certificate", "-O", "/dev/null", "https://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -220,7 +219,7 @@ services:
       - tls-certs:/app/certs
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8002/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--no-check-certificate", "-O", "/dev/null", "https://localhost:8002/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -264,7 +263,7 @@ services:
           memory: 512M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8003/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--no-check-certificate", "-O", "/dev/null", "https://localhost:8003/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -314,7 +313,7 @@ services:
     #   - NVIDIA_VISIBLE_DEVICES=all
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8004/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--no-check-certificate", "-O", "/dev/null", "https://localhost:8004/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -355,7 +354,7 @@ services:
           memory: 128M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8005/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--no-check-certificate", "-O", "/dev/null", "https://localhost:8005/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -400,7 +399,7 @@ services:
           memory: 256M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://localhost:8006/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--no-check-certificate", "-O", "/dev/null", "https://localhost:8006/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -559,5 +558,10 @@ volumes:
   #   driver: local
   
   # Shared TLS certificates volume
+  # This is a bind mount to ./certs directory where generate-certs.sh creates certificates
   tls-certs:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/certs
