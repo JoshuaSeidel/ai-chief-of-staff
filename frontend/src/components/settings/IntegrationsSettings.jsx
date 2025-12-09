@@ -202,24 +202,16 @@ export function IntegrationsSettings() {
     if (!confirmed) return;
 
     try {
-      // Clear the relevant tokens/config
       if (service === 'Google') {
-        await configAPI.bulkUpdate({
-          google_access_token: '',
-          google_refresh_token: ''
-        });
+        await calendarAPI.disconnectGoogle();
         setGoogleConnected(false);
       } else if (service === 'Microsoft') {
-        await configAPI.bulkUpdate({
-          microsoft_access_token: '',
-          microsoft_refresh_token: ''
-        });
+        await calendarAPI.disconnectMicrosoft();
         setMicrosoftConnected(false);
       } else if (service === 'Jira') {
-        await configAPI.bulkUpdate({
-          jira_api_token: ''
-        });
+        await plannerAPI.disconnectJira();
         setJiraConnected(false);
+        setJiraConfig({ baseUrl: '', email: '', apiToken: '', projectKey: '' });
       }
       toast.success(`${service} disconnected`);
     } catch (err) {

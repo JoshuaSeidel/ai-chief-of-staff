@@ -372,33 +372,45 @@ class OllamaProvider(AIProvider):
                          audio_file_path: str,
                          language: Optional[str] = None,
                          **kwargs) -> Dict[str, Any]:
-        """Transcribe audio using Ollama Whisper model"""
-        if not self.client:
-            raise RuntimeError("Ollama client not initialized")
-        
-        whisper_model = kwargs.get('whisper_model', 'whisper:medium')
-        
+        """
+        Transcribe audio using local faster-whisper model.
+
+        Note: Ollama doesn't natively support audio transcription.
+        When 'ollama' provider is selected, we use faster-whisper for local,
+        privacy-focused transcription instead.
+        """
         try:
-            with open(audio_file_path, 'rb') as f:
-                audio_data = f.read()
-            
-            payload = {
-                "model": whisper_model,
-                "prompt": "Transcribe this audio:",
-                "audio": audio_data.hex()  # Convert to hex string
-            }
-            
-            response = self.client.post("/api/generate", json=payload)
-            response.raise_for_status()
-            data = response.json()
-            
+            from faster_whisper import WhisperModel
+        except ImportError:
+            raise RuntimeError(
+                "faster-whisper not installed. Install with: pip install faster-whisper"
+            )
+
+        whisper_model_size = kwargs.get('whisper_model', 'base')
+        device = kwargs.get('device', 'cpu')
+        compute_type = kwargs.get('compute_type', 'int8')
+
+        try:
+            logger.info(f"Loading faster-whisper model: {whisper_model_size}")
+            model = WhisperModel(whisper_model_size, device=device, compute_type=compute_type)
+
+            segments, info = model.transcribe(
+                audio_file_path,
+                language=language,
+                beam_size=5,
+                vad_filter=True
+            )
+
+            text_parts = [segment.text for segment in segments]
+            full_text = " ".join(text_parts).strip()
+
             return {
-                "text": data.get("response", ""),
-                "language": language or "unknown",
-                "duration": None
+                "text": full_text,
+                "language": info.language,
+                "duration": info.duration
             }
         except Exception as e:
-            logger.error(f"Ollama Whisper error: {e}")
+            logger.error(f"Local Whisper transcription error: {e}")
             raise
     
     def is_available(self) -> bool:

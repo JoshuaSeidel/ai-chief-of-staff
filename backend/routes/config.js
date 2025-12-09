@@ -16,28 +16,33 @@ const logger = createModuleLogger('CONFIG');
 const CA_CERT_PATH = '/app/certs/ca.crt';
 let microserviceHttpsAgent = null;
 
+// Environment flag to allow insecure connections (development only)
+const ALLOW_INSECURE_TLS = process.env.ALLOW_INSECURE_TLS === 'true';
+
 try {
   if (fs.existsSync(CA_CERT_PATH)) {
     const caCert = fs.readFileSync(CA_CERT_PATH);
     microserviceHttpsAgent = new https.Agent({
       ca: caCert,
-      rejectUnauthorized: false, // Accept self-signed certs even with CA
-      checkServerIdentity: () => undefined // Skip hostname verification
+      rejectUnauthorized: true // Properly validate certificates against CA
     });
-    logger.info('Loaded CA certificate for HTTPS communication with microservices');
+    logger.info('Loaded CA certificate for secure HTTPS communication with microservices');
+  } else if (ALLOW_INSECURE_TLS) {
+    logger.warn('CA certificate not found and ALLOW_INSECURE_TLS enabled - using insecure HTTPS', { path: CA_CERT_PATH });
+    microserviceHttpsAgent = new https.Agent({ rejectUnauthorized: false });
   } else {
-    logger.warn('CA certificate not found, using insecure HTTPS agent for microservices', { path: CA_CERT_PATH });
-    microserviceHttpsAgent = new https.Agent({
-      rejectUnauthorized: false,
-      checkServerIdentity: () => undefined
-    });
+    // In production without certs, services should use HTTP on internal network
+    logger.info('CA certificate not found - assuming HTTP microservices on internal network');
+    microserviceHttpsAgent = null;
   }
 } catch (error) {
-  logger.warn('Failed to load CA certificate for microservices, using insecure HTTPS agent', { error: error.message });
-  microserviceHttpsAgent = new https.Agent({
-    rejectUnauthorized: false,
-    checkServerIdentity: () => undefined
-  });
+  logger.error('Failed to load CA certificate for microservices', { error: error.message });
+  if (ALLOW_INSECURE_TLS) {
+    logger.warn('ALLOW_INSECURE_TLS is enabled - using insecure HTTPS (NOT FOR PRODUCTION)');
+    microserviceHttpsAgent = new https.Agent({ rejectUnauthorized: false });
+  } else {
+    throw new Error('CA certificate failed to load and ALLOW_INSECURE_TLS is not enabled');
+  }
 }
 
 /**

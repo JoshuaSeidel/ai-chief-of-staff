@@ -550,8 +550,9 @@ Return as JSON array:
 Only extract clear, actionable commitments. Skip vague statements.
 """
         
+        model = get_ai_model(provider="anthropic")
         response = anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
+            model=model,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )

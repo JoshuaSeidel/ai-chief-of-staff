@@ -1,6 +1,6 @@
 """
 Voice Processor Service
-Handles audio transcription using OpenAI Whisper API
+Handles audio transcription using OpenAI Whisper API or local faster-whisper
 """
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
@@ -17,6 +17,14 @@ import redis
 import hashlib
 import json
 from storage_manager import get_storage_manager
+
+# Import faster-whisper for local transcription (Ollama mode)
+try:
+    from faster_whisper import WhisperModel
+    FASTER_WHISPER_AVAILABLE = True
+except ImportError:
+    FASTER_WHISPER_AVAILABLE = False
+    WhisperModel = None
 
 # Add shared modules to path
 sys.path.insert(0, '/app/shared')
@@ -100,6 +108,97 @@ except Exception as e:
     logger.error(f"❌ Failed to initialize storage manager: {e}", exc_info=True)
     storage_manager = None
 
+# Initialize local Whisper model for Ollama/local transcription
+local_whisper_model = None
+LOCAL_WHISPER_MODEL_SIZE = os.getenv("LOCAL_WHISPER_MODEL", "base")  # tiny, base, small, medium, large-v3
+
+def get_local_whisper_model():
+    """Lazy-load the local Whisper model"""
+    global local_whisper_model
+    if local_whisper_model is None and FASTER_WHISPER_AVAILABLE:
+        try:
+            # Use GPU if available, otherwise CPU
+            device = "cuda" if os.path.exists("/dev/nvidia0") else "cpu"
+            compute_type = "float16" if device == "cuda" else "int8"
+
+            logger.info(f"Loading local Whisper model: {LOCAL_WHISPER_MODEL_SIZE} on {device}")
+            local_whisper_model = WhisperModel(
+                LOCAL_WHISPER_MODEL_SIZE,
+                device=device,
+                compute_type=compute_type
+            )
+            logger.info(f"✅ Local Whisper model loaded successfully")
+        except Exception as e:
+            logger.error(f"❌ Failed to load local Whisper model: {e}")
+            raise
+    return local_whisper_model
+
+def transcribe_with_local_whisper(audio_path: str, language: Optional[str] = None,
+                                   temperature: float = 0.0) -> dict:
+    """Transcribe audio using local faster-whisper model"""
+    model = get_local_whisper_model()
+    if model is None:
+        raise RuntimeError("Local Whisper model not available. Install faster-whisper.")
+
+    # Transcribe
+    segments, info = model.transcribe(
+        audio_path,
+        language=language,
+        temperature=temperature,
+        beam_size=5,
+        vad_filter=True,  # Filter out silence
+        vad_parameters=dict(min_silence_duration_ms=500)
+    )
+
+    # Collect all segments
+    text_parts = []
+    for segment in segments:
+        text_parts.append(segment.text)
+
+    full_text = " ".join(text_parts).strip()
+
+    return {
+        "text": full_text,
+        "language": info.language,
+        "duration": info.duration,
+        "language_probability": info.language_probability
+    }
+
+def transcribe_with_timestamps_local(audio_path: str, language: Optional[str] = None) -> dict:
+    """Transcribe audio with word-level timestamps using local faster-whisper"""
+    model = get_local_whisper_model()
+    if model is None:
+        raise RuntimeError("Local Whisper model not available. Install faster-whisper.")
+
+    segments, info = model.transcribe(
+        audio_path,
+        language=language,
+        word_timestamps=True,
+        beam_size=5,
+        vad_filter=True
+    )
+
+    text_parts = []
+    words = []
+
+    for segment in segments:
+        text_parts.append(segment.text)
+        if segment.words:
+            for word in segment.words:
+                words.append({
+                    "word": word.word,
+                    "start": word.start,
+                    "end": word.end,
+                    "probability": word.probability
+                })
+
+    return {
+        "text": " ".join(text_parts).strip(),
+        "language": info.language,
+        "duration": info.duration,
+        "words": words
+    }
+
 # Cache TTL (1 hour for transcriptions)
 CACHE_TTL = 3600
 
@@ -158,8 +257,10 @@ async def root():
     """Root endpoint"""
     return {
         "service": "voice-processor",
-        "version": "1.5.0",
-        "status": "running"
+        "version": "1.6.0",
+        "status": "running",
+        "provider": ai_provider,
+        "local_transcription": FASTER_WHISPER_AVAILABLE
     }
 
 @app.get("/version")
@@ -167,8 +268,13 @@ async def version():
     """Version endpoint"""
     return {
         "service": "voice-processor",
-        "version": "1.5.0",
-        "status": "operational"
+        "version": "1.6.0",
+        "status": "operational",
+        "features": {
+            "openai_whisper": bool(openai_api_key),
+            "local_whisper": FASTER_WHISPER_AVAILABLE,
+            "local_model": LOCAL_WHISPER_MODEL_SIZE if FASTER_WHISPER_AVAILABLE else None
+        }
     }
 
 @app.get("/health")
@@ -177,11 +283,14 @@ async def health_check():
     health = {
         "status": "healthy",
         "service": "voice-processor",
-        "version": "1.5.0",
+        "version": "1.6.0",
+        "ai_provider": ai_provider,
         "openai_configured": bool(openai_api_key),
+        "local_whisper_available": FASTER_WHISPER_AVAILABLE,
+        "local_whisper_model": LOCAL_WHISPER_MODEL_SIZE if FASTER_WHISPER_AVAILABLE else None,
         "redis_connected": False
     }
-    
+
     # Check Redis connection
     if redis_client:
         try:
@@ -189,7 +298,15 @@ async def health_check():
             health["redis_connected"] = True
         except:
             health["status"] = "degraded"
-    
+
+    # Check if transcription is available
+    if ai_provider == "ollama" and not FASTER_WHISPER_AVAILABLE:
+        health["status"] = "degraded"
+        health["warning"] = "Ollama selected but faster-whisper not available"
+    elif ai_provider == "openai" and not openai_api_key:
+        health["status"] = "degraded"
+        health["warning"] = "OpenAI selected but API key not configured"
+
     return health
 
 @app.post("/transcribe", response_model=TranscriptionResponse)
@@ -244,9 +361,9 @@ async def transcribe_audio(
             tmp_file_path = tmp_file.name
         
         # Transcribe with configured AI model
-        with open(tmp_file_path, "rb") as audio_file:
-            if ai_provider == "openai":
-                # Use OpenAI Whisper
+        if ai_provider == "openai":
+            # Use OpenAI Whisper API
+            with open(tmp_file_path, "rb") as audio_file:
                 transcript = openai.audio.transcriptions.create(
                     model=ai_model,
                     file=audio_file,
@@ -255,20 +372,24 @@ async def transcribe_audio(
                     temperature=temperature,
                     response_format="verbose_json"
                 )
-            elif ai_provider == "ollama":
-                # TODO: Implement Ollama transcription
-                # For now, fallback to Whisper
-                logger.warning("Ollama transcription not yet implemented, using OpenAI Whisper")
-                transcript = openai.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file,
-                    language=language,
-                    prompt=prompt,
-                    temperature=temperature,
-                    response_format="verbose_json"
+        elif ai_provider == "ollama":
+            # Use local faster-whisper for privacy-focused local transcription
+            if not FASTER_WHISPER_AVAILABLE:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Local transcription not available. Install faster-whisper or switch to OpenAI provider."
                 )
-            else:
-                raise HTTPException(status_code=400, detail=f"Unsupported AI provider for transcription: {ai_provider}")
+            logger.info(f"Using local faster-whisper model: {LOCAL_WHISPER_MODEL_SIZE}")
+            local_result = transcribe_with_local_whisper(tmp_file_path, language, temperature)
+            # Create a mock object with same interface as OpenAI response
+            class LocalTranscript:
+                def __init__(self, result):
+                    self.text = result["text"]
+                    self.language = result["language"]
+                    self.duration = result["duration"]
+            transcript = LocalTranscript(local_result)
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported AI provider for transcription: {ai_provider}")
         
         # Clean up temp file
         os.unlink(tmp_file_path)
@@ -356,8 +477,8 @@ async def transcribe_with_timestamps(
             tmp_file_path = tmp_file.name
         
         # Transcribe with timestamps using configured AI model
-        with open(tmp_file_path, "rb") as audio_file:
-            if ai_provider == "openai":
+        if ai_provider == "openai":
+            with open(tmp_file_path, "rb") as audio_file:
                 transcript = openai.audio.transcriptions.create(
                     model=ai_model,
                     file=audio_file,
@@ -365,29 +486,37 @@ async def transcribe_with_timestamps(
                     response_format="verbose_json",
                     timestamp_granularities=["word"]
                 )
-            elif ai_provider == "ollama":
-                # TODO: Implement Ollama transcription with timestamps
-                logger.warning("Ollama transcription not yet implemented, using OpenAI Whisper")
-                transcript = openai.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=audio_file,
-                    language=language,
-                    response_format="verbose_json",
-                    timestamp_granularities=["word"]
+            words = getattr(transcript, 'words', [])
+        elif ai_provider == "ollama":
+            # Use local faster-whisper with word timestamps
+            if not FASTER_WHISPER_AVAILABLE:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Local transcription not available. Install faster-whisper or switch to OpenAI provider."
                 )
-            else:
-                raise HTTPException(status_code=400, detail=f"Unsupported AI provider: {ai_provider}")
+            logger.info(f"Using local faster-whisper with timestamps: {LOCAL_WHISPER_MODEL_SIZE}")
+            local_result = transcribe_with_timestamps_local(tmp_file_path, language)
+            # Create mock transcript object
+            class LocalTranscript:
+                def __init__(self, result):
+                    self.text = result["text"]
+                    self.language = result["language"]
+                    self.duration = result["duration"]
+            transcript = LocalTranscript(local_result)
+            words = local_result.get("words", [])
+        else:
+            raise HTTPException(status_code=400, detail=f"Unsupported AI provider: {ai_provider}")
         
         # Clean up
         os.unlink(tmp_file_path)
         
         logger.info(f"Transcription with timestamps completed")
-        
+
         return {
             "text": transcript.text,
             "language": getattr(transcript, 'language', None),
             "duration": getattr(transcript, 'duration', None),
-            "words": getattr(transcript, 'words', [])
+            "words": words
         }
         
     except openai.OpenAIError as e:
@@ -470,11 +599,30 @@ async def translate_audio(
 
 @app.get("/supported-formats")
 async def get_supported_formats():
-    """Get list of supported audio formats"""
+    """Get list of supported audio formats and transcription providers"""
+    models = ["whisper-1"]
+    if FASTER_WHISPER_AVAILABLE:
+        models.extend(["faster-whisper-tiny", "faster-whisper-base", "faster-whisper-small",
+                       "faster-whisper-medium", "faster-whisper-large-v3"])
+
     return {
-        "formats": ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm"],
+        "formats": ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm", "flac", "ogg"],
         "max_file_size_mb": 25,
-        "models": ["whisper-1"],
+        "providers": {
+            "openai": {
+                "available": bool(openai_api_key),
+                "models": ["whisper-1"],
+                "features": ["transcription", "translation", "timestamps"]
+            },
+            "local": {
+                "available": FASTER_WHISPER_AVAILABLE,
+                "models": ["tiny", "base", "small", "medium", "large-v3"],
+                "current_model": LOCAL_WHISPER_MODEL_SIZE if FASTER_WHISPER_AVAILABLE else None,
+                "features": ["transcription", "timestamps", "vad_filter"]
+            }
+        },
+        "current_provider": ai_provider,
+        "models": models,
         "languages": "all (automatic detection)",
         "features": [
             "transcription",

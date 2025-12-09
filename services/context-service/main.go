@@ -352,22 +352,25 @@ func getRecentContextHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build query
+	// Build query with proper parameterization
+	// PostgreSQL requires interval to be constructed differently for parameterized queries
+	args := []interface{}{days}
+	paramIndex := 2
+
 	sqlQuery := `
-		SELECT id, category, content, source, created_at, is_active, priority, expires_at 
-		FROM context 
-		WHERE is_active = true 
-		AND created_at >= NOW() - INTERVAL '%d days'
+		SELECT id, category, content, source, created_at, is_active, priority, expires_at
+		FROM context
+		WHERE is_active = true
+		AND created_at >= NOW() - ($1 || ' days')::INTERVAL
 	`
-	args := []interface{}{}
 
 	if category != "" {
-		sqlQuery += " AND category = $1"
+		sqlQuery += fmt.Sprintf(" AND category = $%d", paramIndex)
 		args = append(args, category)
+		paramIndex++
 	}
 
 	sqlQuery += " ORDER BY created_at DESC LIMIT 200"
-	sqlQuery = fmt.Sprintf(sqlQuery, days)
 
 	// Execute
 	rows, err := db.Query(sqlQuery, args...)

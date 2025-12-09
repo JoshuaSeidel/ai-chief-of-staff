@@ -23,3 +23,4 @@ export {
 } from './EmptyState';
 export { default as QuickAddBar } from './QuickAddBar';
 export { default as RelativeTime } from './RelativeTime';
+export { default as ErrorBoundary, withErrorBoundary } from './ErrorBoundary';

@@ -54,17 +54,31 @@ export const configAPI = {
 export const calendarAPI = {
   getEvents: () => api.get('/calendar/events'),
   createBlock: (eventData) => api.post('/calendar/block', eventData),
+  // Google Calendar
   getGoogleStatus: () => api.get('/calendar/google/status'),
+  getGoogleAuthUrl: () => api.get('/calendar/google/auth'),
+  disconnectGoogle: () => api.post('/calendar/google/disconnect'),
+  getGoogleCalendars: () => api.get('/calendar/google/calendars'),
+  // Microsoft Calendar
   getMicrosoftStatus: () => api.get('/calendar/microsoft/status'),
+  getMicrosoftAuthUrl: () => api.get('/calendar/microsoft/auth'),
+  disconnectMicrosoft: () => api.post('/calendar/microsoft/disconnect'),
+  getMicrosoftCalendars: () => api.get('/calendar/microsoft/calendars'),
 };
 
 // Planner API (Jira, Microsoft Planner, etc.)
 export const plannerAPI = {
+  // Jira
   getJiraStatus: () => api.get('/planner/jira/status'),
-  getMicrosoftStatus: () => api.get('/planner/microsoft/status'),
+  disconnectJira: () => api.post('/planner/jira/disconnect'),
   syncJira: () => api.post('/planner/jira/sync'),
   syncJiraFailed: () => api.post('/planner/jira/sync-failed'),
+  getJiraProjects: () => api.get('/planner/jira/projects'),
+  // Microsoft Planner/To Do
+  getMicrosoftStatus: () => api.get('/planner/microsoft/status'),
+  disconnectMicrosoft: () => api.post('/planner/microsoft/disconnect'),
   syncMicrosoft: () => api.post('/planner/microsoft/sync'),
+  getMicrosoftLists: () => api.get('/planner/microsoft/lists'),
 };
 
 // Tasks API (commitments, actions, follow-ups, risks)
