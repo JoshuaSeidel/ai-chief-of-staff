@@ -296,7 +296,8 @@ async def health_check():
         try:
             redis_client.ping()
             health["redis_connected"] = True
-        except:
+        except Exception as e:
+            logger.warning(f"Redis health check failed: {e}")
             health["status"] = "degraded"
 
     # Check if transcription is available
@@ -438,8 +439,8 @@ async def transcribe_audio(
         if 'tmp_file_path' in locals():
             try:
                 os.unlink(tmp_file_path)
-            except:
-                pass
+            except OSError as cleanup_err:
+                logger.debug(f"Failed to cleanup temp file: {cleanup_err}")
         raise HTTPException(
             status_code=500,
             detail=f"Error processing audio: {str(e)}"
@@ -530,8 +531,8 @@ async def transcribe_with_timestamps(
         if 'tmp_file_path' in locals():
             try:
                 os.unlink(tmp_file_path)
-            except:
-                pass
+            except OSError as cleanup_err:
+                logger.debug(f"Failed to cleanup temp file: {cleanup_err}")
         raise HTTPException(
             status_code=500,
             detail=f"Error processing audio: {str(e)}"
@@ -590,8 +591,8 @@ async def translate_audio(
         if 'tmp_file_path' in locals():
             try:
                 os.unlink(tmp_file_path)
-            except:
-                pass
+            except OSError as cleanup_err:
+                logger.debug(f"Failed to cleanup temp file: {cleanup_err}")
         raise HTTPException(
             status_code=500,
             detail=f"Error translating audio: {str(e)}"
