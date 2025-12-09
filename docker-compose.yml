@@ -95,7 +95,12 @@ services:
       
       # Log verbosity (debug/info/warn/error)
       - LOG_LEVEL=info
-      
+
+      # TLS/Security (for inter-service HTTPS)
+      # Set to 'true' in development if TLS certificates are not properly configured
+      # Should be 'false' or unset in production with proper certificates
+      - ALLOW_INSECURE_TLS=true
+
       # ============================================
       # ALL OTHER CONFIG IN DATABASE (via Settings UI)
       # ============================================
