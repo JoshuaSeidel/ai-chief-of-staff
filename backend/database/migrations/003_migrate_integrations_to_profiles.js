@@ -154,16 +154,16 @@ async function migrateConfigToProfile(dbOrClient, dbType, configKey, integration
     // Insert into profile_integrations
     if (dbType === 'postgres') {
       await dbOrClient.query(
-        `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          ON CONFLICT (profile_id, integration_type, integration_name) DO NOTHING`,
-        [profileId, integrationType, integrationName, configRow.value, true]
+        [profileId, integrationType, integrationName, configRow.value, '{}', true]
       );
     } else {
       await dbOrClient.run(
-        `INSERT OR IGNORE INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        [profileId, integrationType, integrationName, configRow.value, true]
+        `INSERT OR IGNORE INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [profileId, integrationType, integrationName, configRow.value, '{}', true]
       );
     }
     
@@ -244,16 +244,16 @@ async function migrateJiraConfig(dbOrClient, dbType, profileId) {
     // Insert into profile_integrations
     if (dbType === 'postgres') {
       await dbOrClient.query(
-        `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          ON CONFLICT (profile_id, integration_type, integration_name) DO NOTHING`,
-        [profileId, 'task', 'jira', JSON.stringify(jiraConfig), true]
+        [profileId, 'task', 'jira', JSON.stringify(jiraConfig), '{}', true]
       );
     } else {
       await dbOrClient.run(
-        `INSERT OR IGNORE INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        [profileId, 'task', 'jira', JSON.stringify(jiraConfig), true]
+        `INSERT OR IGNORE INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [profileId, 'task', 'jira', JSON.stringify(jiraConfig), '{}', true]
       );
     }
     
@@ -332,16 +332,16 @@ async function migrateTrelloConfig(dbOrClient, dbType, profileId) {
     // Insert into profile_integrations
     if (dbType === 'postgres') {
       await dbOrClient.query(
-        `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          ON CONFLICT (profile_id, integration_type, integration_name) DO NOTHING`,
-        [profileId, 'task', 'trello', JSON.stringify(trelloConfig), true]
+        [profileId, 'task', 'trello', JSON.stringify(trelloConfig), '{}', true]
       );
     } else {
       await dbOrClient.run(
-        `INSERT OR IGNORE INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        [profileId, 'task', 'trello', JSON.stringify(trelloConfig), true]
+        `INSERT OR IGNORE INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [profileId, 'task', 'trello', JSON.stringify(trelloConfig), '{}', true]
       );
     }
     
@@ -416,16 +416,16 @@ async function migrateMondayConfig(dbOrClient, dbType, profileId) {
     // Insert into profile_integrations
     if (dbType === 'postgres') {
       await dbOrClient.query(
-        `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          ON CONFLICT (profile_id, integration_type, integration_name) DO NOTHING`,
-        [profileId, 'task', 'monday', JSON.stringify(mondayConfig), true]
+        [profileId, 'task', 'monday', JSON.stringify(mondayConfig), '{}', true]
       );
     } else {
       await dbOrClient.run(
-        `INSERT OR IGNORE INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-         VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-        [profileId, 'task', 'monday', JSON.stringify(mondayConfig), true]
+        `INSERT OR IGNORE INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+         VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        [profileId, 'task', 'monday', JSON.stringify(mondayConfig), '{}', true]
       );
     }
     
