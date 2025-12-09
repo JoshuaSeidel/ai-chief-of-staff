@@ -1,3 +1,5 @@
+/* Import design tokens first for CSS custom properties */
+@import './styles/tokens.css';
 @import './styles/components.css';
 
 * {
