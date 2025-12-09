@@ -156,15 +156,25 @@ router.get('/google/debug-redirect', async (req, res) => {
 router.get('/google/auth', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
-    
+
     // Get request origin for redirect URI
     const origin = req.get('origin') || req.get('referer')?.split('/').slice(0, 3).join('/') || null;
-    
+
+    logger.info(`Initiating Google OAuth for profile ${profileId}`, {
+      profileId,
+      origin,
+      headers: {
+        'x-profile-id': req.headers['x-profile-id'],
+        'origin': req.get('origin'),
+        'referer': req.get('referer')
+      }
+    });
+
     const authUrl = await googleCalendar.getAuthUrl(profileId, origin);
     res.json({ authUrl });
   } catch (error) {
     logger.error('Error generating auth URL', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error initiating Google Calendar authorization',
       message: error.message
     });
@@ -176,16 +186,27 @@ router.get('/google/auth', async (req, res) => {
  */
 router.get('/google/callback', async (req, res) => {
   const { code, error, state } = req.query;
+
+  logger.info('Google OAuth callback received', {
+    hasCode: !!code,
+    hasError: !!error,
+    state,
+    middlewareProfileId: req.profileId
+  });
+
   // IMPORTANT: Prioritize state parameter (from OAuth flow) over middleware's profileId
   // The state parameter contains the profile ID that initiated the OAuth flow
   const profileId = (state && parseInt(state)) || req.profileId || 2;
 
+  logger.info(`Using profile ID: ${profileId} (from state: ${state})`);
+
   if (error) {
-    logger.error('OAuth callback error', error);
+    logger.error('OAuth callback error', { error, state });
     return res.redirect('/#config?error=oauth_failed');
   }
 
   if (!code) {
+    logger.error('OAuth callback missing code');
     return res.redirect('/#config?error=no_code');
   }
 
@@ -193,8 +214,8 @@ router.get('/google/callback', async (req, res) => {
     await googleCalendar.getTokenFromCode(code, profileId);
     logger.info(`Google Calendar connected successfully for profile ${profileId}`);
     res.redirect(`/#config?success=google_calendar_connected&profile=${profileId}`);
-  } catch (error) {
-    logger.error('Error exchanging code for token', error);
+  } catch (err) {
+    logger.error('Error exchanging code for token', { error: err.message, profileId });
     res.redirect('/#config?error=oauth_exchange_failed');
   }
 });
