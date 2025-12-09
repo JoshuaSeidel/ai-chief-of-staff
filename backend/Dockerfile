@@ -4,8 +4,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install build dependencies for sqlite3 (native module) and runtime deps
-RUN apk update && apk upgrade --no-cache && \
-    apk add --no-cache --no-scripts \
+# Note: Skipping 'apk upgrade' due to QEMU emulation issues on ARM64 cross-compilation
+RUN apk add --no-cache \
     python3 \
     make \
     g++ \

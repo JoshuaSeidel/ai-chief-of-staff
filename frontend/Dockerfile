@@ -1,8 +1,8 @@
 # Frontend Dockerfile for Microservices Architecture (Vite Build)
 FROM node:20-alpine AS build
 
-# Update Alpine packages for security patches
-RUN apk update && apk upgrade --no-cache
+# Note: Skipping 'apk upgrade' due to QEMU emulation issues on ARM64 cross-compilation
+# Security patches are handled by using recent base images
 
 WORKDIR /app
 
