@@ -56,13 +56,18 @@ async def log_requests(request, call_next):
     
     return response
 
-# CORS for internal Docker network
+# CORS for internal Docker network - only allow backend service
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://aicos-backend:3001",
+        "https://aicos-backend:3001",
+        "http://localhost:3001",  # For development
+        "https://localhost:3001"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Initialize clients
