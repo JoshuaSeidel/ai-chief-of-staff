@@ -1,9 +1,9 @@
 /**
  * Task Intelligence API Routes
- * 
+ *
  * Proxy endpoints for microservices-based AI task analysis.
  * All requests are forwarded to specialized microservices running on internal Docker network.
- * 
+ *
  * Microservices:
  * - ai-intelligence (port 8001): Effort estimation, energy classification, task clustering
  * - pattern-recognition (port 8002): Behavioral insights, pattern analysis
@@ -15,11 +15,9 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
 const FormData = require('form-data');
 const { createModuleLogger } = require('../utils/logger');
+const { getHttpsAgent } = require('../utils/https-agent');
 
 const logger = createModuleLogger('INTELLIGENCE-API');
 
@@ -33,43 +31,8 @@ const CONTEXT_SERVICE_URL = process.env.CONTEXT_SERVICE_URL || 'https://aicos-co
 // Timeout for microservice calls
 const MICROSERVICE_TIMEOUT = 30000;
 
-// Load CA certificate for validating microservice certificates
-// Note: Certs are in /app/certs which is mounted from tls-certs volume
-// The generate-certs.sh script creates ca-cert.pem
-const CA_CERT_PATH = '/app/certs/ca-cert.pem';
-let httpsAgent = null;
-
-// Environment flag to allow insecure connections (development only)
-const ALLOW_INSECURE_TLS = process.env.ALLOW_INSECURE_TLS === 'true';
-
-// Try to load CA certificate if it exists
-if (fs.existsSync(CA_CERT_PATH)) {
-  try {
-    const caCert = fs.readFileSync(CA_CERT_PATH);
-    httpsAgent = new https.Agent({
-      ca: caCert,
-      rejectUnauthorized: true // Properly validate certificates against CA
-    });
-    logger.info('Loaded CA certificate for secure HTTPS communication with microservices');
-  } catch (error) {
-    logger.error('Failed to load CA certificate', { error: error.message });
-    if (ALLOW_INSECURE_TLS) {
-      logger.warn('ALLOW_INSECURE_TLS is enabled - using insecure HTTPS (NOT FOR PRODUCTION)');
-      httpsAgent = new https.Agent({ rejectUnauthorized: false });
-    } else {
-      throw new Error('CA certificate failed to load and ALLOW_INSECURE_TLS is not enabled');
-    }
-  }
-} else {
-  if (ALLOW_INSECURE_TLS) {
-    logger.warn('CA certificate not found and ALLOW_INSECURE_TLS enabled - using insecure HTTPS', { path: CA_CERT_PATH });
-    httpsAgent = new https.Agent({ rejectUnauthorized: false });
-  } else {
-    // In production without certs, services should use HTTP on internal network
-    logger.info('CA certificate not found - assuming HTTP microservices on internal network');
-    httpsAgent = null;
-  }
-}
+// Use centralized HTTPS agent (cached in memory)
+const getAgent = () => getHttpsAgent();
 
 /**
  * Helper function to call microservices with error handling
@@ -80,7 +43,7 @@ async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = nu
       method,
       url: `${serviceUrl}${endpoint}`,
       timeout: MICROSERVICE_TIMEOUT,
-      httpsAgent: httpsAgent,
+      httpsAgent: getAgent(),
       headers: {
         'Content-Type': 'application/json',
         ...headers
@@ -723,9 +686,9 @@ router.get('/health', async (req, res) => {
   // Check each service
   for (const [name, url] of Object.entries(services)) {
     try {
-      const response = await axios.get(`${url}/health`, { 
+      const response = await axios.get(`${url}/health`, {
         timeout: 5000,
-        httpsAgent: httpsAgent 
+        httpsAgent: getAgent()
       });
       healthStatus.services[name] = {
         status: 'healthy',

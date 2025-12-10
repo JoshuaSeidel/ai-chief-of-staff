@@ -1,95 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
 const { createModuleLogger } = require('../utils/logger');
+const { getHttpsAgent } = require('../utils/https-agent');
 
 const logger = createModuleLogger('INTEGRATIONS-PROXY');
 
 // Get integrations service URL from environment
 const INTEGRATIONS_URL = process.env.INTEGRATIONS_URL || 'https://aicos-integrations:8006';
 
-// Load CA certificate for validating microservice certificates
-// Note: Certs are in /app/certs which is mounted from tls-certs volume
-// The generate-certs.sh script creates ca-cert.pem
-const CA_CERT_PATH = '/app/certs/ca-cert.pem';
-let httpsAgent = null;
-
-// Environment flag to allow insecure connections (development only)
-const ALLOW_INSECURE_TLS = process.env.ALLOW_INSECURE_TLS === 'true';
-
-// Try to load CA certificate if it exists
-if (fs.existsSync(CA_CERT_PATH)) {
-  try {
-    const caCert = fs.readFileSync(CA_CERT_PATH);
-    httpsAgent = new https.Agent({
-      ca: caCert,
-      rejectUnauthorized: true // Properly validate certificates against CA
-    });
-    logger.info('Loaded CA certificate for secure HTTPS communication with integrations service');
-  } catch (error) {
-    logger.error('Failed to load CA certificate', { error: error.message });
-    if (ALLOW_INSECURE_TLS) {
-      logger.warn('ALLOW_INSECURE_TLS is enabled - using insecure HTTPS (NOT FOR PRODUCTION)');
-      httpsAgent = new https.Agent({ rejectUnauthorized: false });
-    } else {
-      throw new Error('CA certificate failed to load and ALLOW_INSECURE_TLS is not enabled');
-    }
-  }
-} else {
-  if (ALLOW_INSECURE_TLS) {
-    logger.warn('CA certificate not found and ALLOW_INSECURE_TLS enabled - using insecure HTTPS', { path: CA_CERT_PATH });
-    httpsAgent = new https.Agent({ rejectUnauthorized: false });
-  } else {
-    // In production without certs, services should use HTTP on internal network
-    logger.info('CA certificate not found - assuming HTTP integrations service on internal network');
-    httpsAgent = null;
-  }
-}
-
-// Create axios instance for integrations service
-const integrationsClient = axios.create({
+// Create base axios config for integrations service
+// Note: httpsAgent is retrieved dynamically on each request since the agent
+// may not be initialized when this module loads
+const integrationsClientConfig = {
   baseURL: INTEGRATIONS_URL,
   timeout: 30000, // 30 second timeout
-  httpsAgent: httpsAgent,
   maxBodyLength: 10 * 1024 * 1024, // 10MB max body size
   maxContentLength: 10 * 1024 * 1024, // 10MB max content size
   headers: {
     'Content-Type': 'application/json'
   }
-});
+};
 
-// Add request logging
-integrationsClient.interceptors.request.use(request => {
-  logger.debug(`Proxying request to integrations service`, {
-    method: request.method.toUpperCase(),
-    url: request.url,
-    baseURL: request.baseURL
+// Helper to get axios instance with current HTTPS agent
+const getIntegrationsClient = () => {
+  return axios.create({
+    ...integrationsClientConfig,
+    httpsAgent: getHttpsAgent()
   });
-  return request;
-});
+};
 
-// Add response logging and error handling
-integrationsClient.interceptors.response.use(
-  response => {
-    logger.debug(`Received response from integrations service`, {
-      status: response.status,
-      url: response.config.url
-    });
-    return response;
-  },
-  error => {
-    logger.error(`Error from integrations service`, {
-      message: error.message,
-      url: error.config?.url,
-      status: error.response?.status,
-      data: error.response?.data
-    });
-    return Promise.reject(error);
-  }
-);
 
 /**
  * Generic proxy handler - forwards requests to integrations service
@@ -97,7 +37,15 @@ integrationsClient.interceptors.response.use(
  */
 async function proxyRequest(req, res, targetPath) {
   try {
-    const response = await integrationsClient({
+    const client = getIntegrationsClient();
+
+    logger.debug(`Proxying request to integrations service`, {
+      method: req.method.toUpperCase(),
+      url: targetPath,
+      baseURL: INTEGRATIONS_URL
+    });
+
+    const response = await client({
       method: req.method,
       url: targetPath,
       data: req.body,
@@ -106,6 +54,11 @@ async function proxyRequest(req, res, targetPath) {
         // Forward relevant headers
         'content-type': req.get('content-type') || 'application/json'
       }
+    });
+
+    logger.debug(`Received response from integrations service`, {
+      status: response.status,
+      url: targetPath
     });
     
     res.status(response.status).json(response.data);
@@ -621,7 +574,8 @@ router.delete('/calendar/radicale/events/:eventId', async (req, res) => {
  */
 router.get('/health', async (req, res) => {
   try {
-    const response = await integrationsClient.get('/health');
+    const client = getIntegrationsClient();
+    const response = await client.get('/health');
     res.json({
       ...response.data,
       proxyStatus: 'ok',
