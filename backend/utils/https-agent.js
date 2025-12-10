@@ -74,19 +74,11 @@ function initializeHttpsAgent() {
   logger.info(`ALLOW_INSECURE_TLS environment variable: ${process.env.ALLOW_INSECURE_TLS}`);
   logger.info(`ALLOW_INSECURE_TLS parsed value: ${ALLOW_INSECURE_TLS}`);
 
-  const caCert = loadCACertificate();
-
-  if (caCert) {
-    // Production mode with proper CA verification
-    cachedHttpsAgent = new https.Agent({
-      ca: caCert,
-      rejectUnauthorized: true,
-      keepAlive: true,
-      maxSockets: 50
-    });
-    logger.info('✅ HTTPS agent initialized with CA certificate verification');
-  } else if (ALLOW_INSECURE_TLS) {
-    // Development mode - skip verification (NOT FOR PRODUCTION)
+  // IMPORTANT: ALLOW_INSECURE_TLS takes priority over CA certificate
+  // This is because in Docker environments, each container may generate
+  // its own CA, causing certificate chain validation to fail even when
+  // a CA cert exists. When ALLOW_INSECURE_TLS=true, skip verification.
+  if (ALLOW_INSECURE_TLS) {
     cachedHttpsAgent = new https.Agent({
       rejectUnauthorized: false,
       keepAlive: true,
@@ -94,17 +86,33 @@ function initializeHttpsAgent() {
     });
     logger.warn('⚠️  HTTPS agent initialized WITHOUT certificate verification (ALLOW_INSECURE_TLS=true)');
     logger.warn('⚠️  This is INSECURE and should only be used in development');
+    agentInitialized = true;
+    logger.info(`=== HTTPS Agent Ready (rejectUnauthorized=false) ===`);
+    return cachedHttpsAgent;
+  }
+
+  // Production mode: try to load and use CA certificate
+  const caCert = loadCACertificate();
+
+  if (caCert) {
+    cachedHttpsAgent = new https.Agent({
+      ca: caCert,
+      rejectUnauthorized: true,
+      keepAlive: true,
+      maxSockets: 50
+    });
+    logger.info('✅ HTTPS agent initialized with CA certificate verification');
   } else {
-    // No certs and not allowing insecure - default to insecure with warning
-    // This is a fallback for docker internal networks
+    // No CA cert and not allowing insecure - this is a config error in production
+    // Default to insecure for internal docker network with strong warning
     cachedHttpsAgent = new https.Agent({
       rejectUnauthorized: false,
       keepAlive: true,
       maxSockets: 50
     });
-    logger.warn('⚠️  No CA certificate found and ALLOW_INSECURE_TLS not set');
-    logger.warn('⚠️  Defaulting to unverified HTTPS for internal docker network');
-    logger.warn('⚠️  For production, ensure certificates are properly mounted at /app/certs');
+    logger.error('🚨 No CA certificate found and ALLOW_INSECURE_TLS not set');
+    logger.error('🚨 Defaulting to unverified HTTPS - THIS IS A SECURITY RISK');
+    logger.error('🚨 For production, set up proper certificates or set ALLOW_INSECURE_TLS=true for dev');
   }
 
   agentInitialized = true;
