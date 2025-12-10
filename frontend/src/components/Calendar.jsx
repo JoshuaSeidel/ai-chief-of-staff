@@ -153,13 +153,7 @@ function Calendar() {
         </div>
 
         {error && (
-          <div style={{ 
-            backgroundColor: '#ffe5e5', 
-            color: '#d70015', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            marginBottom: '1rem' 
-          }}>
+          <div className="calendar-error-box">
             <strong>Error:</strong> {error}
             {error.includes('not configured') && (
               <p className="text-md-mt-sm">
@@ -170,38 +164,19 @@ function Calendar() {
         )}
 
         {infoMessage && (
-          <div style={{ 
-            backgroundColor: '#1e3a5f', 
-            color: '#bfdbfe', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            marginBottom: '1rem',
-            border: '1px solid #2563eb'
-          }}>
+          <div className="calendar-info-box">
             <strong>ℹ️ {infoMessage}</strong>
           </div>
         )}
 
         {successMessage && (
-          <div style={{ 
-            backgroundColor: '#e5ffe5', 
-            color: '#00a000', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            marginBottom: '1rem' 
-          }}>
+          <div className="calendar-success-box">
             {successMessage}
           </div>
         )}
 
         {showCreateForm && (
-          <div style={{ 
-            backgroundColor: '#18181b', 
-            padding: '1.5rem', 
-            borderRadius: '8px', 
-            marginBottom: '1.5rem',
-            border: '1px solid #3f3f46'
-          }}>
+          <div className="calendar-form-box">
             <h3 className="mt-0">Create Time Block</h3>
             <form onSubmit={handleCreateBlock}>
               <label className="form-label-block">
@@ -288,41 +263,18 @@ function Calendar() {
           <div>
             {Object.keys(groupedEvents).map((dateKey) => (
               <div key={dateKey} className="mb-xl">
-                <h3 style={{ 
-                  fontSize: '1rem', 
-                  color: '#60a5fa', 
-                  marginBottom: '1rem',
-                  paddingBottom: '0.5rem',
-                  borderBottom: '1px solid #3f3f46'
-                }}>
+                <h3 className="calendar-date-header">
                   {formatDate(new Date(dateKey))}
                 </h3>
-                
+
                 {groupedEvents[dateKey].map((event) => (
-                  <div 
-                    key={event.id} 
-                    style={{ 
-                      backgroundColor: '#18181b',
-                      padding: '1rem',
-                      borderRadius: '8px',
-                      marginBottom: '0.75rem',
-                      border: '1px solid #3f3f46'
-                    }}
-                  >
+                  <div key={event.id} className="calendar-event-card">
                     <div className="task-layout">
                       <div className="flex-1">
-                        <h4 style={{ 
-                          fontSize: '1rem', 
-                          marginBottom: '0.25rem',
-                          color: '#e4e4e7'
-                        }}>
+                        <h4 className="calendar-event-title">
                           {event.summary}
                         </h4>
-                        <p style={{ 
-                          fontSize: '0.9rem', 
-                          color: '#a1a1aa',
-                          marginBottom: '0.5rem'
-                        }}>
+                        <p className="calendar-event-time">
                           ⏰ {formatTime(event.start)} - {formatTime(event.end)}
                         </p>
                         {event.location && (
@@ -331,12 +283,7 @@ function Calendar() {
                           </p>
                         )}
                         {event.description && (
-                          <p style={{ 
-                            fontSize: '0.85rem', 
-                            color: '#a1a1aa',
-                            marginTop: '0.5rem',
-                            whiteSpace: 'pre-wrap'
-                          }}>
+                          <p className="calendar-event-description">
                             {event.description}
                           </p>
                         )}

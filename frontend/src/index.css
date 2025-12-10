@@ -1713,6 +1713,77 @@ table {
   line-height: 1.6;
 }
 
+/* === CALENDAR PAGE === */
+.calendar-error-box {
+  background-color: var(--color-error-glow);
+  color: var(--color-error);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-error);
+}
+
+.calendar-info-box {
+  background-color: var(--color-primary-glow);
+  color: var(--color-accent-light);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-accent);
+}
+
+.calendar-success-box {
+  background-color: var(--color-success-glow);
+  color: var(--color-success);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-success);
+}
+
+.calendar-form-box {
+  background-color: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-border-primary);
+}
+
+.calendar-date-header {
+  font-size: 1rem;
+  color: var(--color-accent-light);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.calendar-event-card {
+  background-color: var(--card-bg);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--color-border-primary);
+}
+
+.calendar-event-title {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+  color: var(--color-text-primary);
+}
+
+.calendar-event-time {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.calendar-event-description {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-top: 0.5rem;
+  white-space: pre-wrap;
+}
+
 .version-dep-item {
   color: var(--color-text-muted);
   font-size: 0.85rem;
