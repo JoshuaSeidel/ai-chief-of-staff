@@ -9,9 +9,30 @@ export function NotificationsSettings() {
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState('default');
-  const [maxRepeat, setMaxRepeat] = useState(3);
-  const [repeatIntervalHours, setRepeatIntervalHours] = useState(24);
   const [saving, setSaving] = useState(false);
+
+  // Notification settings
+  const [settings, setSettings] = useState({
+    // Notification types
+    taskReminders: true,
+    overdueAlerts: true,
+    dailyDigest: false,
+
+    // Reminder timing (hours before deadline)
+    reminderTiming: '24',
+
+    // Repeat settings
+    maxRepeat: 3,
+    repeatIntervalHours: 24,
+
+    // Quiet hours
+    quietHoursEnabled: false,
+    quietHoursStart: '22:00',
+    quietHoursEnd: '08:00',
+
+    // Daily digest time
+    dailyDigestTime: '08:00'
+  });
 
   useEffect(() => {
     // Check notification permission
@@ -28,12 +49,20 @@ export function NotificationsSettings() {
     try {
       const response = await configAPI.getAll();
       const data = response.data;
-      if (data.notification_max_repeat !== undefined) {
-        setMaxRepeat(parseInt(data.notification_max_repeat) || 3);
-      }
-      if (data.notification_repeat_interval_hours !== undefined) {
-        setRepeatIntervalHours(parseInt(data.notification_repeat_interval_hours) || 24);
-      }
+
+      setSettings(prev => ({
+        ...prev,
+        taskReminders: data.notification_task_reminders !== 'false',
+        overdueAlerts: data.notification_overdue_alerts !== 'false',
+        dailyDigest: data.notification_daily_digest === 'true',
+        reminderTiming: data.notification_reminder_timing || '24',
+        maxRepeat: parseInt(data.notification_max_repeat) || 3,
+        repeatIntervalHours: parseInt(data.notification_repeat_interval_hours) || 24,
+        quietHoursEnabled: data.notification_quiet_hours_enabled === 'true',
+        quietHoursStart: data.notification_quiet_hours_start || '22:00',
+        quietHoursEnd: data.notification_quiet_hours_end || '08:00',
+        dailyDigestTime: data.notification_daily_digest_time || '08:00'
+      }));
     } catch (err) {
       console.error('Failed to load notification settings:', err);
     }
@@ -69,8 +98,16 @@ export function NotificationsSettings() {
     setSaving(true);
     try {
       await configAPI.bulkUpdate({
-        notification_max_repeat: maxRepeat.toString(),
-        notification_repeat_interval_hours: repeatIntervalHours.toString()
+        notification_task_reminders: settings.taskReminders.toString(),
+        notification_overdue_alerts: settings.overdueAlerts.toString(),
+        notification_daily_digest: settings.dailyDigest.toString(),
+        notification_reminder_timing: settings.reminderTiming,
+        notification_max_repeat: settings.maxRepeat.toString(),
+        notification_repeat_interval_hours: settings.repeatIntervalHours.toString(),
+        notification_quiet_hours_enabled: settings.quietHoursEnabled.toString(),
+        notification_quiet_hours_start: settings.quietHoursStart,
+        notification_quiet_hours_end: settings.quietHoursEnd,
+        notification_daily_digest_time: settings.dailyDigestTime
       });
       toast.success('Notification settings saved');
     } catch (err) {
@@ -78,6 +115,10 @@ export function NotificationsSettings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateSetting = (key, value) => {
+    setSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const getPermissionBadge = () => {
@@ -131,43 +172,177 @@ export function NotificationsSettings() {
         <>
           <div className="settings-divider" />
 
-          <div className="settings-section-header">
-            <h4>Notification Settings</h4>
-          </div>
+          {/* Notification Types */}
+          <div className="settings-subsection">
+            <h4 className="settings-subsection-title">Notification Types</h4>
+            <p className="text-muted text-sm mb-md">Choose which notifications you want to receive.</p>
 
-          <div className="grid-2-col">
-            <div className="form-group">
-              <label className="form-label">Max Repeat Notifications</label>
-              <input
-                type="number"
-                min="1"
-                max="10"
-                value={maxRepeat}
-                onChange={(e) => setMaxRepeat(parseInt(e.target.value) || 3)}
-                className="form-input"
-              />
-              <span className="form-hint">
-                Maximum times to notify about the same overdue task
-              </span>
+            <div className="notification-toggle-list">
+              <label className="notification-toggle-item">
+                <div className="notification-toggle-info">
+                  <span className="notification-toggle-label">📋 Task Reminders</span>
+                  <span className="notification-toggle-desc">Get notified before tasks are due</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settings.taskReminders}
+                  onChange={(e) => updateSetting('taskReminders', e.target.checked)}
+                  className="toggle-checkbox"
+                />
+              </label>
+
+              <label className="notification-toggle-item">
+                <div className="notification-toggle-info">
+                  <span className="notification-toggle-label">⚠️ Overdue Alerts</span>
+                  <span className="notification-toggle-desc">Get notified about overdue tasks</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settings.overdueAlerts}
+                  onChange={(e) => updateSetting('overdueAlerts', e.target.checked)}
+                  className="toggle-checkbox"
+                />
+              </label>
+
+              <label className="notification-toggle-item">
+                <div className="notification-toggle-info">
+                  <span className="notification-toggle-label">📰 Daily Digest</span>
+                  <span className="notification-toggle-desc">Morning summary of today&apos;s tasks</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settings.dailyDigest}
+                  onChange={(e) => updateSetting('dailyDigest', e.target.checked)}
+                  className="toggle-checkbox"
+                />
+              </label>
             </div>
 
+            {settings.dailyDigest && (
+              <div className="form-group mt-md">
+                <label className="form-label">Daily Digest Time</label>
+                <input
+                  type="time"
+                  value={settings.dailyDigestTime}
+                  onChange={(e) => updateSetting('dailyDigestTime', e.target.value)}
+                  className="form-input form-input-time"
+                />
+                <span className="form-hint">When to receive your daily summary</span>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-divider" />
+
+          {/* Reminder Timing */}
+          <div className="settings-subsection">
+            <h4 className="settings-subsection-title">Reminder Timing</h4>
+            <p className="text-muted text-sm mb-md">When to notify you before a task is due.</p>
+
             <div className="form-group">
-              <label className="form-label">Repeat Interval (hours)</label>
-              <input
-                type="number"
-                min="1"
-                max="168"
-                value={repeatIntervalHours}
-                onChange={(e) => setRepeatIntervalHours(parseInt(e.target.value) || 24)}
-                className="form-input"
-              />
-              <span className="form-hint">
-                Hours between repeat notifications
-              </span>
+              <label className="form-label">Remind me</label>
+              <select
+                value={settings.reminderTiming}
+                onChange={(e) => updateSetting('reminderTiming', e.target.value)}
+                className="form-select"
+              >
+                <option value="1">1 hour before</option>
+                <option value="2">2 hours before</option>
+                <option value="4">4 hours before</option>
+                <option value="12">12 hours before</option>
+                <option value="24">24 hours before</option>
+                <option value="48">48 hours before</option>
+              </select>
             </div>
           </div>
 
-          <div className="settings-actions">
+          <div className="settings-divider" />
+
+          {/* Quiet Hours */}
+          <div className="settings-subsection">
+            <h4 className="settings-subsection-title">Quiet Hours</h4>
+            <p className="text-muted text-sm mb-md">Pause notifications during specific hours.</p>
+
+            <label className="notification-toggle-item mb-md">
+              <div className="notification-toggle-info">
+                <span className="notification-toggle-label">🌙 Enable Quiet Hours</span>
+                <span className="notification-toggle-desc">No notifications during these times</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.quietHoursEnabled}
+                onChange={(e) => updateSetting('quietHoursEnabled', e.target.checked)}
+                className="toggle-checkbox"
+              />
+            </label>
+
+            {settings.quietHoursEnabled && (
+              <div className="grid-2-col">
+                <div className="form-group">
+                  <label className="form-label">Start Time</label>
+                  <input
+                    type="time"
+                    value={settings.quietHoursStart}
+                    onChange={(e) => updateSetting('quietHoursStart', e.target.value)}
+                    className="form-input form-input-time"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">End Time</label>
+                  <input
+                    type="time"
+                    value={settings.quietHoursEnd}
+                    onChange={(e) => updateSetting('quietHoursEnd', e.target.value)}
+                    className="form-input form-input-time"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="settings-divider" />
+
+          {/* Advanced Settings */}
+          <details className="settings-advanced">
+            <summary className="settings-advanced-toggle">
+              ⚙️ Advanced Settings
+            </summary>
+            <div className="settings-advanced-content">
+              <div className="grid-2-col">
+                <div className="form-group">
+                  <label className="form-label">Max Repeat Notifications</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={settings.maxRepeat}
+                    onChange={(e) => updateSetting('maxRepeat', parseInt(e.target.value) || 3)}
+                    className="form-input"
+                  />
+                  <span className="form-hint">
+                    Maximum times to notify about the same task
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Repeat Interval (hours)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="168"
+                    value={settings.repeatIntervalHours}
+                    onChange={(e) => updateSetting('repeatIntervalHours', parseInt(e.target.value) || 24)}
+                    className="form-input"
+                  />
+                  <span className="form-hint">
+                    Hours between repeat notifications
+                  </span>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <div className="settings-actions mt-lg">
             <Button variant="primary" onClick={handleSave} loading={saving}>
               Save Notification Settings
             </Button>
