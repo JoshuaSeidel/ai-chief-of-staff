@@ -75,7 +75,7 @@ export function NotificationsSettings() {
 
   const loadVapidKey = async () => {
     try {
-      const response = await api.get('/api/notifications/vapid-public-key');
+      const response = await api.get('/notifications/vapid-public-key');
       setVapidPublicKey(response.data.publicKey);
     } catch (err) {
       console.error('Failed to load VAPID key:', err);
@@ -135,7 +135,7 @@ export function NotificationsSettings() {
   const handleTestNotification = async () => {
     setTestingNotification(true);
     try {
-      const response = await api.post('/api/notifications/test');
+      const response = await api.post('/notifications/test');
       if (response.data.sent > 0) {
         toast.success('Test notification sent!');
       } else {
@@ -155,7 +155,7 @@ export function NotificationsSettings() {
 
     setRegeneratingVapid(true);
     try {
-      const response = await api.post('/api/notifications/regenerate-vapid');
+      const response = await api.post('/notifications/regenerate-vapid');
       setVapidPublicKey(response.data.publicKey);
       toast.success('VAPID keys regenerated. Users will need to re-enable notifications.');
     } catch (err) {
