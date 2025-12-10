@@ -1,9 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { microservicesAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
+import { useTheme, THEMES } from '../../contexts/ThemeContext';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { CardSkeleton } from '../common/LoadingSkeleton';
+
+function ThemeSettings() {
+  const { theme, themePreference, setTheme, isDark } = useTheme();
+
+  const themeOptions = [
+    { value: THEMES.SYSTEM, label: 'System', icon: '💻', description: 'Follow system preference' },
+    { value: THEMES.LIGHT, label: 'Light', icon: '☀️', description: 'Light theme' },
+    { value: THEMES.DARK, label: 'Dark', icon: '🌙', description: 'Dark theme' }
+  ];
+
+  return (
+    <div className="theme-settings">
+      <div className="theme-options">
+        {themeOptions.map(option => (
+          <button
+            key={option.value}
+            className={`theme-option ${themePreference === option.value ? 'theme-option-active' : ''}`}
+            onClick={() => setTheme(option.value)}
+            aria-pressed={themePreference === option.value}
+          >
+            <span className="theme-option-icon">{option.icon}</span>
+            <span className="theme-option-label">{option.label}</span>
+          </button>
+        ))}
+      </div>
+      <p className="theme-status">
+        Current: <strong>{isDark ? 'Dark' : 'Light'}</strong>
+        {themePreference === THEMES.SYSTEM && ' (following system)'}
+      </p>
+    </div>
+  );
+}
 
 function VersionInfo() {
   const [version, setVersion] = useState(null);
@@ -106,6 +139,14 @@ export function SystemSettings() {
 
   return (
     <div className="settings-section">
+      <div className="settings-section-header">
+        <h3>Appearance</h3>
+      </div>
+
+      <ThemeSettings />
+
+      <div className="settings-divider" />
+
       <div className="settings-section-header">
         <h3>System Information</h3>
       </div>

@@ -67,6 +67,12 @@
   --color-error-dark: rgba(220, 38, 38, 0.6);
   --color-error-glow: rgba(239, 68, 68, 0.3);
 
+  /* Danger - Deep Red (critical/highest priority) */
+  --color-danger: #dc2626;
+  --color-danger-hover: #ef4444;
+  --color-danger-light: rgba(220, 38, 38, 0.8);
+  --color-danger-glow: rgba(220, 38, 38, 0.3);
+
   /* Info - Cyan */
   --color-info: #06b6d4;
   --color-info-hover: #22d3ee;
@@ -157,6 +163,23 @@
   --glass-bg: rgba(63, 63, 70, 0.6);
   --glass-bg-light: rgba(63, 63, 70, 0.3);
   --glass-inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+
+  /* Modal/Card (dark mode defaults) */
+  --modal-bg: rgba(39, 39, 42, 0.95);
+  --modal-backdrop: rgba(0, 0, 0, 0.6);
+  --modal-border: #3f3f46;
+  --card-bg: #18181b;
+  --card-border: #3f3f46;
+  --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --header-bg: #27272a;
+  --nav-active-bg: rgba(59, 130, 246, 0.2);
+  --input-bg: #18181b;
+  --input-border: #3f3f46;
+  --input-placeholder: #71717a;
+  --button-secondary-bg: #27272a;
+  --button-secondary-hover: #3f3f46;
+  --danger-zone-bg: rgba(239, 68, 68, 0.08);
 
   /* ========================================
      TRANSITIONS
@@ -202,15 +225,80 @@
 }
 
 /* ========================================
-   DARK MODE (default for this app)
+   LIGHT MODE - iOS 26 Liquid Glass Style
+   Clean, translucent, high contrast
    ======================================== */
 
-/* If you add light mode support, define overrides here:
-@media (prefers-color-scheme: light) {
-  :root {
-    --color-bg-primary: #ffffff;
-    --color-text-primary: #09090b;
-    // ... etc
-  }
+[data-theme="light"] {
+  /* Background Colors - Translucent glass effect */
+  --color-bg-primary: #f0f4f8;                    /* Soft gray-blue base */
+  --color-bg-secondary: rgba(255, 255, 255, 0.7); /* Translucent white cards */
+  --color-bg-tertiary: rgba(255, 255, 255, 0.5);  /* More transparent for inputs */
+  --color-bg-hover: rgba(0, 0, 0, 0.05);          /* Subtle hover */
+  --color-bg-active: rgba(0, 0, 0, 0.08);         /* Active/pressed states */
+
+  /* Text Colors - High contrast dark text */
+  --color-text-primary: #1a1a2e;     /* Deep navy-black for headings */
+  --color-text-secondary: #2d3748;   /* Dark gray for body text */
+  --color-text-muted: #4a5568;       /* Medium gray for labels */
+  --color-text-disabled: #a0aec0;    /* Light gray for disabled */
+
+  /* Border Colors - Subtle, translucent */
+  --color-border-primary: rgba(0, 0, 0, 0.1);    /* Subtle borders */
+  --color-border-secondary: rgba(0, 0, 0, 0.15); /* Hover borders */
+  --color-border-focus: #3b82f6;                 /* Focus ring color */
+  --color-border-glass: rgba(255, 255, 255, 0.5); /* Glass edge highlight */
+
+  /* Glassmorphism - iOS 26 style translucent panels */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-bg-light: rgba(255, 255, 255, 0.4);
+  --glass-blur: blur(20px);
+  --glass-blur-light: blur(16px);
+  --glass-inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.6);
+
+  /* Shadows - Soft, diffuse for floating effect */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 16px 50px rgba(0, 0, 0, 0.12);
+
+  /* Modal specific - translucent with blur */
+  --modal-bg: rgba(255, 255, 255, 0.75);
+  --modal-backdrop: rgba(0, 0, 0, 0.2);
+  --modal-border: rgba(255, 255, 255, 0.8);
+
+  /* Card specific */
+  --card-bg: rgba(255, 255, 255, 0.6);
+  --card-border: rgba(255, 255, 255, 0.7);
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+
+  /* Header/Nav - frosted glass */
+  --header-bg: rgba(255, 255, 255, 0.7);
+  --nav-active-bg: rgba(59, 130, 246, 0.15);
+
+  /* Semantic colors - slightly adjusted for light bg */
+  --color-primary: #2563eb;
+  --color-primary-hover: #3b82f6;
+  --color-primary-glow: rgba(37, 99, 235, 0.15);
+  --color-success: #16a34a;
+  --color-success-glow: rgba(22, 163, 74, 0.15);
+  --color-warning: #d97706;
+  --color-warning-glow: rgba(217, 119, 6, 0.15);
+  --color-error: #dc2626;
+  --color-error-glow: rgba(220, 38, 38, 0.15);
+  --color-danger: #b91c1c;
+  --color-danger-glow: rgba(185, 28, 28, 0.15);
+
+  /* Input fields */
+  --input-bg: rgba(255, 255, 255, 0.8);
+  --input-border: rgba(0, 0, 0, 0.12);
+  --input-placeholder: #94a3b8;
+
+  /* Buttons */
+  --button-secondary-bg: rgba(0, 0, 0, 0.05);
+  --button-secondary-hover: rgba(0, 0, 0, 0.08);
+
+  /* Danger zone - subtle red tint for light mode */
+  --danger-zone-bg: rgba(239, 68, 68, 0.06);
 }
-*/

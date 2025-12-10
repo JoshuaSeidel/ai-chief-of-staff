@@ -1,4 +1,4 @@
-name: Build and Push Docker Images (Microservices)
+name: Build and Push Docker Images
 
 # Trigger Strategy:
 # - Push to main → builds images tagged as 'latest' and 'v{version}'
@@ -20,22 +20,35 @@ env:
   REPO: ${{ github.repository }}
 
 jobs:
+  # ============================================================================
+  # CHANGE DETECTION - Determines which services need to be built
+  # ============================================================================
   changes:
     runs-on: ubuntu-latest
     outputs:
+      # Core services
       monolith: ${{ steps.filter.outputs.monolith }}
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
-      microservices: ${{ steps.filter.outputs.microservices }}
+      # Individual microservices
+      ai-intelligence: ${{ steps.filter.outputs.ai-intelligence }}
+      pattern-recognition: ${{ steps.filter.outputs.pattern-recognition }}
+      nl-parser: ${{ steps.filter.outputs.nl-parser }}
+      voice-processor: ${{ steps.filter.outputs.voice-processor }}
+      context-service: ${{ steps.filter.outputs.context-service }}
+      integrations: ${{ steps.filter.outputs.integrations }}
+      # Shared code (triggers dependent services)
+      shared-python: ${{ steps.filter.outputs.shared-python }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history needed for accurate change detection
-      - uses: dorny/paths-filter@v3
+          fetch-depth: 0
+
+      - name: Detect changes
+        uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.event.before }}
           filters: |
             monolith:
               - 'Dockerfile'
@@ -45,9 +58,40 @@ jobs:
               - 'frontend/**'
             backend:
               - 'backend/**'
-            microservices:
-              - 'services/**'
+            ai-intelligence:
+              - 'services/ai-intelligence/**'
+            pattern-recognition:
+              - 'services/pattern-recognition/**'
+            nl-parser:
+              - 'services/nl-parser/**'
+            voice-processor:
+              - 'services/voice-processor/**'
+            context-service:
+              - 'services/context-service/**'
+            integrations:
+              - 'services/integrations/**'
+            shared-python:
+              - 'services/shared/**'
 
+      - name: Log detected changes
+        run: |
+          echo "## Change Detection Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Changed |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Monolith | ${{ steps.filter.outputs.monolith }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ steps.filter.outputs.frontend }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ steps.filter.outputs.backend }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AI Intelligence | ${{ steps.filter.outputs.ai-intelligence }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pattern Recognition | ${{ steps.filter.outputs.pattern-recognition }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| NL Parser | ${{ steps.filter.outputs.nl-parser }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Voice Processor | ${{ steps.filter.outputs.voice-processor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Context Service | ${{ steps.filter.outputs.context-service }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integrations | ${{ steps.filter.outputs.integrations }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Shared Python | ${{ steps.filter.outputs.shared-python }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # PREPARE - Get version info and metadata
+  # ============================================================================
   prepare:
     runs-on: ubuntu-latest
     outputs:
@@ -60,8 +104,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Get version and metadata
         id: version
@@ -69,31 +111,25 @@ jobs:
           VERSION=$(node -p "require('./backend/package.json').version")
           COMMIT_HASH=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          BRANCH_NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\///')
+          BRANCH_NAME=$(echo "${{ github.ref }}" | sed 's/refs\/heads\///' | sed 's/refs\/tags\///')
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          
-          # Determine tag suffix based on branch:
-          # - main branch: 'latest' and version tags
-          # - feature/fix branches: 'dev' and version tags
+
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
             TAG_SUFFIX="latest"
           else
             TAG_SUFFIX="dev"
           fi
-          
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "tag_suffix=$TAG_SUFFIX" >> $GITHUB_OUTPUT
           echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
-          
-          echo "Version: $VERSION"
-          echo "Commit: $COMMIT_HASH"
-          echo "Build Date: $BUILD_DATE"
-          echo "Branch: $BRANCH_NAME"
-          echo "Tag Suffix: $TAG_SUFFIX"
-          echo "Repository: $REPO_LOWER"
+
+  # ============================================================================
+  # BUILD JOBS - Each service has its own job with specific triggers
+  # ============================================================================
 
   build-monolith:
     needs: [changes, prepare]
@@ -116,17 +152,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push monolith (frontend + backend)
+      - name: Build and push monolith
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: |
             ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-monolith:${{ needs.prepare.outputs.tag_suffix }}
             ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-monolith:v${{ needs.prepare.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=monolith
+          cache-to: type=gha,mode=max,scope=monolith
           platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
@@ -159,12 +195,12 @@ jobs:
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: |
             ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-frontend:${{ needs.prepare.outputs.tag_suffix }}
             ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-frontend:v${{ needs.prepare.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
           platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
@@ -197,46 +233,26 @@ jobs:
         with:
           context: ./backend
           file: ./backend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: |
             ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-backend:${{ needs.prepare.outputs.tag_suffix }}
             ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-backend:v${{ needs.prepare.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
           platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
             COMMIT_HASH=${{ needs.prepare.outputs.commit_hash }}
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
 
-  build-microservices:
+  # Python microservices that use shared code
+  build-ai-intelligence:
     needs: [changes, prepare]
-    if: needs.changes.outputs.microservices == 'true'
+    if: needs.changes.outputs.ai-intelligence == 'true' || needs.changes.outputs.shared-python == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      matrix:
-        service:
-          - name: ai-intelligence
-            context: ./services
-            dockerfile: ./services/ai-intelligence/Dockerfile
-          - name: pattern-recognition
-            context: ./services
-            dockerfile: ./services/pattern-recognition/Dockerfile
-          - name: nl-parser
-            context: ./services
-            dockerfile: ./services/nl-parser/Dockerfile
-          - name: voice-processor
-            context: ./services
-            dockerfile: ./services/voice-processor/Dockerfile
-          - name: context-service
-            context: ./services/context-service
-            dockerfile: ./services/context-service/Dockerfile
-          - name: integrations
-            context: ./services/integrations
-            dockerfile: ./services/integrations/Dockerfile
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -251,49 +267,241 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push ${{ matrix.service.name }}
+      - name: Build and push ai-intelligence
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.service.context }}
-          file: ${{ matrix.service.dockerfile }}
-          push: ${{ github.event_name != 'pull_request' }}
+          context: ./services
+          file: ./services/ai-intelligence/Dockerfile
+          push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-${{ matrix.service.name }}:${{ needs.prepare.outputs.tag_suffix }}
-            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-${{ matrix.service.name }}:v${{ needs.prepare.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-ai-intelligence:${{ needs.prepare.outputs.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-ai-intelligence:v${{ needs.prepare.outputs.version }}
+          cache-from: type=gha,scope=ai-intelligence
+          cache-to: type=gha,mode=max,scope=ai-intelligence
           platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ needs.prepare.outputs.version }}
             COMMIT_HASH=${{ needs.prepare.outputs.commit_hash }}
             BUILD_DATE=${{ needs.prepare.outputs.build_date }}
 
+  build-pattern-recognition:
+    needs: [changes, prepare]
+    if: needs.changes.outputs.pattern-recognition == 'true' || needs.changes.outputs.shared-python == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push pattern-recognition
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services
+          file: ./services/pattern-recognition/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-pattern-recognition:${{ needs.prepare.outputs.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-pattern-recognition:v${{ needs.prepare.outputs.version }}
+          cache-from: type=gha,scope=pattern-recognition
+          cache-to: type=gha,mode=max,scope=pattern-recognition
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT_HASH=${{ needs.prepare.outputs.commit_hash }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+
+  build-nl-parser:
+    needs: [changes, prepare]
+    if: needs.changes.outputs.nl-parser == 'true' || needs.changes.outputs.shared-python == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push nl-parser
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services
+          file: ./services/nl-parser/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-nl-parser:${{ needs.prepare.outputs.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-nl-parser:v${{ needs.prepare.outputs.version }}
+          cache-from: type=gha,scope=nl-parser
+          cache-to: type=gha,mode=max,scope=nl-parser
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT_HASH=${{ needs.prepare.outputs.commit_hash }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+
+  build-voice-processor:
+    needs: [changes, prepare]
+    if: needs.changes.outputs.voice-processor == 'true' || needs.changes.outputs.shared-python == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push voice-processor
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services
+          file: ./services/voice-processor/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-voice-processor:${{ needs.prepare.outputs.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-voice-processor:v${{ needs.prepare.outputs.version }}
+          cache-from: type=gha,scope=voice-processor
+          cache-to: type=gha,mode=max,scope=voice-processor
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT_HASH=${{ needs.prepare.outputs.commit_hash }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+
+  # Go service - doesn't use shared Python code
+  build-context-service:
+    needs: [changes, prepare]
+    if: needs.changes.outputs.context-service == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push context-service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/context-service
+          file: ./services/context-service/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-context-service:${{ needs.prepare.outputs.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-context-service:v${{ needs.prepare.outputs.version }}
+          cache-from: type=gha,scope=context-service
+          cache-to: type=gha,mode=max,scope=context-service
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT_HASH=${{ needs.prepare.outputs.commit_hash }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+
+  # Node.js service - doesn't use shared Python code
+  build-integrations:
+    needs: [changes, prepare]
+    if: needs.changes.outputs.integrations == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push integrations
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/integrations
+          file: ./services/integrations/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-integrations:${{ needs.prepare.outputs.tag_suffix }}
+            ${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-integrations:v${{ needs.prepare.outputs.version }}
+          cache-from: type=gha,scope=integrations
+          cache-to: type=gha,mode=max,scope=integrations
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            VERSION=${{ needs.prepare.outputs.version }}
+            COMMIT_HASH=${{ needs.prepare.outputs.commit_hash }}
+            BUILD_DATE=${{ needs.prepare.outputs.build_date }}
+
+  # ============================================================================
+  # SUMMARY - Reports what was built
+  # ============================================================================
   summary:
-    needs: [changes, prepare, build-monolith, build-frontend, build-backend, build-microservices]
+    needs: [changes, prepare, build-monolith, build-frontend, build-backend, build-ai-intelligence, build-pattern-recognition, build-nl-parser, build-voice-processor, build-context-service, build-integrations]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Build Summary
         run: |
-          echo "## Build Complete 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "## Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** v${{ needs.prepare.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "**Tag:** ${{ needs.prepare.outputs.tag_suffix }}" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** ${{ needs.prepare.outputs.branch }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ needs.prepare.outputs.commit_hash }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Images Built:" >> $GITHUB_STEP_SUMMARY
-          echo "**Monolith (Unraid):**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-monolith:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Core Services:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-frontend:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-backend:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Microservices:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-ai-intelligence:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-pattern-recognition:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-nl-parser:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-voice-processor:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-context-service:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ needs.prepare.outputs.repo_lower }}/aicos-integrations:${{ needs.prepare.outputs.tag_suffix }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Monolith | ${{ needs.build-monolith.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend | ${{ needs.build-frontend.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | ${{ needs.build-backend.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AI Intelligence | ${{ needs.build-ai-intelligence.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Pattern Recognition | ${{ needs.build-pattern-recognition.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| NL Parser | ${{ needs.build-nl-parser.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Voice Processor | ${{ needs.build-voice-processor.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Context Service | ${{ needs.build-context-service.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integrations | ${{ needs.build-integrations.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY

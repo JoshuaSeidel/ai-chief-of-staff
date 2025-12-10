@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Prevent iOS Safari native pull-to-refresh
 if (typeof document !== 'undefined') {
@@ -23,7 +24,9 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );
