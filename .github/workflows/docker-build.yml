@@ -31,10 +31,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # Need at least 2 commits to compare changes
+          fetch-depth: 0  # Full history needed for accurate change detection
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.event.before }}
           filters: |
             monolith:
               - 'Dockerfile'
