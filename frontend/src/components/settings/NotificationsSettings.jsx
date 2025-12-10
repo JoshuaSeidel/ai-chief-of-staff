@@ -3,6 +3,7 @@ import { configAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../common/Button';
 import { Badge } from '../common/Badge';
+import api from '../../services/api';
 
 export function NotificationsSettings() {
   const toast = useToast();
@@ -10,6 +11,9 @@ export function NotificationsSettings() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState('default');
   const [saving, setSaving] = useState(false);
+  const [testingNotification, setTestingNotification] = useState(false);
+  const [regeneratingVapid, setRegeneratingVapid] = useState(false);
+  const [vapidPublicKey, setVapidPublicKey] = useState(null);
 
   // Notification settings
   const [settings, setSettings] = useState({
@@ -41,8 +45,9 @@ export function NotificationsSettings() {
       setNotificationsEnabled(Notification.permission === 'granted');
     }
 
-    // Load settings
+    // Load settings and VAPID key
     loadSettings();
+    loadVapidKey();
   }, []);
 
   const loadSettings = async () => {
@@ -65,6 +70,16 @@ export function NotificationsSettings() {
       }));
     } catch (err) {
       console.error('Failed to load notification settings:', err);
+    }
+  };
+
+  const loadVapidKey = async () => {
+    try {
+      const response = await api.get('/api/notifications/vapid-public-key');
+      setVapidPublicKey(response.data.publicKey);
+    } catch (err) {
+      console.error('Failed to load VAPID key:', err);
+      setVapidPublicKey(null);
     }
   };
 
@@ -114,6 +129,39 @@ export function NotificationsSettings() {
       toast.error('Failed to save notification settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setTestingNotification(true);
+    try {
+      const response = await api.post('/api/notifications/test');
+      if (response.data.sent > 0) {
+        toast.success('Test notification sent!');
+      } else {
+        toast.warning('No devices subscribed to receive notifications');
+      }
+    } catch (err) {
+      toast.error('Failed to send test notification');
+    } finally {
+      setTestingNotification(false);
+    }
+  };
+
+  const handleRegenerateVapid = async () => {
+    if (!window.confirm('Regenerating VAPID keys will invalidate all existing push subscriptions. All users will need to re-enable notifications. Continue?')) {
+      return;
+    }
+
+    setRegeneratingVapid(true);
+    try {
+      const response = await api.post('/api/notifications/regenerate-vapid');
+      setVapidPublicKey(response.data.publicKey);
+      toast.success('VAPID keys regenerated. Users will need to re-enable notifications.');
+    } catch (err) {
+      toast.error('Failed to regenerate VAPID keys');
+    } finally {
+      setRegeneratingVapid(false);
     }
   };
 
@@ -170,6 +218,21 @@ export function NotificationsSettings() {
 
       {notificationsEnabled && (
         <>
+          <div className="settings-divider" />
+
+          {/* Test Notification */}
+          <div className="settings-subsection">
+            <h4 className="settings-subsection-title">Test Notification</h4>
+            <p className="text-muted text-sm mb-md">Send a test notification to verify your setup.</p>
+            <Button
+              variant="secondary"
+              onClick={handleTestNotification}
+              loading={testingNotification}
+            >
+              🔔 Send Test Notification
+            </Button>
+          </div>
+
           <div className="settings-divider" />
 
           {/* Notification Types */}
@@ -337,6 +400,31 @@ export function NotificationsSettings() {
                   <span className="form-hint">
                     Hours between repeat notifications
                   </span>
+                </div>
+              </div>
+
+              <div className="settings-divider" />
+
+              {/* VAPID Key Management */}
+              <div className="form-group">
+                <label className="form-label">VAPID Public Key</label>
+                <p className="text-muted text-sm mb-sm">
+                  Used for Web Push authentication. Only regenerate if you have issues with push notifications.
+                </p>
+                {vapidPublicKey ? (
+                  <code className="vapid-key-display">{vapidPublicKey.substring(0, 40)}...</code>
+                ) : (
+                  <span className="text-warning text-sm">Not configured</span>
+                )}
+                <div className="mt-md">
+                  <Button
+                    variant="danger"
+                    size="small"
+                    onClick={handleRegenerateVapid}
+                    loading={regeneratingVapid}
+                  >
+                    🔄 Regenerate VAPID Keys
+                  </Button>
                 </div>
               </div>
             </div>

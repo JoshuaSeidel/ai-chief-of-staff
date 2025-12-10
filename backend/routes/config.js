@@ -13,8 +13,8 @@ const logger = createModuleLogger('CONFIG');
 
 // Load CA certificate for validating microservice certificates
 // Note: Certs are in /app/certs which is mounted from tls-certs volume
-// The generate-certs.sh script creates ca-cert.pem
-const CA_CERT_PATH = '/app/certs/ca-cert.pem';
+// The generate-service-cert.sh script creates ca.crt
+const CA_CERT_PATH = '/app/certs/ca.crt';
 let microserviceHttpsAgent = null;
 
 // Environment flag to allow insecure connections (development only)
