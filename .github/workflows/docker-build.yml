@@ -30,7 +30,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
+        with:
+          fetch-depth: 2  # Need at least 2 commits to compare changes
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
