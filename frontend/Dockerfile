@@ -39,12 +39,13 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Expose port
 EXPOSE 3000
 
-# Health check (install wget for health checks)
-RUN apk add --no-cache wget
+# Install curl for health checks
+# Note: Using --no-scripts to avoid QEMU emulation trigger issues on ARM64 cross-compilation
+RUN apk add --no-cache --no-scripts curl
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+  CMD curl -f http://localhost:3000/health || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
