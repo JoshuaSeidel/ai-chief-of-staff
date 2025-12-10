@@ -2,13 +2,14 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
+import ErrorBoundary from './components/common/ErrorBoundary';
 
 // Prevent iOS Safari native pull-to-refresh
 if (typeof document !== 'undefined') {
   // Check if we're in iOS PWA mode
-  const isIOSPWA = window.matchMedia('(display-mode: standalone)').matches || 
+  const isIOSPWA = window.matchMedia('(display-mode: standalone)').matches ||
                     window.navigator.standalone === true;
-  
+
   if (isIOSPWA) {
     // Set overscroll-behavior on body to prevent native pull-to-refresh
     document.body.style.overscrollBehavior = 'none';
@@ -21,7 +22,9 @@ if (typeof document !== 'undefined') {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );
 

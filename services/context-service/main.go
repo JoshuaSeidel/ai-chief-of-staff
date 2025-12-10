@@ -352,22 +352,25 @@ func getRecentContextHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build query
+	// Build query with proper parameterization
+	// PostgreSQL requires interval to be constructed differently for parameterized queries
+	args := []interface{}{days}
+	paramIndex := 2
+
 	sqlQuery := `
-		SELECT id, category, content, source, created_at, is_active, priority, expires_at 
-		FROM context 
-		WHERE is_active = true 
-		AND created_at >= NOW() - INTERVAL '%d days'
+		SELECT id, category, content, source, created_at, is_active, priority, expires_at
+		FROM context
+		WHERE is_active = true
+		AND created_at >= NOW() - ($1 || ' days')::INTERVAL
 	`
-	args := []interface{}{}
 
 	if category != "" {
-		sqlQuery += " AND category = $1"
+		sqlQuery += fmt.Sprintf(" AND category = $%d", paramIndex)
 		args = append(args, category)
+		paramIndex++
 	}
 
 	sqlQuery += " ORDER BY created_at DESC LIMIT 200"
-	sqlQuery = fmt.Sprintf(sqlQuery, days)
 
 	// Execute
 	rows, err := db.Query(sqlQuery, args...)
@@ -566,9 +569,25 @@ func (rw *responseWriter) WriteHeader(code int) {
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		// Restrict CORS to backend service only
+		allowedOrigins := []string{
+			"http://aicos-backend:3001",
+			"https://aicos-backend:3001",
+			"http://localhost:3001",  // For development
+			"https://localhost:3001",
+		}
+
+		origin := r.Header.Get("Origin")
+		for _, allowedOrigin := range allowedOrigins {
+			if origin == allowedOrigin {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				break
+			}
+		}
+
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)

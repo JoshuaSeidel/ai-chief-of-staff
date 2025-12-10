@@ -1,0 +1,216 @@
+/* ========================================
+   DESIGN TOKENS - AI Chief of Staff
+   ========================================
+
+   CSS Custom Properties (Variables) for consistent theming.
+   Import this file first in your CSS to use these tokens.
+
+   Usage:
+     color: var(--color-text-primary);
+     background: var(--color-bg-primary);
+     border-radius: var(--radius-lg);
+======================================== */
+
+:root {
+  /* ========================================
+     COLORS - Base Palette
+     ======================================== */
+
+  /* Background Colors */
+  --color-bg-primary: #09090b;      /* Main app background */
+  --color-bg-secondary: #18181b;    /* Cards, elevated surfaces */
+  --color-bg-tertiary: #27272a;     /* Inputs, nested elements */
+  --color-bg-hover: #3f3f46;        /* Hover states */
+  --color-bg-active: #52525b;       /* Active/pressed states */
+
+  /* Text Colors */
+  --color-text-primary: #fafafa;    /* Primary text, headings */
+  --color-text-secondary: #e5e5e7;  /* Body text */
+  --color-text-muted: #a1a1aa;      /* Muted text, labels (4.6:1 contrast) */
+  --color-text-disabled: #71717a;   /* Disabled text (4.5:1 contrast) */
+
+  /* Border Colors */
+  --color-border-primary: #3f3f46;  /* Primary borders */
+  --color-border-secondary: #52525b; /* Hover borders */
+  --color-border-focus: #60a5fa;    /* Focus ring color */
+  --color-border-glass: rgba(255, 255, 255, 0.1); /* Glassmorphism borders */
+
+  /* ========================================
+     COLORS - Semantic (Status)
+     ======================================== */
+
+  /* Primary - Blue */
+  --color-primary: #3b82f6;
+  --color-primary-hover: #60a5fa;
+  --color-primary-light: rgba(59, 130, 246, 0.8);
+  --color-primary-dark: rgba(37, 99, 235, 0.6);
+  --color-primary-glow: rgba(59, 130, 246, 0.3);
+
+  /* Success - Green */
+  --color-success: #22c55e;
+  --color-success-hover: #4ade80;
+  --color-success-light: rgba(34, 197, 94, 0.8);
+  --color-success-dark: rgba(22, 163, 74, 0.6);
+  --color-success-glow: rgba(34, 197, 94, 0.3);
+
+  /* Warning - Orange/Amber */
+  --color-warning: #f59e0b;
+  --color-warning-hover: #fbbf24;
+  --color-warning-light: rgba(245, 158, 11, 0.8);
+  --color-warning-dark: rgba(217, 119, 6, 0.6);
+  --color-warning-glow: rgba(245, 158, 11, 0.3);
+
+  /* Error - Red */
+  --color-error: #ef4444;
+  --color-error-hover: #f87171;
+  --color-error-light: rgba(239, 68, 68, 0.8);
+  --color-error-dark: rgba(220, 38, 38, 0.6);
+  --color-error-glow: rgba(239, 68, 68, 0.3);
+
+  /* Info - Cyan */
+  --color-info: #06b6d4;
+  --color-info-hover: #22d3ee;
+  --color-info-light: rgba(6, 182, 212, 0.8);
+  --color-info-dark: rgba(8, 145, 178, 0.6);
+  --color-info-glow: rgba(6, 182, 212, 0.3);
+
+  /* ========================================
+     TYPOGRAPHY
+     ======================================== */
+
+  /* Font Families */
+  --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace;
+
+  /* Font Sizes */
+  --font-size-xs: 0.75rem;     /* 12px */
+  --font-size-sm: 0.875rem;    /* 14px */
+  --font-size-base: 1rem;      /* 16px */
+  --font-size-lg: 1.125rem;    /* 18px */
+  --font-size-xl: 1.25rem;     /* 20px */
+  --font-size-2xl: 1.5rem;     /* 24px */
+  --font-size-3xl: 1.875rem;   /* 30px */
+  --font-size-4xl: 2.25rem;    /* 36px */
+
+  /* Font Weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Line Heights */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* ========================================
+     SPACING
+     ======================================== */
+
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;   /* 4px */
+  --spacing-2: 0.5rem;    /* 8px */
+  --spacing-3: 0.75rem;   /* 12px */
+  --spacing-4: 1rem;      /* 16px */
+  --spacing-5: 1.25rem;   /* 20px */
+  --spacing-6: 1.5rem;    /* 24px */
+  --spacing-8: 2rem;      /* 32px */
+  --spacing-10: 2.5rem;   /* 40px */
+  --spacing-12: 3rem;     /* 48px */
+  --spacing-16: 4rem;     /* 64px */
+
+  /* ========================================
+     BORDERS & RADIUS
+     ======================================== */
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  --border-width: 1px;
+  --border-width-focus: 2px;
+
+  /* ========================================
+     SHADOWS
+     ======================================== */
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.4);
+
+  /* Glow shadows for buttons */
+  --shadow-glow-primary: 0 8px 24px var(--color-primary-glow);
+  --shadow-glow-success: 0 8px 24px var(--color-success-glow);
+  --shadow-glow-warning: 0 8px 24px var(--color-warning-glow);
+  --shadow-glow-error: 0 8px 24px var(--color-error-glow);
+
+  /* ========================================
+     GLASSMORPHISM
+     ======================================== */
+
+  --glass-blur: blur(12px);
+  --glass-blur-light: blur(8px);
+  --glass-bg: rgba(63, 63, 70, 0.6);
+  --glass-bg-light: rgba(63, 63, 70, 0.3);
+  --glass-inset-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+
+  /* ========================================
+     TRANSITIONS
+     ======================================== */
+
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ========================================
+     Z-INDEX SCALE
+     ======================================== */
+
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+  --z-toast: 9999;
+
+  /* ========================================
+     BREAKPOINTS (for reference, use in media queries)
+     ======================================== */
+
+  /*
+   * --breakpoint-sm: 640px;
+   * --breakpoint-md: 768px;
+   * --breakpoint-lg: 1024px;
+   * --breakpoint-xl: 1280px;
+   * --breakpoint-2xl: 1536px;
+   */
+
+  /* ========================================
+     ACCESSIBILITY
+     ======================================== */
+
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--color-border-focus);
+  --min-touch-target: 44px;
+}
+
+/* ========================================
+   DARK MODE (default for this app)
+   ======================================== */
+
+/* If you add light mode support, define overrides here:
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-bg-primary: #ffffff;
+    --color-text-primary: #09090b;
+    // ... etc
+  }
+}
+*/

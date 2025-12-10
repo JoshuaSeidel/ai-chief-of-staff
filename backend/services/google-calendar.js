@@ -115,11 +115,30 @@ async function getTokenFromCode(code, profileId = 2) {
  */
 async function isConnected(profileId = 2) {
   const db = getDb();
+
+  // Debug: Check what's in the table for this profile
+  const debugRow = await db.get(
+    'SELECT profile_id, integration_type, integration_name, is_enabled FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'calendar', 'google']
+  );
+
+  if (debugRow) {
+    logger.info(`Found Google integration for profile ${profileId}`, {
+      is_enabled: debugRow.is_enabled,
+      is_enabled_type: typeof debugRow.is_enabled
+    });
+  } else {
+    logger.info(`No Google integration row found for profile ${profileId}`);
+  }
+
   const tokenRow = await db.get(
     'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ? AND is_enabled = ?',
     [profileId, 'calendar', 'google', true]
   );
-  return !!(tokenRow && tokenRow.token_data);
+
+  const result = !!(tokenRow && tokenRow.token_data);
+  logger.info(`isConnected result for profile ${profileId}: ${result}`);
+  return result;
 }
 
 /**

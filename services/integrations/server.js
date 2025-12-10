@@ -24,8 +24,19 @@ const logger = {
 const app = express();
 const PORT = process.env.PORT || 8006;
 
-// Middleware
-app.use(cors());
+// Middleware - restrict CORS to backend service only
+const corsOptions = {
+  origin: [
+    'http://aicos-backend:3001',
+    'https://aicos-backend:3001',
+    'http://localhost:3001',  // For development
+    'https://localhost:3001'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -121,9 +132,10 @@ app.get('/', (req, res) => {
     });
 
     // Start server with HTTPS after routes are loaded
-    const CERT_DIR = path.join(__dirname, 'certs');
-    const CERT_PATH = path.join(CERT_DIR, 'aicos-integrations.crt');
-    const KEY_PATH = path.join(CERT_DIR, 'aicos-integrations.key');
+    // Certs are mounted from tls-certs volume at /app/certs
+    const CERT_DIR = '/app/certs';
+    const CERT_PATH = path.join(CERT_DIR, 'integrations-cert.pem');
+    const KEY_PATH = path.join(CERT_DIR, 'integrations-key.pem');
 
     // Check if certificates exist
     if (fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH)) {

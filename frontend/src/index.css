@@ -1,3 +1,7 @@
+/* Import design tokens first for CSS custom properties */
+@import './styles/tokens.css';
+@import './styles/components.css';
+
 * {
   margin: 0;
   padding: 0;
@@ -180,23 +184,55 @@ code {
 
 .quick-action-button {
   padding: 1rem;
-  background-color: #3f3f46;
+  background: linear-gradient(135deg, rgba(63, 63, 70, 0.6), rgba(39, 39, 42, 0.4));
   color: #e4e4e7;
-  border: 1px solid #52525b;
-  border-radius: 8px;
+  border: 1px solid rgba(82, 82, 91, 0.3);
+  border-radius: 12px;
   cursor: pointer;
   font-size: 1rem;
   font-weight: 500;
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.quick-action-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
+  z-index: 0;
+}
+
+.quick-action-button > * {
+  position: relative;
+  z-index: 1;
+}
+
+.quick-action-button:hover::before {
+  left: 100%;
 }
 
 .quick-action-button:hover {
-  background-color: #52525b;
-  border-color: #60a5fa;
+  background: linear-gradient(135deg, rgba(82, 82, 91, 0.7), rgba(63, 63, 70, 0.5));
+  border-color: rgba(96, 165, 250, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(96, 165, 250, 0.2);
+  transform: translateY(-2px);
+}
+
+.quick-action-button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 /* Desktop-specific dashboard improvements */
@@ -243,33 +279,82 @@ code {
 
 button {
   padding: 0.75rem 1.5rem;
-  background-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.6));
   color: white;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
   font-size: 1rem;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 500;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Ensure button content is above ::before shimmer */
+button > * {
+  position: relative;
+  z-index: 1;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
+  z-index: 0;
+}
+
+button:hover::before {
+  left: 100%;
 }
 
 button:hover {
-  background-color: #60a5fa;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.9), rgba(59, 130, 246, 0.7));
+  border-color: rgba(147, 197, 253, 0.5);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3), 0 0 0 1px rgba(96, 165, 250, 0.2);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 button:disabled {
-  background-color: #52525b;
+  background: linear-gradient(135deg, rgba(82, 82, 91, 0.5), rgba(63, 63, 70, 0.3));
+  border-color: rgba(82, 82, 91, 0.2);
   cursor: not-allowed;
   color: #a1a1aa;
+  opacity: 0.6;
+  transform: none;
+}
+
+button:disabled::before {
+  display: none;
 }
 
 button.secondary {
-  background-color: #3f3f46;
+  background: linear-gradient(135deg, rgba(63, 63, 70, 0.6), rgba(39, 39, 42, 0.4));
   color: #e4e4e7;
+  border-color: rgba(82, 82, 91, 0.3);
 }
 
 button.secondary:hover {
-  background-color: #52525b;
+  background: linear-gradient(135deg, rgba(82, 82, 91, 0.7), rgba(63, 63, 70, 0.5));
+  border-color: rgba(113, 113, 122, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(82, 82, 91, 0.3);
+  transform: translateY(-1px);
+}
+
+button.secondary:active {
+  transform: translateY(0);
 }
 
 input[type="text"],
@@ -927,11 +1012,11 @@ table {
 
   /* Fix sticky hover states on iOS */
   button:hover {
-    background-color: #3b82f6;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.6));
   }
 
   button.secondary:hover {
-    background-color: #3f3f46;
+    background: linear-gradient(135deg, rgba(63, 63, 70, 0.6), rgba(39, 39, 42, 0.4));
   }
 }
 
@@ -1100,19 +1185,61 @@ table {
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 
+  box-shadow:
     0 4px 16px 0 rgba(0, 0, 0, 0.3),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  overflow: hidden !important;
 }
 
-.glass-button:hover {
+.glass-button::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent) !important;
+  transition: left 0.5s !important;
+}
+
+.glass-button:hover::before {
+  left: 100% !important;
+}
+
+.glass-button:hover:not(:disabled) {
   background: rgba(63, 63, 70, 0.8) !important;
   border-color: rgba(96, 165, 250, 0.3) !important;
-  box-shadow: 
+  box-shadow:
     0 6px 24px 0 rgba(96, 165, 250, 0.2),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.12) !important;
   transform: translateY(-1px) !important;
+}
+
+.glass-button:active:not(:disabled) {
+  transform: translateY(0) !important;
+  box-shadow:
+    0 4px 12px 0 rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.glass-button:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.glass-button:disabled::before {
+  display: none !important;
+}
+
+/* Ensure glass button content is above shimmer */
+.glass-button > *,
+.glass-button-primary > *,
+.glass-button-stop > * {
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 .glass-button-primary {
@@ -1120,20 +1247,54 @@ table {
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   border: 1px solid rgba(96, 165, 250, 0.4) !important;
-  box-shadow: 
+  box-shadow:
     0 4px 20px 0 rgba(96, 165, 250, 0.4),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
   color: white !important;
   font-weight: 600 !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.glass-button-primary::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent) !important;
+  transition: left 0.5s !important;
+}
+
+.glass-button-primary:hover:not(:disabled)::before {
+  left: 100% !important;
 }
 
 .glass-button-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, rgba(96, 165, 250, 1) 0%, rgba(59, 130, 246, 1) 100%) !important;
-  box-shadow: 
+  box-shadow:
     0 6px 28px 0 rgba(96, 165, 250, 0.6),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.3) !important;
   transform: translateY(-2px) !important;
+}
+
+.glass-button-primary:active:not(:disabled) {
+  transform: translateY(0) !important;
+  box-shadow:
+    0 4px 16px 0 rgba(96, 165, 250, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.glass-button-primary:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.glass-button-primary:disabled::before {
+  display: none !important;
 }
 
 .glass-button-stop {
@@ -1141,20 +1302,54 @@ table {
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   border: 1px solid rgba(239, 68, 68, 0.4) !important;
-  box-shadow: 
+  box-shadow:
     0 4px 20px 0 rgba(239, 68, 68, 0.4),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
   color: white !important;
   font-weight: 600 !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  position: relative !important;
+  overflow: hidden !important;
 }
 
-.glass-button-stop:hover {
+.glass-button-stop::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: -100% !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent) !important;
+  transition: left 0.5s !important;
+}
+
+.glass-button-stop:hover::before {
+  left: 100% !important;
+}
+
+.glass-button-stop:hover:not(:disabled) {
   background: linear-gradient(135deg, rgba(239, 68, 68, 1) 0%, rgba(220, 38, 38, 1) 100%) !important;
-  box-shadow: 
+  box-shadow:
     0 6px 28px 0 rgba(239, 68, 68, 0.6),
     inset 0 1px 0 0 rgba(255, 255, 255, 0.3) !important;
   transform: translateY(-2px) !important;
+}
+
+.glass-button-stop:active:not(:disabled) {
+  transform: translateY(0) !important;
+  box-shadow:
+    0 4px 16px 0 rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.glass-button-stop:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.glass-button-stop:disabled::before {
+  display: none !important;
 }
 
 /* Recording Visualizer */
@@ -1680,52 +1875,50 @@ table {
 }
 
 /* === BUTTONS === */
-.btn {
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.25rem;
-}
+/* Base button styles (.btn, .btn-primary, .btn-secondary, .btn-success, .btn-error, .btn-warning)
+   are defined in components.css - do not duplicate here */
 
-.btn-primary {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.btn-success {
-  background-color: #10b981;
-  color: white;
-}
-
-.btn-error {
-  background-color: #ef4444;
-  color: white;
-}
-
-.btn-warning {
-  background-color: #f59e0b;
-  color: white;
-}
-
-.btn-full {
+/* Additional button utilities */
+.btn-full-flex {
   flex: 1;
   min-width: 100px;
 }
 
 .btn-icon {
   padding: 0.75rem 1.5rem;
-  background-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(37, 99, 235, 0.6));
   color: white;
-  border: none;
-  border-radius: 8px;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
   cursor: pointer;
   min-height: 44px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-icon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s;
+}
+
+.btn-icon:hover::before {
+  left: 100%;
+}
+
+.btn-icon:hover {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.9), rgba(59, 130, 246, 0.7));
+  border-color: rgba(147, 197, 253, 0.5);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
 }
 
 .btn-icon-square {
@@ -3085,48 +3278,7 @@ body.modal-open {
   cursor: not-allowed;
 }
 
-.btn-success {
-  padding: 0.75rem 1.5rem;
-  background-color: #22c55e;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-success:hover:not(:disabled) {
-  background-color: #16a34a;
-}
-
-.btn-success:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 0.75rem 1.5rem;
-  background-color: transparent;
-  color: #a1a1aa;
-  border: 1px solid #3f3f46;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: #27272a;
-  color: #e5e5e7;
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* Button styles (.btn-success, .btn-secondary) are defined in components.css */
 
 .transcript-meta {
   display: flex;
@@ -3195,10 +3347,7 @@ body.modal-open {
   color: #d4d4d8;
 }
 
-.btn-sm {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-}
+/* .btn-sm is defined in components.css */
 
 /* Quick Action Button Text */
 .quick-action-title {

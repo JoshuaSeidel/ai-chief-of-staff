@@ -78,7 +78,7 @@ services:
       - REDIS_URL=redis://aicos-redis:6379
       
       # Microservice discovery URLs (auto-configured via Docker network)
-      # Using HTTPS for encrypted inter-container communication
+      # Using HTTPS for secure inter-container communication
       - AI_INTELLIGENCE_URL=https://aicos-ai-intelligence:8001
       - PATTERN_RECOGNITION_URL=https://aicos-pattern-recognition:8002
       - NL_PARSER_URL=https://aicos-nl-parser:8003
@@ -95,7 +95,12 @@ services:
       
       # Log verbosity (debug/info/warn/error)
       - LOG_LEVEL=info
-      
+
+      # TLS/Security (for inter-service HTTPS)
+      # Set to 'true' in development if TLS certificates are not properly configured
+      # Should be 'false' or unset in production with proper certificates
+      - ALLOW_INSECURE_TLS=true
+
       # ============================================
       # ALL OTHER CONFIG IN DATABASE (via Settings UI)
       # ============================================
@@ -553,5 +558,10 @@ volumes:
   #   driver: local
   
   # Shared TLS certificates volume
+  # This is a bind mount to ./certs directory where generate-certs.sh creates certificates
   tls-certs:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/certs

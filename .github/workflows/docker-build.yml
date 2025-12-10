@@ -30,9 +30,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v2
+        with:
+          fetch-depth: 0  # Full history needed for accurate change detection
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
+          base: ${{ github.event.before }}
           filters: |
             monolith:
               - 'Dockerfile'

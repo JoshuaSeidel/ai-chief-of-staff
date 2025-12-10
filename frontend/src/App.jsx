@@ -1,12 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import Dashboard from './components/Dashboard';
-import Configuration from './components/Configuration';
-import Transcripts from './components/Transcripts';
-import Calendar from './components/Calendar';
-import Tasks from './components/Tasks';
-import Intelligence from './components/Intelligence';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import ProfileSelector from './components/ProfileSelector';
 import { ProfileProvider } from './contexts/ProfileContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { KeyboardShortcutsHelp, OnboardingTutorial, useOnboarding } from './components/common';
+
+// Lazy load route components for code splitting
+// This reduces initial bundle size by only loading components when needed
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const Configuration = lazy(() => import('./components/Configuration'));
+const Transcripts = lazy(() => import('./components/Transcripts'));
+const Calendar = lazy(() => import('./components/Calendar'));
+const Tasks = lazy(() => import('./components/Tasks'));
+const Intelligence = lazy(() => import('./components/Intelligence'));
+
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="loading-fallback" role="status" aria-label="Loading">
+      <div className="loading-spinner">
+        <div className="spinner"></div>
+      </div>
+      <p className="loading-text">Loading...</p>
+    </div>
+  );
+}
 
 function App() {
   // Get initial tab from URL hash or default to dashboard
@@ -20,6 +37,9 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+
+  // Onboarding tutorial state
+  const { showTutorial, completeTutorial } = useOnboarding();
 
   // Minimum swipe distance (in pixels)
   const minSwipeDistance = 50;
@@ -93,7 +113,7 @@ function App() {
 
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-    
+
     const distance = touchStart - touchEnd;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
@@ -114,23 +134,50 @@ function App() {
         setActiveTab(navItems[newIndex].id);
       }
     }
-    
+
     // Reset touch state
     setTouchStart(null);
     setTouchEnd(null);
   };
 
+  // Render the active tab component
+  const renderActiveTab = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard setActiveTab={setActiveTab} />;
+      case 'transcripts':
+        return <Transcripts />;
+      case 'tasks':
+        return <Tasks />;
+      case 'calendar':
+        return <Calendar />;
+      case 'intelligence':
+        return <Intelligence />;
+      case 'config':
+        return <Configuration />;
+      default:
+        return <Dashboard setActiveTab={setActiveTab} />;
+    }
+  };
+
   return (
     <ProfileProvider>
+      <ToastProvider>
       <div className="app">
+        {/* Skip Navigation Link for Accessibility */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+
         <header className="header">
           <div className="header-content">
             <h1>AI Chief of Staff</h1>
             <ProfileSelector />
-            <button 
+            <button
               className="mobile-menu-toggle"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
+              aria-expanded={mobileMenuOpen}
             >
               <span className={`hamburger ${mobileMenuOpen ? 'open' : ''}`}>
                 <span></span>
@@ -139,41 +186,48 @@ function App() {
               </span>
             </button>
           </div>
-        <nav className={`nav ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        <nav className={`nav ${mobileMenuOpen ? 'mobile-open' : ''}`} aria-label="Main navigation">
           {navItems.map(item => (
-            <button 
+            <button
               key={item.id}
               className={activeTab === item.id ? 'active' : ''}
               onClick={() => handleTabChange(item.id)}
               data-tab={item.id}
+              aria-current={activeTab === item.id ? 'page' : undefined}
             >
-              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
               <span className="nav-label">{item.label}</span>
             </button>
           ))}
         </nav>
       </header>
 
-      <div 
+      <div
         className={`mobile-menu-overlay ${mobileMenuOpen ? 'visible' : ''}`}
         onClick={() => setMobileMenuOpen(false)}
+        aria-hidden="true"
       />
 
-      <main 
+      <main
+        id="main-content"
         className="container"
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
         style={{ touchAction: 'pan-y' }}
       >
-        {activeTab === 'dashboard' && <Dashboard setActiveTab={setActiveTab} />}
-        {activeTab === 'transcripts' && <Transcripts />}
-        {activeTab === 'tasks' && <Tasks />}
-        {activeTab === 'calendar' && <Calendar />}
-        {activeTab === 'intelligence' && <Intelligence />}
-        {activeTab === 'config' && <Configuration />}
+        <Suspense fallback={<LoadingFallback />}>
+          {renderActiveTab()}
+        </Suspense>
       </main>
+
+      {/* Global Keyboard Shortcuts Help - accessible via "?" key */}
+      <KeyboardShortcutsHelp />
+
+      {/* Onboarding Tutorial - shows for first-time users */}
+      <OnboardingTutorial isOpen={showTutorial} onComplete={completeTutorial} />
       </div>
+      </ToastProvider>
     </ProfileProvider>
   );
 }

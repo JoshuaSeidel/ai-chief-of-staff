@@ -108,11 +108,11 @@ async function runPostgresMigration(pool) {
           }
           
           await client.query(
-            `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+             VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
              ON CONFLICT (profile_id, integration_type, integration_name)
-             DO UPDATE SET token_data = $4, is_enabled = $5, updated_date = CURRENT_TIMESTAMP`,
-            [profile.id, 'calendar', 'google', tokenData, true]
+             DO UPDATE SET token_data = excluded.token_data, config = excluded.config, is_enabled = excluded.is_enabled, updated_date = CURRENT_TIMESTAMP`,
+            [profile.id, 'calendar', 'google', tokenData, '{}', true]
           );
           
           logger.info(`✓ Migrated Google Calendar token to profile ${profile.id} (${profile.name})`);
@@ -217,11 +217,11 @@ async function runSqliteMigration(db) {
         }
         
         await db.run(
-          `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-           VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+           VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
            ON CONFLICT (profile_id, integration_type, integration_name)
-           DO UPDATE SET token_data = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
-          [profile.id, 'calendar', 'google', tokenData, true, tokenData, true]
+           DO UPDATE SET token_data = excluded.token_data, config = excluded.config, is_enabled = excluded.is_enabled, updated_date = CURRENT_TIMESTAMP`,
+          [profile.id, 'calendar', 'google', tokenData, '{}', true]
         );
         
         logger.info(`✓ Migrated Google Calendar token to profile ${profile.id} (${profile.name})`);

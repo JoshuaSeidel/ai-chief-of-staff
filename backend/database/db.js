@@ -538,8 +538,8 @@ async function migrateToPostgres() {
     
     for (const row of configRows) {
       await pool.query(
-        `INSERT INTO config (key, value, updated_date) 
-         VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET value = $2, updated_date = $3`,
+        `INSERT INTO config (key, value, updated_date)
+         VALUES ($1, $2, $3) ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_date = excluded.updated_date`,
         [row.key, row.value, row.updated_date]
       );
     }

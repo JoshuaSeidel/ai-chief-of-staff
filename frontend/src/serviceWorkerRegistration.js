@@ -9,13 +9,13 @@ const isLocalhost = Boolean(
 
 export function register(config) {
   if ('serviceWorker' in navigator) {
-    const publicUrl = new URL(process.env.PUBLIC_URL || '', window.location.href);
+    const publicUrl = new URL(import.meta.env.BASE_URL || '', window.location.href);
     if (publicUrl.origin !== window.location.origin) {
       return;
     }
 
     window.addEventListener('load', () => {
-      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
+      const swUrl = `${import.meta.env.BASE_URL || ''}service-worker.js`;
 
       if (isLocalhost) {
         checkValidServiceWorker(swUrl, config);
@@ -107,9 +107,9 @@ function registerValidSW(swUrl, config) {
 async function subscribeToPush(registration) {
   try {
     // Get VAPID public key from server
-    const API_BASE_URL = process.env.REACT_APP_API_URL || 
-                         (window.location.hostname === 'localhost' && window.location.port === '3000' 
-                           ? 'http://localhost:3001/api' 
+    const API_BASE_URL = import.meta.env.VITE_API_URL ||
+                         (window.location.hostname === 'localhost' && window.location.port === '3000'
+                           ? 'http://localhost:3001/api'
                            : '/api');
     
     const response = await fetch(`${API_BASE_URL}/notifications/vapid-public-key`);

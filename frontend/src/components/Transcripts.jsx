@@ -957,15 +957,15 @@ function Transcripts() {
                   <div className="meeting-notes-content">
                     <ReactMarkdown
                       components={{
-                        h1: ({node, ...props}) => <h1 className="md-h1" {...props} />,
-                        h2: ({node, ...props}) => <h2 className="md-h2" {...props} />,
-                        h3: ({node, ...props}) => <h3 className="md-h3" {...props} />,
-                        strong: ({node, ...props}) => <strong className="md-strong" {...props} />,
-                        em: ({node, ...props}) => <em className="md-em" {...props} />,
-                        ul: ({node, ...props}) => <ul className="md-list" {...props} />,
-                        ol: ({node, ...props}) => <ol className="md-list" {...props} />,
-                        li: ({node, ...props}) => <li className="md-li" {...props} />,
-                        p: ({node, ...props}) => <p className="md-p" {...props} />,
+                        h1: (props) => <h1 className="md-h1" {...props} />,
+                        h2: (props) => <h2 className="md-h2" {...props} />,
+                        h3: (props) => <h3 className="md-h3" {...props} />,
+                        strong: (props) => <strong className="md-strong" {...props} />,
+                        em: (props) => <em className="md-em" {...props} />,
+                        ul: (props) => <ul className="md-list" {...props} />,
+                        ol: (props) => <ol className="md-list" {...props} />,
+                        li: (props) => <li className="md-li" {...props} />,
+                        p: (props) => <p className="md-p" {...props} />,
                       }}
                     >
                       {meetingNotes}

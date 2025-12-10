@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Pattern Recognition Service",
     description="Behavioral pattern detection and productivity insights",
-    version="1.1.0"
+    version="1.1.2"
 )
 
 # Middleware for request logging

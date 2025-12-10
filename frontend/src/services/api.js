@@ -54,17 +54,70 @@ export const configAPI = {
 export const calendarAPI = {
   getEvents: () => api.get('/calendar/events'),
   createBlock: (eventData) => api.post('/calendar/block', eventData),
+  // Google Calendar
   getGoogleStatus: () => api.get('/calendar/google/status'),
+  getGoogleAuthUrl: () => api.get('/calendar/google/auth'),
+  getGoogleConfig: () => api.get('/calendar/google/config'),
+  saveGoogleConfig: (config) => api.post('/calendar/google/config', config),
+  disconnectGoogle: () => api.post('/calendar/google/disconnect'),
+  getGoogleCalendars: () => api.get('/calendar/google/calendars'),
+  // Microsoft Calendar
   getMicrosoftStatus: () => api.get('/calendar/microsoft/status'),
+  getMicrosoftAuthUrl: () => api.get('/calendar/microsoft/auth'),
+  getMicrosoftConfig: () => api.get('/calendar/microsoft/config'),
+  saveMicrosoftConfig: (config) => api.post('/calendar/microsoft/config', config),
+  disconnectMicrosoft: () => api.post('/calendar/microsoft/disconnect'),
+  getMicrosoftCalendars: () => api.get('/calendar/microsoft/calendars'),
 };
 
 // Planner API (Jira, Microsoft Planner, etc.)
 export const plannerAPI = {
+  // Jira
   getJiraStatus: () => api.get('/planner/jira/status'),
-  getMicrosoftStatus: () => api.get('/planner/microsoft/status'),
+  getJiraConfig: () => api.get('/planner/jira/config'),
+  saveJiraConfig: (config) => api.post('/planner/jira/config', config),
+  disconnectJira: () => api.post('/planner/jira/disconnect'),
   syncJira: () => api.post('/planner/jira/sync'),
   syncJiraFailed: () => api.post('/planner/jira/sync-failed'),
+  getJiraProjects: () => api.get('/planner/jira/projects'),
+  // Microsoft Planner/To Do
+  getMicrosoftStatus: () => api.get('/planner/microsoft/status'),
+  disconnectMicrosoft: () => api.post('/planner/microsoft/disconnect'),
   syncMicrosoft: () => api.post('/planner/microsoft/sync'),
+  getMicrosoftLists: () => api.get('/planner/microsoft/lists'),
+};
+
+// Integrations Proxy API (for microservice integrations)
+export const integrationsAPI = {
+  // Health check
+  getHealth: () => api.get('/integrations/health'),
+
+  // Jira
+  getJiraStatus: () => api.get('/integrations/tasks/jira/status'),
+  getJiraConfig: () => api.get('/integrations/tasks/jira/config'),
+  saveJiraConfig: (config) => api.post('/integrations/tasks/jira/config', config),
+  testJira: () => api.post('/integrations/tasks/jira/test'),
+  getJiraProjects: () => api.get('/integrations/tasks/jira/projects'),
+
+  // Trello
+  getTrelloStatus: () => api.get('/integrations/tasks/trello/status'),
+  getTrelloConfig: () => api.get('/integrations/tasks/trello/config'),
+  saveTrelloConfig: (config) => api.post('/integrations/tasks/trello/config', config),
+  testTrello: () => api.post('/integrations/tasks/trello/test'),
+  getTrelloBoards: () => api.get('/integrations/tasks/trello/boards'),
+
+  // Monday.com
+  getMondayStatus: () => api.get('/integrations/tasks/monday/status'),
+  getMondayConfig: () => api.get('/integrations/tasks/monday/config'),
+  saveMondayConfig: (config) => api.post('/integrations/tasks/monday/config', config),
+  testMonday: () => api.post('/integrations/tasks/monday/test'),
+  getMondayBoards: () => api.get('/integrations/tasks/monday/boards'),
+
+  // Radicale/CalDAV (placeholder for future)
+  getRadicaleStatus: () => api.get('/integrations/calendar/radicale/status'),
+  getRadicaleConfig: () => api.get('/integrations/calendar/radicale/config'),
+  saveRadicaleConfig: (config) => api.post('/integrations/calendar/radicale/config', config),
+  testRadicale: () => api.post('/integrations/calendar/radicale/test'),
 };
 
 // Tasks API (commitments, actions, follow-ups, risks)

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import DOMPurify from 'dompurify';
 import { intelligenceAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
@@ -811,12 +812,15 @@ function Intelligence() {
                       
                       {patternResult.insights && (
                         <div style={{ color: '#e5e5e7', fontSize: '0.9rem', lineHeight: '1.6' }}>
-                          <div dangerouslySetInnerHTML={{ 
-                            __html: patternResult.insights
-                              .replace(/\n/g, '<br/>')
-                              .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                              .replace(/## (.+?)(<br\/>|$)/g, '<h4 style="color: #3b82f6; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h4>')
-                              .replace(/\* (.+?)(<br\/>|$)/g, '<li style="margin-left: 1.5rem;">$1</li>')
+                          <div dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(
+                              patternResult.insights
+                                .replace(/\n/g, '<br/>')
+                                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/## (.+?)(<br\/>|$)/g, '<h4 style="color: #3b82f6; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h4>')
+                                .replace(/\* (.+?)(<br\/>|$)/g, '<li style="margin-left: 1.5rem;">$1</li>'),
+                              { ALLOWED_TAGS: ['br', 'strong', 'h4', 'li'], ALLOWED_ATTR: ['style'] }
+                            )
                           }} />
                         </div>
                       )}

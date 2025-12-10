@@ -1,6 +1,6 @@
 {
   "name": "ai-chief-of-staff-backend",
-  "version": "2.1.0",
+  "version": "2.1.2",
   "description": "AI-powered personal productivity assistant backend",
   "main": "server.js",
   "scripts": {

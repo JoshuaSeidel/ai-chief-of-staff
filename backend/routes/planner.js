@@ -36,10 +36,12 @@ router.get('/microsoft/auth', async (req, res) => {
  */
 router.get('/microsoft/callback', async (req, res) => {
   const { code, error, error_description, state } = req.query;
-  
+  // IMPORTANT: Prioritize state parameter (from OAuth flow) over middleware's profileId
+  const profileId = (state && parseInt(state)) || req.profileId || 2;
+
   if (error) {
     logger.error('OAuth callback error', { error, error_description });
-    
+
     // Handle specific Azure AD errors
     let errorParam = 'microsoft_oauth_failed';
     if (error === 'access_denied') {
@@ -48,20 +50,20 @@ router.get('/microsoft/callback', async (req, res) => {
       // User account doesn't exist in tenant - likely trying to use work account with personal app
       errorParam = 'microsoft_oauth_wrong_account_type';
     }
-    
+
     return res.redirect(`/#config?error=${errorParam}&error_details=${encodeURIComponent(error_description || error)}`);
   }
-  
+
   if (!code) {
     return res.redirect('/#config?error=no_code');
   }
-  
+
   try {
     // Use microsoft-calendar service for token exchange (shared token for Calendar and Planner)
     const microsoftCalendar = require('../services/microsoft-calendar');
-    await microsoftCalendar.getTokenFromCode(code);
-    logger.info('Microsoft connected successfully (Calendar + Planner)');
-    res.redirect('/#config?success=microsoft_integration_connected');
+    await microsoftCalendar.getTokenFromCode(code, profileId);
+    logger.info(`Microsoft connected successfully (Calendar + Planner) for profile ${profileId}`);
+    res.redirect(`/#config?success=microsoft_integration_connected&profile=${profileId}`);
   } catch (error) {
     logger.error('Error exchanging code for token', error);
     res.redirect('/#config?error=microsoft_oauth_exchange_failed');
@@ -232,8 +234,9 @@ router.get('/microsoft/lists', async (req, res) => {
  */
 router.get('/jira/status', async (req, res) => {
   try {
-    const connected = await jira.isConnected();
-    res.json({ connected: connected || false });
+    const profileId = req.profileId || 2;
+    const connected = await jira.isConnected(profileId);
+    res.json({ connected: connected || false, profileId });
   } catch (error) {
     // Always return false on error, don't log as error if it's just not configured
     if (error.code === 'NOT_CONFIGURED' || (error.message && error.message.includes('not configured'))) {
@@ -246,15 +249,80 @@ router.get('/jira/status', async (req, res) => {
 });
 
 /**
+ * Jira - Get configuration
+ */
+router.get('/jira/config', async (req, res) => {
+  try {
+    const profileId = req.profileId || 2;
+    const { getDb } = require('../database/db');
+    const db = getDb();
+
+    const configRow = await db.get(
+      'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+      [profileId, 'task', 'jira']
+    );
+
+    if (!configRow || !configRow.token_data) {
+      return res.json({});
+    }
+
+    const config = JSON.parse(configRow.token_data);
+    res.json({
+      base_url: config.baseUrl || '',
+      email: config.email || '',
+      api_token: config.apiToken ? '********' : '', // Don't expose token
+      project_key: config.projectKey || ''
+    });
+  } catch (error) {
+    logger.error('Error getting Jira config', error);
+    res.status(500).json({ error: 'Error getting config', message: error.message });
+  }
+});
+
+/**
+ * Jira - Save configuration
+ */
+router.post('/jira/config', async (req, res) => {
+  try {
+    const profileId = req.profileId || 2;
+    const { base_url, email, api_token, project_key } = req.body;
+    const { getDb } = require('../database/db');
+    const db = getDb();
+
+    const config = {
+      baseUrl: base_url,
+      email: email,
+      apiToken: api_token,
+      projectKey: project_key
+    };
+
+    await db.run(
+      `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT (profile_id, integration_type, integration_name)
+       DO UPDATE SET token_data = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
+      [profileId, 'task', 'jira', JSON.stringify(config), true, JSON.stringify(config), true]
+    );
+
+    logger.info(`Jira config saved for profile ${profileId}`);
+    res.json({ success: true, message: 'Jira configuration saved' });
+  } catch (error) {
+    logger.error('Error saving Jira config', error);
+    res.status(500).json({ error: 'Error saving config', message: error.message });
+  }
+});
+
+/**
  * Jira - Disconnect
  */
 router.post('/jira/disconnect', async (req, res) => {
   try {
-    await jira.disconnect();
+    const profileId = req.profileId || 2;
+    await jira.disconnect(profileId);
     res.json({ success: true, message: 'Jira disconnected' });
   } catch (error) {
     logger.error('Error disconnecting Jira', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error disconnecting',
       message: error.message
     });

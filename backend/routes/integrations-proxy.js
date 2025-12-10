@@ -13,8 +13,12 @@ const INTEGRATIONS_URL = process.env.INTEGRATIONS_URL || 'https://aicos-integrat
 
 // Load CA certificate for validating microservice certificates
 // Note: Certs are in /app/certs which is mounted from tls-certs volume
-const CA_CERT_PATH = '/app/certs/ca.crt';
+// The generate-certs.sh script creates ca-cert.pem
+const CA_CERT_PATH = '/app/certs/ca-cert.pem';
 let httpsAgent = null;
+
+// Environment flag to allow insecure connections (development only)
+const ALLOW_INSECURE_TLS = process.env.ALLOW_INSECURE_TLS === 'true';
 
 // Try to load CA certificate if it exists
 if (fs.existsSync(CA_CERT_PATH)) {
@@ -22,25 +26,27 @@ if (fs.existsSync(CA_CERT_PATH)) {
     const caCert = fs.readFileSync(CA_CERT_PATH);
     httpsAgent = new https.Agent({
       ca: caCert,
-      rejectUnauthorized: false, // Accept self-signed certs even with CA
-      checkServerIdentity: () => undefined // Skip hostname verification
+      rejectUnauthorized: true // Properly validate certificates against CA
     });
-    logger.info('Loaded CA certificate for HTTPS communication with integrations service');
+    logger.info('Loaded CA certificate for secure HTTPS communication with integrations service');
   } catch (error) {
-    logger.warn('Failed to load CA certificate, using insecure HTTPS', { error: error.message });
-    // Fallback to accepting self-signed certificates
-    httpsAgent = new https.Agent({
-      rejectUnauthorized: false,
-      checkServerIdentity: () => undefined
-    });
+    logger.error('Failed to load CA certificate', { error: error.message });
+    if (ALLOW_INSECURE_TLS) {
+      logger.warn('ALLOW_INSECURE_TLS is enabled - using insecure HTTPS (NOT FOR PRODUCTION)');
+      httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    } else {
+      throw new Error('CA certificate failed to load and ALLOW_INSECURE_TLS is not enabled');
+    }
   }
 } else {
-  logger.warn('CA certificate not found at expected path, using insecure HTTPS', { path: CA_CERT_PATH });
-  // Fallback to accepting self-signed certificates
-  httpsAgent = new https.Agent({
-    rejectUnauthorized: false,
-    checkServerIdentity: () => undefined
-  });
+  if (ALLOW_INSECURE_TLS) {
+    logger.warn('CA certificate not found and ALLOW_INSECURE_TLS enabled - using insecure HTTPS', { path: CA_CERT_PATH });
+    httpsAgent = new https.Agent({ rejectUnauthorized: false });
+  } else {
+    // In production without certs, services should use HTTP on internal network
+    logger.info('CA certificate not found - assuming HTTP integrations service on internal network');
+    httpsAgent = null;
+  }
 }
 
 // Create axios instance for integrations service
@@ -537,6 +543,73 @@ router.put('/calendar/microsoft/events/:eventId', async (req, res) => {
  */
 router.delete('/calendar/microsoft/events/:eventId', async (req, res) => {
   await proxyRequest(req, res, `/calendar/microsoft/events/${req.params.eventId}`);
+});
+
+// ============================================================================
+// CALDAV / RADICALE ROUTES
+// ============================================================================
+
+/**
+ * Check CalDAV/Radicale connection status
+ */
+router.get('/calendar/radicale/status', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/status');
+});
+
+/**
+ * Get CalDAV/Radicale configuration
+ */
+router.get('/calendar/radicale/config', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/config');
+});
+
+/**
+ * Save CalDAV/Radicale configuration
+ */
+router.post('/calendar/radicale/config', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/config');
+});
+
+/**
+ * Test CalDAV/Radicale connection
+ */
+router.post('/calendar/radicale/test', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/test');
+});
+
+/**
+ * List CalDAV calendars
+ */
+router.get('/calendar/radicale/calendars', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/calendars');
+});
+
+/**
+ * List CalDAV events
+ */
+router.get('/calendar/radicale/events', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/events');
+});
+
+/**
+ * Create CalDAV event
+ */
+router.post('/calendar/radicale/events', async (req, res) => {
+  await proxyRequest(req, res, '/calendar/radicale/events');
+});
+
+/**
+ * Update CalDAV event
+ */
+router.put('/calendar/radicale/events/:eventId', async (req, res) => {
+  await proxyRequest(req, res, `/calendar/radicale/events/${req.params.eventId}`);
+});
+
+/**
+ * Delete CalDAV event
+ */
+router.delete('/calendar/radicale/events/:eventId', async (req, res) => {
+  await proxyRequest(req, res, `/calendar/radicale/events/${req.params.eventId}`);
 });
 
 // ============================================================================

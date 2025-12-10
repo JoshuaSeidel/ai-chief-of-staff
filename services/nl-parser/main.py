@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Natural Language Parser Service",
     description="Parses natural language into structured task data",
-    version="1.1.0"
+    version="1.1.2"
 )
 
 # Middleware for request logging
@@ -550,8 +550,9 @@ Return as JSON array:
 Only extract clear, actionable commitments. Skip vague statements.
 """
         
+        model = get_ai_model(provider="anthropic")
         response = anthropic_client.messages.create(
-            model=CLAUDE_MODEL,
+            model=model,
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
