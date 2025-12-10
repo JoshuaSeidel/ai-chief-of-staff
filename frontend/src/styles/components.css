@@ -406,24 +406,30 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--modal-backdrop);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
   overflow: auto;
+  transition: background 0.3s ease;
 }
 
 .modal {
-  background: #27272a;
+  background: var(--modal-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border-radius: 16px;
-  border: 1px solid #3f3f46;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--modal-border);
+  box-shadow: var(--shadow-xl);
   width: 100%;
   max-height: 90vh;
   overflow: auto;
   animation: modalIn 0.2s ease-out;
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 @keyframes modalIn {
@@ -463,20 +469,20 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid #3f3f46;
+  border-bottom: 1px solid var(--color-border-primary);
 }
 
 .modal-title {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
-  color: #e5e5e7;
+  color: var(--color-text-primary);
 }
 
 .modal-close {
   background: none;
   border: none;
-  color: #71717a;
+  color: var(--color-text-muted);
   font-size: 1.5rem;
   cursor: pointer;
   padding: 0.25rem;
@@ -485,23 +491,24 @@
 }
 
 .modal-close:hover {
-  color: #e5e5e7;
+  color: var(--color-text-primary);
 }
 
 .modal-body {
   padding: 1.5rem;
+  color: var(--color-text-secondary);
 }
 
 .modal-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid #3f3f46;
+  border-top: 1px solid var(--color-border-primary);
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
 }
 
 .modal-message {
-  color: #a1a1aa;
+  color: var(--color-text-muted);
   margin: 0;
   line-height: 1.6;
 }
@@ -2329,4 +2336,247 @@
 
 .insights-content.markdown-content a:hover {
   text-decoration: underline;
+}
+
+/* ========================================
+   LIGHT MODE OVERRIDES - iOS 26 Liquid Glass
+   ======================================== */
+
+[data-theme="light"] {
+  /* Main content areas - translucent glass effect */
+  .main-content,
+  .page-content,
+  .content-wrapper {
+    background: transparent;
+  }
+
+  /* Cards - frosted glass effect */
+  .task-card,
+  .stat-card,
+  .widget,
+  .dashboard-widget,
+  .info-card,
+  .version-info-card,
+  .service-card,
+  .integration-card,
+  .card-skeleton,
+  .task-card-skeleton,
+  .stat-card-skeleton {
+    background: var(--card-bg) !important;
+    border: 1px solid var(--card-border) !important;
+    box-shadow: var(--card-shadow) !important;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+  }
+
+  /* Input fields - subtle glass */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  input[type="url"],
+  input[type="date"],
+  input[type="time"],
+  textarea,
+  select,
+  .quick-add-input-wrapper,
+  .form-input,
+  .search-input {
+    background: var(--input-bg) !important;
+    border-color: var(--input-border) !important;
+    color: var(--color-text-secondary) !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--input-placeholder) !important;
+  }
+
+  /* Tables and lists */
+  .table-skeleton,
+  .table-skeleton-header,
+  .table-row,
+  .list-item {
+    background: var(--card-bg);
+    border-color: var(--color-border-primary);
+  }
+
+  .table-skeleton-header {
+    background: rgba(255, 255, 255, 0.8) !important;
+  }
+
+  /* Settings sections */
+  .settings-section,
+  .settings-card,
+  .settings-content {
+    background: transparent;
+  }
+
+  /* Sidebar/Navigation */
+  .sidebar,
+  .nav-menu {
+    background: var(--header-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+  }
+
+  /* Tabs */
+  .settings-tabs,
+  .tabs {
+    background: transparent;
+  }
+
+  .settings-tab,
+  .tab {
+    background: var(--button-secondary-bg);
+    color: var(--color-text-secondary);
+  }
+
+  .settings-tab:hover,
+  .tab:hover {
+    background: var(--button-secondary-hover);
+  }
+
+  .settings-tab-active,
+  .tab-active {
+    background: var(--nav-active-bg) !important;
+    color: var(--color-primary) !important;
+  }
+
+  /* Theme toggle buttons */
+  .theme-option {
+    background: var(--card-bg);
+    border-color: var(--color-border-primary);
+  }
+
+  .theme-option:hover {
+    background: rgba(255, 255, 255, 0.8);
+  }
+
+  .theme-option-active {
+    background: rgba(37, 99, 235, 0.1) !important;
+    border-color: var(--color-primary) !important;
+  }
+
+  /* Buttons - adjust secondary/ghost buttons */
+  .btn-secondary,
+  .btn-ghost,
+  .button-secondary,
+  .button-ghost {
+    background: var(--button-secondary-bg);
+    color: var(--color-text-secondary);
+    border-color: var(--color-border-primary);
+  }
+
+  .btn-secondary:hover,
+  .btn-ghost:hover,
+  .button-secondary:hover,
+  .button-ghost:hover {
+    background: var(--button-secondary-hover);
+  }
+
+  /* Quick Add Bar */
+  .quick-add-input-wrapper {
+    background: var(--input-bg) !important;
+    border-color: var(--input-border) !important;
+  }
+
+  .quick-add-preview,
+  .quick-add-hints {
+    background: var(--card-bg) !important;
+    border-color: var(--card-border) !important;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+  }
+
+  /* Dropdown menus */
+  .dropdown-menu,
+  .context-menu,
+  .popover {
+    background: var(--modal-bg);
+    border-color: var(--modal-border);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Toast notifications */
+  .toast {
+    background: var(--modal-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border-color: var(--modal-border);
+  }
+
+  /* Loading skeleton shimmer for light mode */
+  .skeleton {
+    background: linear-gradient(90deg, 
+      rgba(0, 0, 0, 0.06) 25%, 
+      rgba(0, 0, 0, 0.1) 50%, 
+      rgba(0, 0, 0, 0.06) 75%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Dividers */
+  .divider,
+  .settings-divider,
+  hr {
+    background: var(--color-border-primary);
+    border-color: var(--color-border-primary);
+  }
+
+  /* Status badges */
+  .badge {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* Hover states for cards */
+  .task-card:hover,
+  .stat-card:hover,
+  .widget:hover,
+  .integration-card:hover {
+    background: rgba(255, 255, 255, 0.75) !important;
+    box-shadow: var(--shadow-lg) !important;
+  }
+
+  /* Focus states */
+  input:focus,
+  textarea:focus,
+  select:focus,
+  button:focus-visible {
+    outline-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-glow);
+  }
+
+  /* Code blocks in light mode */
+  code,
+  pre {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--color-text-secondary);
+  }
+
+  /* Scrollbar for light mode */
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  /* Links */
+  a {
+    color: var(--color-primary);
+  }
+
+  a:hover {
+    color: var(--color-primary-hover);
+  }
 }

@@ -35,11 +35,11 @@ html, body, #root {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
 }
 
-/* Light mode subtle gradient */
+/* Light mode - soft gradient with subtle color */
 [data-theme="light"] html,
 [data-theme="light"] body,
 [data-theme="light"] #root {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #f8fafc 100%);
+  background: linear-gradient(145deg, #e8eef5 0%, #f0f4f8 35%, #e5ecf4 65%, #dfe7f0 100%);
 }
 
 code {
@@ -54,7 +54,9 @@ code {
 }
 
 .header {
-  background-color: var(--color-bg-tertiary);
+  background-color: var(--header-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   border-bottom: 1px solid var(--color-border-primary);
   padding: 1rem 2rem;
   padding-top: max(1rem, env(safe-area-inset-top, 1rem));
@@ -62,7 +64,7 @@ code {
   position: sticky;
   top: 0;
   z-index: 1000;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, backdrop-filter 0.3s ease;
 }
 
 .header-content {
