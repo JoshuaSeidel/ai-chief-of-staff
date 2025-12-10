@@ -223,16 +223,7 @@ function Intelligence() {
           
           {/* AI Intelligence Service */}
           <details className="mb-xl">
-            <summary style={{ 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              padding: '1rem',
-              backgroundColor: '#18181b',
-              borderRadius: '8px',
-              border: '1px solid #3f3f46',
-              fontSize: '1.125rem',
-              color: '#e5e5e7'
-            }}>
+            <summary className="ai-section-summary">
               🧠 AI Intelligence Service - Task Analysis
             </summary>
             <div className="version-box">
@@ -430,16 +421,7 @@ function Intelligence() {
           
           {/* NL Parser Service */}
           <details className="mb-xl">
-            <summary style={{ 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              padding: '1rem',
-              backgroundColor: '#18181b',
-              borderRadius: '8px',
-              border: '1px solid #3f3f46',
-              fontSize: '1.125rem',
-              color: '#e5e5e7'
-            }}>
+            <summary className="ai-section-summary">
               📝 Natural Language Parser - Task Parsing
             </summary>
             <div className="version-box">
@@ -470,14 +452,14 @@ function Intelligence() {
                   {parseLoading ? 'Parsing...' : 'Parse Task'}
                 </button>
                 {parseResult && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: parseResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${parseResult.error ? '#ef4444' : '#22c55e'}` }}>
+                  <div className={`ai-result-box ${parseResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {parseResult.error ? (
                       <p className="text-error">❌ {parseResult.error}</p>
                     ) : (
                       <div>
                         {parseResult.title && <p className="text-success-bold">Title: {parseResult.title}</p>}
                         {parseResult.description && parseResult.description !== parseResult.title && (
-                          <p style={{ color: '#a1a1aa', fontSize: '0.9rem', marginTop: '0.5rem' }}>{parseResult.description}</p>
+                          <p className="ai-result-description">{parseResult.description}</p>
                         )}
                         {parseResult.deadline && parseResult.deadline !== 'none' && (
                           <p className="text-muted">📅 Deadline: {parseResult.deadline}</p>
@@ -490,7 +472,7 @@ function Intelligence() {
                         {parseResult.tags && parseResult.tags.length > 0 && (
                           <p className="text-muted">🏷️ Tags: {parseResult.tags.join(', ')}</p>
                         )}
-                        {parseResult.confidence && <p style={{ color: '#71717a', fontSize: '0.85rem' }}>Confidence: {(parseResult.confidence * 100).toFixed(0)}%</p>}
+                        {parseResult.confidence && <p className="ai-result-confidence">Confidence: {(parseResult.confidence * 100).toFixed(0)}%</p>}
                         {parseResult.raw_response && (
                           <details className="mt-sm">
                             <summary className="summary-expandable">Show raw response</summary>
@@ -526,7 +508,7 @@ function Intelligence() {
                   {quickAddLoading ? 'Parsing...' : 'Quick Add'}
                 </button>
                 {quickAddResult && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: quickAddResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${quickAddResult.error ? '#ef4444' : '#22c55e'}` }}>
+                  <div className={`ai-result-box ${quickAddResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {quickAddResult.error ? (
                       <p className="text-error">❌ {quickAddResult.error}</p>
                     ) : (
@@ -559,7 +541,7 @@ function Intelligence() {
                   {extractLoading ? 'Extracting...' : 'Extract Commitments'}
                 </button>
                 {extractResult && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: extractResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${extractResult.error ? '#ef4444' : '#22c55e'}` }}>
+                  <div className={`ai-result-box ${extractResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {extractResult.error ? (
                       <p className="text-error">❌ {extractResult.error}</p>
                     ) : (
@@ -577,16 +559,7 @@ function Intelligence() {
           
           {/* Voice Processor Service */}
           <details className="mb-xl">
-            <summary style={{ 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              padding: '1rem',
-              backgroundColor: '#18181b',
-              borderRadius: '8px',
-              border: '1px solid #3f3f46',
-              fontSize: '1.125rem',
-              color: '#e5e5e7'
-            }}>
+            <summary className="ai-section-summary">
               🎤 Voice Processor - Audio Transcription
             </summary>
             <div className="version-box">
@@ -614,15 +587,15 @@ function Intelligence() {
                 {transcriptionLoading ? 'Transcribing...' : 'Transcribe Audio'}
               </button>
               {transcriptionResult && (
-                <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: transcriptionResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${transcriptionResult.error ? '#ef4444' : '#22c55e'}` }}>
+                <div className={`ai-result-box ${transcriptionResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                   {transcriptionResult.error ? (
                     <p className="text-error">❌ {transcriptionResult.error}</p>
                   ) : (
                     <div>
-                      <p style={{ color: '#22c55e', fontWeight: 'bold', marginBottom: '0.5rem' }}>Transcription:</p>
-                      <p style={{ color: '#a1a1aa', whiteSpace: 'pre-wrap' }}>{transcriptionResult.text}</p>
-                      {transcriptionResult.language && <p style={{ color: '#71717a', fontSize: '0.85rem', marginTop: '0.5rem' }}>Language: {transcriptionResult.language}</p>}
-                      {transcriptionResult.duration && <p style={{ color: '#71717a', fontSize: '0.85rem' }}>Duration: {transcriptionResult.duration.toFixed(1)}s</p>}
+                      <p className="text-success-bold mb-sm">Transcription:</p>
+                      <p className="text-muted" style={{ whiteSpace: 'pre-wrap' }}>{transcriptionResult.text}</p>
+                      {transcriptionResult.language && <p className="ai-result-confidence mt-sm">Language: {transcriptionResult.language}</p>}
+                      {transcriptionResult.duration && <p className="ai-result-confidence">Duration: {transcriptionResult.duration.toFixed(1)}s</p>}
                     </div>
                   )}
                 </div>
@@ -632,16 +605,7 @@ function Intelligence() {
           
           {/* Context Service */}
           <details className="mb-xl">
-            <summary style={{ 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              padding: '1rem',
-              backgroundColor: '#18181b',
-              borderRadius: '8px',
-              border: '1px solid #3f3f46',
-              fontSize: '1.125rem',
-              color: '#e5e5e7'
-            }}>
+            <summary className="ai-section-summary">
               🗄️ Context Service - Context Retrieval
             </summary>
             <div className="version-box">
@@ -656,7 +620,7 @@ function Intelligence() {
                   value={contextCategory}
                   onChange={(e) => setContextCategory(e.target.value)}
                   placeholder="Category (optional, e.g., meeting, commitment)"
-                  style={{ width: '100%', marginBottom: '0.5rem', padding: '0.75rem', backgroundColor: '#09090b', color: '#fff', border: '1px solid #3f3f46', borderRadius: '8px' }}
+                  className="ai-input-field"
                 />
                 <input
                   type="text"
@@ -673,16 +637,16 @@ function Intelligence() {
                   {contextLoading ? 'Loading...' : 'Get Context'}
                 </button>
                 {contextResult && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: contextResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${contextResult.error ? '#ef4444' : '#22c55e'}` }}>
+                  <div className={`ai-result-box ${contextResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {contextResult.error ? (
                       <p className="text-error">❌ {contextResult.error}</p>
                     ) : (
                       <div>
                         <p className="text-success-bold">Found {contextResult.count || 0} context entries</p>
                         {contextResult.contexts && contextResult.contexts.slice(0, 5).map((ctx, idx) => (
-                          <div key={idx} style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: '#09090b', borderRadius: '6px' }}>
+                          <div key={idx} className="ai-result-card">
                             <p className="text-sm-muted">{ctx.content.substring(0, 100)}...</p>
-                            <p style={{ color: '#71717a', fontSize: '0.75rem' }}>{ctx.category} • {ctx.source}</p>
+                            <p className="ai-result-meta">{ctx.category} • {ctx.source}</p>
                           </div>
                         ))}
                       </div>
@@ -712,16 +676,16 @@ function Intelligence() {
                   {searchLoading ? 'Searching...' : 'Search'}
                 </button>
                 {searchResult && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: searchResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${searchResult.error ? '#ef4444' : '#22c55e'}` }}>
+                  <div className={`ai-result-box ${searchResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {searchResult.error ? (
                       <p className="text-error">❌ {searchResult.error}</p>
                     ) : (
                       <div>
                         <p className="text-success-bold">Found {searchResult.count || 0} results</p>
                         {searchResult.contexts && searchResult.contexts.map((ctx, idx) => (
-                          <div key={idx} style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: '#09090b', borderRadius: '6px' }}>
+                          <div key={idx} className="ai-result-card">
                             <p className="text-sm-muted">{ctx.content.substring(0, 150)}...</p>
-                            <p style={{ color: '#71717a', fontSize: '0.75rem' }}>{ctx.category} • {ctx.source}</p>
+                            <p className="ai-result-meta">{ctx.category} • {ctx.source}</p>
                           </div>
                         ))}
                       </div>
@@ -734,16 +698,7 @@ function Intelligence() {
           
           {/* Pattern Recognition Service */}
           <details className="mb-xl">
-            <summary style={{ 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              padding: '1rem',
-              backgroundColor: '#18181b',
-              borderRadius: '8px',
-              border: '1px solid #3f3f46',
-              fontSize: '1.125rem',
-              color: '#e5e5e7'
-            }}>
+            <summary className="ai-section-summary">
               📊 Pattern Recognition - Productivity Insights
             </summary>
             <div className="version-box">
@@ -758,13 +713,13 @@ function Intelligence() {
                 {patternLoading ? 'Analyzing...' : 'Analyze Patterns'}
               </button>
               {patternResult && (
-                <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: patternResult.error ? '#2a1a1a' : '#1a2e1a', borderRadius: '8px', border: `1px solid ${patternResult.error ? '#ef4444' : '#22c55e'}` }}>
+                <div className={`ai-result-box ${patternResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                   {patternResult.error ? (
                     <div>
-                      <p style={{ color: '#ef4444', fontWeight: 'bold' }}>❌ {patternResult.error}</p>
-                      {patternResult.note && <p style={{ color: '#a1a1aa', marginTop: '0.5rem', fontSize: '0.9rem' }}>{patternResult.note}</p>}
+                      <p className="text-error-bold">❌ {patternResult.error}</p>
+                      {patternResult.note && <p className="ai-result-description">{patternResult.note}</p>}
                       {patternResult.stats && (
-                        <div style={{ marginTop: '1rem', color: '#a1a1aa', fontSize: '0.85rem' }}>
+                        <div className="ai-result-description mt-md">
                           <p>📊 Current Stats:</p>
                           <ul className="mt-sm">
                             <li>Total tasks: {patternResult.stats.total_tasks}</li>
@@ -777,49 +732,49 @@ function Intelligence() {
                     </div>
                   ) : patternResult.success ? (
                     <div>
-                      <h4 style={{ color: '#22c55e', marginTop: 0, marginBottom: '1rem' }}>✅ Pattern Analysis Complete</h4>
-                      
+                      <h4 className="text-success mb-md" style={{ marginTop: 0 }}>✅ Pattern Analysis Complete</h4>
+
                       {patternResult.stats && (
-                        <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: '#18181b', borderRadius: '8px' }}>
-                          <h5 style={{ color: '#e5e5e7', marginTop: 0, marginBottom: '0.75rem' }}>📊 Statistics ({patternResult.time_range})</h5>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', fontSize: '0.85rem', color: '#a1a1aa' }}>
+                        <div className="ai-stats-box">
+                          <h5 className="ai-stats-title">📊 Statistics ({patternResult.time_range})</h5>
+                          <div className="ai-stats-grid">
                             <div>
-                              <strong style={{ color: '#e5e5e7' }}>Total Tasks:</strong> {patternResult.stats.total_tasks}
+                              <strong className="ai-stat-label">Total Tasks:</strong> {patternResult.stats.total_tasks}
                             </div>
                             <div>
-                              <strong style={{ color: '#22c55e' }}>Completed:</strong> {patternResult.stats.completed}
+                              <strong className="ai-stat-label-success">Completed:</strong> {patternResult.stats.completed}
                             </div>
                             <div>
-                              <strong style={{ color: '#fbbf24' }}>Pending:</strong> {patternResult.stats.pending}
+                              <strong className="ai-stat-label-warning">Pending:</strong> {patternResult.stats.pending}
                             </div>
                             <div>
                               <strong className="text-error">Overdue:</strong> {patternResult.stats.overdue}
                             </div>
                             <div>
-                              <strong style={{ color: '#e5e5e7' }}>Completion Rate:</strong> {patternResult.stats.completion_rate}%
+                              <strong className="ai-stat-label">Completion Rate:</strong> {patternResult.stats.completion_rate}%
                             </div>
                             <div>
-                              <strong style={{ color: '#e5e5e7' }}>Avg Time:</strong> {patternResult.stats.avg_completion_days} days
+                              <strong className="ai-stat-label">Avg Time:</strong> {patternResult.stats.avg_completion_days} days
                             </div>
                             {patternResult.stats.most_productive_day && (
                               <div>
-                                <strong style={{ color: '#3b82f6' }}>Most Productive:</strong> {patternResult.stats.most_productive_day}
+                                <strong className="ai-stat-label-accent">Most Productive:</strong> {patternResult.stats.most_productive_day}
                               </div>
                             )}
                           </div>
                         </div>
                       )}
-                      
+
                       {patternResult.insights && (
-                        <div style={{ color: '#e5e5e7', fontSize: '0.9rem', lineHeight: '1.6' }}>
+                        <div className="ai-analysis-content">
                           <div dangerouslySetInnerHTML={{
                             __html: DOMPurify.sanitize(
                               patternResult.insights
                                 .replace(/\n/g, '<br/>')
                                 .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                                .replace(/## (.+?)(<br\/>|$)/g, '<h4 style="color: #3b82f6; margin-top: 1rem; margin-bottom: 0.5rem;">$1</h4>')
+                                .replace(/## (.+?)(<br\/>|$)/g, '<h4 class="text-accent mt-md mb-sm">$1</h4>')
                                 .replace(/\* (.+?)(<br\/>|$)/g, '<li style="margin-left: 1.5rem;">$1</li>'),
-                              { ALLOWED_TAGS: ['br', 'strong', 'h4', 'li'], ALLOWED_ATTR: ['style'] }
+                              { ALLOWED_TAGS: ['br', 'strong', 'h4', 'li'], ALLOWED_ATTR: ['style', 'class'] }
                             )
                           }} />
                         </div>
