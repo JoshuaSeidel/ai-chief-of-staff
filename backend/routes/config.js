@@ -4,47 +4,14 @@ const { getDb, getDbType, migrateToPostgres } = require('../database/db');
 const configManager = require('../config/manager');
 const { createModuleLogger } = require('../utils/logger');
 const { execSync } = require('child_process');
-const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const https = require('https');
+const { getHttpsAgent } = require('../utils/https-agent');
 
 const logger = createModuleLogger('CONFIG');
 
-// Load CA certificate for validating microservice certificates
-// Note: Certs are in /app/certs which is mounted from tls-certs volume
-// The generate-service-cert.sh script creates ca.crt
-const CA_CERT_PATH = '/app/certs/ca.crt';
-let microserviceHttpsAgent = null;
-
-// Environment flag to allow insecure connections (development only)
-const ALLOW_INSECURE_TLS = process.env.ALLOW_INSECURE_TLS === 'true';
-
-try {
-  if (fs.existsSync(CA_CERT_PATH)) {
-    const caCert = fs.readFileSync(CA_CERT_PATH);
-    microserviceHttpsAgent = new https.Agent({
-      ca: caCert,
-      rejectUnauthorized: true // Properly validate certificates against CA
-    });
-    logger.info('Loaded CA certificate for secure HTTPS communication with microservices');
-  } else if (ALLOW_INSECURE_TLS) {
-    logger.warn('CA certificate not found and ALLOW_INSECURE_TLS enabled - using insecure HTTPS', { path: CA_CERT_PATH });
-    microserviceHttpsAgent = new https.Agent({ rejectUnauthorized: false });
-  } else {
-    // In production without certs, services should use HTTP on internal network
-    logger.info('CA certificate not found - assuming HTTP microservices on internal network');
-    microserviceHttpsAgent = null;
-  }
-} catch (error) {
-  logger.error('Failed to load CA certificate for microservices', { error: error.message });
-  if (ALLOW_INSECURE_TLS) {
-    logger.warn('ALLOW_INSECURE_TLS is enabled - using insecure HTTPS (NOT FOR PRODUCTION)');
-    microserviceHttpsAgent = new https.Agent({ rejectUnauthorized: false });
-  } else {
-    throw new Error('CA certificate failed to load and ALLOW_INSECURE_TLS is not enabled');
-  }
-}
+// Use centralized HTTPS agent (cached in memory)
+const getAgent = () => getHttpsAgent();
 
 /**
  * Get system configuration from /app/data/config.json
@@ -299,7 +266,7 @@ router.get('/version', async (req, res) => {
       try {
         const response = await axios.get(`${url}/health`, { 
           timeout: 2000, 
-          httpsAgent: microserviceHttpsAgent 
+          httpsAgent: getAgent() 
         });
         microservicesVersions[name] = response.data.version || 'unknown';
       } catch (error) {
@@ -414,7 +381,7 @@ router.get('/microservices', async (req, res) => {
     try {
       const response = await axios.get(`${url}/health`, { 
         timeout: 5000,
-        httpsAgent: microserviceHttpsAgent 
+        httpsAgent: getAgent() 
       });
       healthStatus.services[name] = {
         status: 'healthy',
