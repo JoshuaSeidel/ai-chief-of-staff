@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Natural Language Parser Service",
     description="Parses natural language into structured task data",
-    version="1.1.2"
+    version="1.2.0"
 )
 
 # Middleware for request logging
@@ -131,66 +131,230 @@ def cache_set(key: str, value: Dict, ttl: int = 3600) -> None:
     except Exception as e:
         logger.warning(f"Cache set error: {e}")
 
+def extract_time_from_text(text: str) -> tuple[Optional[int], Optional[int]]:
+    """Extract hour and minute from text, returns (hour, minute) or (None, None)"""
+    text_lower = text.lower()
+
+    # Match patterns like "3pm", "3:30pm", "15:00", "3 pm", "at 3"
+    patterns = [
+        r'(\d{1,2}):(\d{2})\s*(am|pm)?',  # 3:30pm, 15:00
+        r'(\d{1,2})\s*(am|pm)',  # 3pm, 3 pm
+        r'at\s+(\d{1,2})\b',  # at 3
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            groups = match.groups()
+            hour = int(groups[0])
+            minute = int(groups[1]) if len(groups) > 2 and groups[1] and groups[1].isdigit() else 0
+            period = groups[-1] if groups[-1] in ('am', 'pm') else None
+
+            if period == 'pm' and hour < 12:
+                hour += 12
+            elif period == 'am' and hour == 12:
+                hour = 0
+
+            return (hour, minute)
+
+    return (None, None)
+
 def parse_relative_date(text: str, timezone: str = "UTC") -> Optional[str]:
-    """Parse relative dates like 'tomorrow', 'next week', 'in 3 days'"""
+    """
+    Parse natural language dates into ISO format datetime strings.
+
+    Supported formats:
+    - Relative: "today", "tomorrow", "yesterday"
+    - Days: "next Tuesday", "this Friday", "last Monday"
+    - Relative periods: "next week", "next month", "in 3 days", "in 2 weeks"
+    - Time: "at 3pm", "3:30pm", "15:00"
+    - Combined: "next Tuesday at 3pm", "tomorrow morning", "Friday afternoon"
+    - Special: "end of week", "end of month", "end of quarter", "end of year"
+    - Informal: "tonight", "this evening", "this afternoon", "this morning"
+    """
     text_lower = text.lower()
     now = datetime.utcnow()
-    
-    # Today
-    if "today" in text_lower:
-        # Check for time
-        time_match = re.search(r'(\d{1,2}):?(\d{2})?\s*(am|pm)?', text_lower)
-        if time_match:
-            hour = int(time_match.group(1))
-            minute = int(time_match.group(2) or 0)
-            period = time_match.group(3)
-            if period == 'pm' and hour < 12:
-                hour += 12
-            return now.replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat()
-        return now.replace(hour=17, minute=0, second=0, microsecond=0).isoformat()  # Default 5pm
-    
+    target_date = None
+    hour, minute = None, None
+
+    # Extract time first (can be combined with any date)
+    hour, minute = extract_time_from_text(text)
+
+    # Handle time-of-day words
+    if hour is None:
+        if 'morning' in text_lower:
+            hour, minute = 9, 0
+        elif 'afternoon' in text_lower:
+            hour, minute = 14, 0
+        elif 'evening' in text_lower or 'tonight' in text_lower:
+            hour, minute = 19, 0
+        elif 'noon' in text_lower or 'midday' in text_lower:
+            hour, minute = 12, 0
+        elif 'midnight' in text_lower:
+            hour, minute = 0, 0
+        elif 'eod' in text_lower or 'end of day' in text_lower or 'cob' in text_lower or 'close of business' in text_lower:
+            hour, minute = 17, 0
+
+    # Today / Tonight
+    if 'today' in text_lower or 'tonight' in text_lower:
+        target_date = now
+
     # Tomorrow
-    if "tomorrow" in text_lower:
-        time_match = re.search(r'(\d{1,2}):?(\d{2})?\s*(am|pm)?', text_lower)
-        tomorrow = now + timedelta(days=1)
-        if time_match:
-            hour = int(time_match.group(1))
-            minute = int(time_match.group(2) or 0)
-            period = time_match.group(3)
-            if period == 'pm' and hour < 12:
-                hour += 12
-            return tomorrow.replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat()
-        return tomorrow.replace(hour=17, minute=0, second=0, microsecond=0).isoformat()
-    
-    # Next week
-    if "next week" in text_lower:
-        next_week = now + timedelta(days=7)
-        return next_week.replace(hour=17, minute=0, second=0, microsecond=0).isoformat()
-    
-    # In X days/hours
-    days_match = re.search(r'in (\d+) days?', text_lower)
-    if days_match:
-        days = int(days_match.group(1))
-        target = now + timedelta(days=days)
-        return target.replace(hour=17, minute=0, second=0, microsecond=0).isoformat()
-    
-    hours_match = re.search(r'in (\d+) hours?', text_lower)
-    if hours_match:
-        hours = int(hours_match.group(1))
-        target = now + timedelta(hours=hours)
-        return target.isoformat()
-    
-    # Day of week (assuming next occurrence)
-    weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-    for i, day in enumerate(weekdays):
-        if day in text_lower:
-            current_weekday = now.weekday()
-            days_ahead = (i - current_weekday) % 7
-            if days_ahead == 0:
-                days_ahead = 7  # Next week if same day
-            target = now + timedelta(days=days_ahead)
-            return target.replace(hour=17, minute=0, second=0, microsecond=0).isoformat()
-    
+    elif 'tomorrow' in text_lower:
+        target_date = now + timedelta(days=1)
+
+    # Yesterday (useful for logging past tasks)
+    elif 'yesterday' in text_lower:
+        target_date = now - timedelta(days=1)
+
+    # Day after tomorrow
+    elif 'day after tomorrow' in text_lower or 'overmorrow' in text_lower:
+        target_date = now + timedelta(days=2)
+
+    # End of week (Friday 5pm)
+    elif 'end of week' in text_lower or 'eow' in text_lower:
+        days_until_friday = (4 - now.weekday()) % 7
+        if days_until_friday == 0 and now.hour >= 17:
+            days_until_friday = 7
+        target_date = now + timedelta(days=days_until_friday)
+        if hour is None:
+            hour, minute = 17, 0
+
+    # End of month
+    elif 'end of month' in text_lower or 'eom' in text_lower:
+        # Go to first of next month, then subtract one day
+        if now.month == 12:
+            next_month = now.replace(year=now.year + 1, month=1, day=1)
+        else:
+            next_month = now.replace(month=now.month + 1, day=1)
+        target_date = next_month - timedelta(days=1)
+        if hour is None:
+            hour, minute = 17, 0
+
+    # End of quarter
+    elif 'end of quarter' in text_lower or 'eoq' in text_lower or 'end of q' in text_lower:
+        current_quarter = (now.month - 1) // 3
+        quarter_end_month = (current_quarter + 1) * 3
+        if quarter_end_month > 12:
+            target_date = datetime(now.year + 1, 3, 31)
+        else:
+            # Get last day of quarter end month
+            if quarter_end_month in [3, 12]:
+                last_day = 31
+            elif quarter_end_month in [6, 9]:
+                last_day = 30
+            else:
+                last_day = 28
+            target_date = datetime(now.year, quarter_end_month, last_day)
+        if hour is None:
+            hour, minute = 17, 0
+
+    # End of year
+    elif 'end of year' in text_lower or 'eoy' in text_lower:
+        target_date = datetime(now.year, 12, 31)
+        if hour is None:
+            hour, minute = 17, 0
+
+    # Next week (same day next week)
+    elif 'next week' in text_lower:
+        target_date = now + timedelta(days=7)
+
+    # This week (Friday of this week)
+    elif 'this week' in text_lower:
+        days_until_friday = (4 - now.weekday()) % 7
+        if days_until_friday == 0:
+            days_until_friday = 0  # Today is Friday, keep it
+        target_date = now + timedelta(days=days_until_friday)
+
+    # Next month (same day next month)
+    elif 'next month' in text_lower:
+        if now.month == 12:
+            target_date = now.replace(year=now.year + 1, month=1)
+        else:
+            # Handle months with fewer days
+            try:
+                target_date = now.replace(month=now.month + 1)
+            except ValueError:
+                # Day doesn't exist in next month, use last day
+                if now.month + 1 == 2:
+                    target_date = now.replace(month=2, day=28)
+                else:
+                    target_date = now.replace(month=now.month + 1, day=30)
+
+    # In X days/weeks/months/hours/minutes
+    else:
+        # In X days
+        days_match = re.search(r'in\s+(\d+)\s*days?', text_lower)
+        if days_match:
+            days = int(days_match.group(1))
+            target_date = now + timedelta(days=days)
+
+        # In X weeks
+        weeks_match = re.search(r'in\s+(\d+)\s*weeks?', text_lower)
+        if weeks_match:
+            weeks = int(weeks_match.group(1))
+            target_date = now + timedelta(weeks=weeks)
+
+        # In X months
+        months_match = re.search(r'in\s+(\d+)\s*months?', text_lower)
+        if months_match:
+            months = int(months_match.group(1))
+            new_month = now.month + months
+            new_year = now.year + (new_month - 1) // 12
+            new_month = ((new_month - 1) % 12) + 1
+            try:
+                target_date = now.replace(year=new_year, month=new_month)
+            except ValueError:
+                target_date = now.replace(year=new_year, month=new_month, day=28)
+
+        # In X hours
+        hours_match = re.search(r'in\s+(\d+)\s*hours?', text_lower)
+        if hours_match:
+            hours_delta = int(hours_match.group(1))
+            return (now + timedelta(hours=hours_delta)).isoformat()
+
+        # In X minutes
+        minutes_match = re.search(r'in\s+(\d+)\s*(?:minutes?|mins?)', text_lower)
+        if minutes_match:
+            minutes_delta = int(minutes_match.group(1))
+            return (now + timedelta(minutes=minutes_delta)).isoformat()
+
+    # Day of week with optional "next" or "this" modifier
+    if target_date is None:
+        weekdays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        for i, day in enumerate(weekdays):
+            if day in text_lower:
+                current_weekday = now.weekday()
+                days_ahead = (i - current_weekday) % 7
+
+                # "next Tuesday" means the Tuesday of next week
+                if f'next {day}' in text_lower:
+                    if days_ahead <= 0:
+                        days_ahead += 7
+                    else:
+                        days_ahead += 7  # Always next week
+                # "this Tuesday" means this week's Tuesday (even if passed)
+                elif f'this {day}' in text_lower:
+                    if days_ahead == 0:
+                        days_ahead = 0  # Today
+                    # Keep days_ahead as is for this week
+                # Default: next occurrence
+                else:
+                    if days_ahead == 0:
+                        days_ahead = 7  # Next week if same day
+
+                target_date = now + timedelta(days=days_ahead)
+                break
+
+    # If we found a date, apply time
+    if target_date is not None:
+        if hour is not None:
+            target_date = target_date.replace(hour=hour, minute=minute or 0, second=0, microsecond=0)
+        else:
+            # Default to 5pm (end of business day)
+            target_date = target_date.replace(hour=17, minute=0, second=0, microsecond=0)
+        return target_date.isoformat()
+
     return None
 
 def extract_priority(text: str) -> str:

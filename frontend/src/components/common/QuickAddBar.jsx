@@ -2,7 +2,50 @@ import React, { useState, useRef, useEffect } from 'react';
 import { intelligenceAPI, commitmentsAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 
-export function QuickAddBar({ onTaskCreated, placeholder = "Quick add: 'Follow up with John about budget by Friday'" }) {
+// Format date in a human-friendly way
+function formatDeadline(isoDate) {
+  if (!isoDate) return null;
+
+  const date = new Date(isoDate);
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const timeStr = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  // Check if it's today
+  if (date.toDateString() === now.toDateString()) {
+    return `Today at ${timeStr}`;
+  }
+
+  // Check if it's tomorrow
+  if (date.toDateString() === tomorrow.toDateString()) {
+    return `Tomorrow at ${timeStr}`;
+  }
+
+  // Check if it's within 7 days
+  const daysAway = Math.ceil((date - now) / (1000 * 60 * 60 * 24));
+  if (daysAway > 0 && daysAway <= 7) {
+    const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+    return `${dayName} at ${timeStr}`;
+  }
+
+  // Otherwise show full date
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+}
+
+export function QuickAddBar({ onTaskCreated, placeholder = "Try: 'Call John tomorrow at 3pm' or 'Report due end of week'" }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -105,6 +148,8 @@ export function QuickAddBar({ onTaskCreated, placeholder = "Quick add: 'Follow u
     }
   };
 
+  const [showDateHints, setShowDateHints] = useState(false);
+
   return (
     <div className="quick-add-container">
       <form onSubmit={handleSubmit} className="quick-add-form">
@@ -116,6 +161,8 @@ export function QuickAddBar({ onTaskCreated, placeholder = "Quick add: 'Follow u
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onFocus={() => setShowDateHints(true)}
+            onBlur={() => setTimeout(() => setShowDateHints(false), 200)}
             placeholder={placeholder}
             className="quick-add-input"
             disabled={loading}
@@ -142,6 +189,22 @@ export function QuickAddBar({ onTaskCreated, placeholder = "Quick add: 'Follow u
           </button>
         </div>
       </form>
+
+      {showDateHints && !input && (
+        <div className="quick-add-hints">
+          <div className="hints-header">Supported date formats:</div>
+          <div className="hints-grid">
+            <span className="hint-item">today, tomorrow</span>
+            <span className="hint-item">next Tuesday</span>
+            <span className="hint-item">in 3 days</span>
+            <span className="hint-item">end of week</span>
+            <span className="hint-item">3pm, 3:30pm</span>
+            <span className="hint-item">tomorrow morning</span>
+            <span className="hint-item">Friday afternoon</span>
+            <span className="hint-item">end of month</span>
+          </div>
+        </div>
+      )}
 
       {showPreview && parsedTask && (
         <div className="quick-add-preview">
@@ -171,7 +234,7 @@ export function QuickAddBar({ onTaskCreated, placeholder = "Quick add: 'Follow u
             {parsedTask.deadline && (
               <div className="preview-row">
                 <span className="preview-key">Deadline:</span>
-                <span className="preview-value">📅 {new Date(parsedTask.deadline).toLocaleDateString()}</span>
+                <span className="preview-value">📅 {formatDeadline(parsedTask.deadline)}</span>
               </div>
             )}
             {parsedTask.priority && (
