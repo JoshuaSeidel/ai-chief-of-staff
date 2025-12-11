@@ -6,9 +6,28 @@ const googleCalendar = require('../services/google-calendar');
 const microsoftPlanner = require('../services/microsoft-planner');
 const jira = require('../services/jira');
 const fs = require('fs');
+const FormData = require('form-data');
+const axios = require('axios');
 const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('TRANSCRIPTS');
+
+// Voice processor service URL
+const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004';
+
+// Audio file MIME types that need transcription
+const AUDIO_MIME_TYPES = [
+  'audio/webm',
+  'audio/mp4',
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/m4a',
+  'audio/ogg',
+  'audio/flac',
+  'video/webm', // Sometimes webm is detected as video
+  'video/mp4'
+];
 
 /**
  * Save all task types (commitments, actions, follow-ups, risks) and create calendar events
@@ -346,14 +365,81 @@ router.post('/upload', (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    logger.info(`Uploaded file: ${req.file.originalname} (${req.file.size} bytes)`);
+    logger.info(`Uploaded file: ${req.file.originalname} (${req.file.size} bytes), MIME type: ${req.file.mimetype}`);
 
     try {
       const db = getDb();
-      
-      // Read transcript content
-      const content = fs.readFileSync(req.file.path, 'utf-8');
-      logger.info(`Read file content: ${content.length} characters`);
+      let content;
+
+      // Check if this is an audio file that needs transcription
+      const isAudioFile = AUDIO_MIME_TYPES.includes(req.file.mimetype) ||
+                          /\.(webm|mp4|mp3|wav|m4a|ogg|flac|mpeg|mpga)$/i.test(req.file.originalname);
+
+      if (isAudioFile) {
+        logger.info(`Detected audio file, transcribing with voice processor...`);
+
+        try {
+          // Send audio file to voice processor for transcription
+          const formData = new FormData();
+          formData.append('file', fs.createReadStream(req.file.path), {
+            filename: req.file.originalname,
+            contentType: req.file.mimetype
+          });
+
+          const transcribeResponse = await axios.post(
+            `${VOICE_PROCESSOR_URL}/transcribe`,
+            formData,
+            {
+              headers: formData.getHeaders(),
+              timeout: 300000, // 5 minutes for transcription
+              maxContentLength: Infinity,
+              maxBodyLength: Infinity
+            }
+          );
+
+          if (transcribeResponse.data && transcribeResponse.data.text) {
+            content = transcribeResponse.data.text;
+            logger.info(`Audio transcribed successfully: ${content.length} characters`);
+          } else {
+            throw new Error('Transcription service did not return text');
+          }
+        } catch (transcribeErr) {
+          logger.error('Error transcribing audio:', transcribeErr.message);
+
+          // Clean up uploaded file
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (cleanupErr) {
+            logger.warn('Failed to clean up uploaded file:', cleanupErr);
+          }
+
+          return res.status(500).json({
+            error: 'Failed to transcribe audio',
+            message: transcribeErr.message,
+            hint: 'Make sure the voice-processor service is running'
+          });
+        }
+      } else {
+        // Read as text file
+        try {
+          content = fs.readFileSync(req.file.path, 'utf-8');
+          logger.info(`Read text file content: ${content.length} characters`);
+        } catch (readErr) {
+          logger.error('Error reading file as text:', readErr.message);
+
+          // Clean up uploaded file
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (cleanupErr) {
+            logger.warn('Failed to clean up uploaded file:', cleanupErr);
+          }
+
+          return res.status(400).json({
+            error: 'Invalid file format',
+            message: 'File must be either a text transcript or an audio file'
+          });
+        }
+      }
 
       // Get meeting date from form data (optional)
       const meetingDate = req.body.meetingDate || req.body.meeting_date || null;
@@ -376,9 +462,9 @@ router.post('/upload', (req, res) => {
       }
 
       // Return immediately - process in background
-      res.json({ 
+      res.json({
         success: true,
-        message: 'Transcript uploaded, processing in background',
+        message: isAudioFile ? 'Audio transcribed and processing' : 'Transcript uploaded, processing in background',
         transcriptId,
         status: 'processing'
       });
