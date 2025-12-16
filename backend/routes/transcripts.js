@@ -17,6 +17,15 @@ const logger = createModuleLogger('TRANSCRIPTS');
 const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004';
 const MICROSERVICE_TIMEOUT = 120000; // 2 minutes for audio transcription
 
+// Certificate-related error codes for better error detection
+const CERT_ERROR_CODES = [
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  'CERT_UNTRUSTED',
+  'CERT_HAS_EXPIRED',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'DEPTH_ZERO_SELF_SIGNED_CERT'
+];
+
 /**
  * Check if a file is an audio file based on extension and mimetype
  */
@@ -85,9 +94,9 @@ async function transcribeAudio(filePath, originalFilename) {
     }
     
     // Check for certificate errors
-    const certErrorCodes = ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_UNTRUSTED', 'CERT_HAS_EXPIRED', 
-                            'SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT'];
-    if (certErrorCodes.includes(error.code) || error.message?.includes('certificate')) {
+    const isCertError = CERT_ERROR_CODES.includes(error.code) || 
+                        (error.message && error.message.toLowerCase().includes('certificate'));
+    if (isCertError) {
       throw new Error('TLS certificate verification failed. Set ALLOW_INSECURE_TLS environment variable to a truthy value (true, 1, yes, or on) or configure proper certificates.');
     }
     
