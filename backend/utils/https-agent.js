@@ -24,7 +24,8 @@ const CA_CERT_PATHS = [
 
 // Environment flag to allow insecure connections (development only)
 // Support multiple truthy values: 'true', '1', 'yes', 'on' (case-insensitive)
-const ALLOW_INSECURE_TLS = ['true', '1', 'yes', 'on'].includes(
+const TRUTHY_VALUES = ['true', '1', 'yes', 'on'];
+const ALLOW_INSECURE_TLS = TRUTHY_VALUES.includes(
   (process.env.ALLOW_INSECURE_TLS || '').toLowerCase()
 );
 

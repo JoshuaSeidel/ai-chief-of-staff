@@ -85,8 +85,10 @@ async function transcribeAudio(filePath, originalFilename) {
     }
     
     // Check for certificate errors
-    if (error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || error.message?.includes('certificate')) {
-      throw new Error('TLS certificate verification failed. Please set ALLOW_INSECURE_TLS=true in your environment or configure proper certificates.');
+    const certErrorCodes = ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'CERT_UNTRUSTED', 'CERT_HAS_EXPIRED', 
+                            'SELF_SIGNED_CERT_IN_CHAIN', 'DEPTH_ZERO_SELF_SIGNED_CERT'];
+    if (certErrorCodes.includes(error.code) || error.message?.includes('certificate')) {
+      throw new Error('TLS certificate verification failed. Set ALLOW_INSECURE_TLS environment variable to a truthy value (true, 1, yes, or on) or configure proper certificates.');
     }
     
     throw new Error(`Audio transcription failed: ${error.message}`);
