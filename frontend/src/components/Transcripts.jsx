@@ -588,16 +588,16 @@ function Transcripts() {
               <input
                 id="file-input"
                 type="file"
-                accept=".txt,.doc,.docx,.pdf"
+                accept=".txt,.doc,.docx,.pdf,.mp3,.mp4,.m4a,.wav,.webm,.ogg,.flac"
                 onChange={handleFileUpload}
                 disabled={uploading}
               />
               <div>
                 <p className="text-md-mb-sm">
-                  {uploading ? '⏳ Uploading & Processing...' : '📁 Click to upload transcript file'}
+                  {uploading ? '⏳ Uploading & Processing...' : '📁 Click to upload transcript or audio file'}
                 </p>
                 <p className="text-sm-gray">
-                  Supports .txt, .doc, .docx, .pdf files (max 10MB)
+                  Supports .txt, .doc, .docx, .pdf files and audio files (.mp3, .mp4, .m4a, .wav, .webm, .ogg, .flac) - max 10MB
                 </p>
               </div>
             </div>

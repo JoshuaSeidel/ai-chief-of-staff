@@ -7,8 +7,83 @@ const microsoftPlanner = require('../services/microsoft-planner');
 const jira = require('../services/jira');
 const fs = require('fs');
 const { createModuleLogger } = require('../utils/logger');
+const axios = require('axios');
+const FormData = require('form-data');
+const { getHttpsAgent } = require('../utils/https-agent');
 
 const logger = createModuleLogger('TRANSCRIPTS');
+
+// Voice processor service URL
+const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004';
+const MICROSERVICE_TIMEOUT = 120000; // 2 minutes for audio transcription
+
+/**
+ * Check if a file is an audio file based on extension and mimetype
+ */
+function isAudioFile(filename, mimetype) {
+  const audioExtensions = ['.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm', '.ogg', '.flac'];
+  const audioMimetypes = ['audio/', 'video/mp4', 'video/webm'];
+  
+  // Check by extension
+  const ext = filename ? filename.toLowerCase().substring(filename.lastIndexOf('.')) : '';
+  if (audioExtensions.includes(ext)) {
+    return true;
+  }
+  
+  // Check by mimetype
+  if (mimetype) {
+    if (audioMimetypes.some(type => mimetype.toLowerCase().startsWith(type))) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Transcribe audio file using voice-processor microservice
+ */
+async function transcribeAudio(filePath, originalFilename) {
+  try {
+    logger.info(`Sending audio file to voice-processor: ${originalFilename}`);
+    
+    // Read the audio file
+    const audioBuffer = fs.readFileSync(filePath);
+    
+    // Create form data for voice-processor
+    const formData = new FormData();
+    formData.append('file', audioBuffer, {
+      filename: originalFilename,
+      contentType: 'audio/webm' // Default, voice-processor will handle different types
+    });
+    
+    // Call voice-processor microservice with HTTPS agent
+    const response = await axios.post(
+      `${VOICE_PROCESSOR_URL}/transcribe`,
+      formData,
+      {
+        headers: formData.getHeaders(),
+        timeout: MICROSERVICE_TIMEOUT,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+        httpsAgent: getHttpsAgent()
+      }
+    );
+    
+    logger.info(`Audio transcription successful: ${response.data.text?.length || 0} characters`);
+    return response.data.text;
+    
+  } catch (error) {
+    logger.error(`Audio transcription failed: ${error.message}`);
+    
+    // Check if voice-processor is unavailable
+    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.response?.status === 503) {
+      throw new Error('Voice processor service is unavailable. Please ensure the voice-processor microservice is running.');
+    }
+    
+    throw new Error(`Audio transcription failed: ${error.message}`);
+  }
+}
 
 /**
  * Save all task types (commitments, actions, follow-ups, risks) and create calendar events
@@ -351,9 +426,36 @@ router.post('/upload', (req, res) => {
     try {
       const db = getDb();
       
-      // Read transcript content
-      const content = fs.readFileSync(req.file.path, 'utf-8');
-      logger.info(`Read file content: ${content.length} characters`);
+      // Check if this is an audio file
+      const isAudio = isAudioFile(req.file.originalname, req.file.mimetype);
+      logger.info(`File type: ${isAudio ? 'audio' : 'text'} (mimetype: ${req.file.mimetype})`);
+      
+      let content;
+      
+      if (isAudio) {
+        // Audio file - transcribe it using voice-processor
+        logger.info('Audio file detected, transcribing...');
+        try {
+          content = await transcribeAudio(req.file.path, req.file.originalname);
+          logger.info(`Transcription complete: ${content.length} characters`);
+        } catch (transcribeError) {
+          logger.error('Transcription error:', transcribeError);
+          // Clean up uploaded file
+          try {
+            fs.unlinkSync(req.file.path);
+          } catch (cleanupErr) {
+            logger.warn('Failed to clean up uploaded file:', cleanupErr);
+          }
+          return res.status(500).json({ 
+            error: 'Audio transcription failed', 
+            message: transcribeError.message
+          });
+        }
+      } else {
+        // Text file - read as UTF-8
+        content = fs.readFileSync(req.file.path, 'utf-8');
+        logger.info(`Read file content: ${content.length} characters`);
+      }
 
       // Get meeting date from form data (optional)
       const meetingDate = req.body.meetingDate || req.body.meeting_date || null;
@@ -362,7 +464,7 @@ router.post('/upload', (req, res) => {
       // Save to database with processing status
       const result = await db.run(
         'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [req.file.originalname, content, 'upload', meetingDate, 'processing', 0, req.profileId]
+        [req.file.originalname, content, isAudio ? 'recording' : 'upload', meetingDate, 'processing', 0, req.profileId]
       );
 
       const transcriptId = result.lastID;
