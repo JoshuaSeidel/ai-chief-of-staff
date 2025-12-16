@@ -17,6 +17,15 @@ const logger = createModuleLogger('TRANSCRIPTS');
 const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004';
 const MICROSERVICE_TIMEOUT = 120000; // 2 minutes for audio transcription
 
+// Certificate-related error codes for better error detection
+const CERT_ERROR_CODES = [
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  'CERT_UNTRUSTED',
+  'CERT_HAS_EXPIRED',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'DEPTH_ZERO_SELF_SIGNED_CERT'
+];
+
 /**
  * Check if a file is an audio file based on extension and mimetype
  */
@@ -74,11 +83,21 @@ async function transcribeAudio(filePath, originalFilename) {
     return response.data.text;
     
   } catch (error) {
-    logger.error(`Audio transcription failed: ${error.message}`);
+    logger.error(`Audio transcription failed: ${error.message}`, { 
+      code: error.code, 
+      response: error.response?.status 
+    });
     
     // Check if voice-processor is unavailable
     if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.response?.status === 503) {
       throw new Error('Voice processor service is unavailable. Please ensure the voice-processor microservice is running.');
+    }
+    
+    // Check for certificate errors
+    const isCertError = CERT_ERROR_CODES.includes(error.code) || 
+                        (error.message && error.message.toLowerCase().includes('certificate'));
+    if (isCertError) {
+      throw new Error('TLS certificate verification failed. Set ALLOW_INSECURE_TLS environment variable to a truthy value (true, 1, yes, or on) or configure proper certificates.');
     }
     
     throw new Error(`Audio transcription failed: ${error.message}`);
@@ -439,7 +458,18 @@ router.post('/upload', (req, res) => {
           content = await transcribeAudio(req.file.path, req.file.originalname);
           logger.info(`Transcription complete: ${content.length} characters`);
         } catch (transcribeError) {
-          logger.error('Transcription error:', transcribeError);
+          // Extract meaningful error message from axios error
+          const errorMessage = transcribeError.response?.data?.message 
+            || transcribeError.message 
+            || 'Unknown error';
+          const errorCode = transcribeError.code;
+          
+          logger.error('Transcription error:', { 
+            message: errorMessage, 
+            code: errorCode,
+            status: transcribeError.response?.status 
+          });
+          
           // Clean up uploaded file
           try {
             fs.unlinkSync(req.file.path);

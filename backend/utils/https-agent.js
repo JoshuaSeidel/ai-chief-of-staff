@@ -23,10 +23,14 @@ const CA_CERT_PATHS = [
 ];
 
 // Environment flag to allow insecure connections (development only)
-const ALLOW_INSECURE_TLS = process.env.ALLOW_INSECURE_TLS === 'true';
+// Support multiple truthy values: 'true', '1', 'yes', 'on' (case-insensitive)
+const TRUTHY_VALUES = ['true', '1', 'yes', 'on'];
+const ALLOW_INSECURE_TLS = TRUTHY_VALUES.includes(
+  (process.env.ALLOW_INSECURE_TLS || '').toLowerCase()
+);
 
 // Log the flag on module load
-logger.info(`HTTPS Agent module loaded. ALLOW_INSECURE_TLS=${ALLOW_INSECURE_TLS}`);
+logger.info(`HTTPS Agent module loaded. ALLOW_INSECURE_TLS=${ALLOW_INSECURE_TLS} (from env: ${process.env.ALLOW_INSECURE_TLS})`);
 
 // Cached HTTPS agent - initialized once, used everywhere
 let cachedHttpsAgent = null;
