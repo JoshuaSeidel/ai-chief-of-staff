@@ -74,11 +74,19 @@ async function transcribeAudio(filePath, originalFilename) {
     return response.data.text;
     
   } catch (error) {
-    logger.error(`Audio transcription failed: ${error.message}`);
+    logger.error(`Audio transcription failed: ${error.message}`, { 
+      code: error.code, 
+      response: error.response?.status 
+    });
     
     // Check if voice-processor is unavailable
     if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND' || error.response?.status === 503) {
       throw new Error('Voice processor service is unavailable. Please ensure the voice-processor microservice is running.');
+    }
+    
+    // Check for certificate errors
+    if (error.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || error.message?.includes('certificate')) {
+      throw new Error('TLS certificate verification failed. Please set ALLOW_INSECURE_TLS=true in your environment or configure proper certificates.');
     }
     
     throw new Error(`Audio transcription failed: ${error.message}`);
@@ -439,7 +447,18 @@ router.post('/upload', (req, res) => {
           content = await transcribeAudio(req.file.path, req.file.originalname);
           logger.info(`Transcription complete: ${content.length} characters`);
         } catch (transcribeError) {
-          logger.error('Transcription error:', transcribeError);
+          // Extract meaningful error message from axios error
+          const errorMessage = transcribeError.response?.data?.message 
+            || transcribeError.message 
+            || 'Unknown error';
+          const errorCode = transcribeError.code;
+          
+          logger.error('Transcription error:', { 
+            message: errorMessage, 
+            code: errorCode,
+            status: transcribeError.response?.status 
+          });
+          
           // Clean up uploaded file
           try {
             fs.unlinkSync(req.file.path);
