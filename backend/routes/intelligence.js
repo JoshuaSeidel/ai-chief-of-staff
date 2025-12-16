@@ -481,7 +481,8 @@ router.post('/transcribe', (req, res) => {
             headers: formData.getHeaders(),
             timeout: MICROSERVICE_TIMEOUT,
             maxContentLength: Infinity,
-            maxBodyLength: Infinity
+            maxBodyLength: Infinity,
+            httpsAgent: getAgent()
           }
         );
 
@@ -496,7 +497,11 @@ router.post('/transcribe', (req, res) => {
       }
 
     } catch (err) {
-      logger.error('Error transcribing audio:', err);
+      logger.error('Error transcribing audio:', { 
+        message: err.message, 
+        code: err.code, 
+        status: err.response?.status 
+      });
       res.status(500).json({ 
         error: 'Failed to transcribe audio',
         message: err.message 
