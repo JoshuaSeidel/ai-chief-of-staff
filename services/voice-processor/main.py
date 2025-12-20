@@ -67,28 +67,37 @@ app.add_middleware(
 )
 
 # Get AI configuration from database
+# Voice processor defaults to OpenAI Whisper for transcription
 try:
     ai_provider = get_ai_provider()
     ai_model = get_ai_model(provider=ai_provider)
-    logger.info(f"Using AI provider: {ai_provider}, model: {ai_model}")
+    logger.info(f"Main AI provider from database: {ai_provider}, model: {ai_model}")
+
+    # For voice processor, we use OpenAI Whisper by default
+    # unless explicitly configured otherwise
+    if ai_provider != "ollama":
+        ai_provider = "openai"
+        ai_model = "whisper-1"
+    logger.info(f"Voice processor using: {ai_provider}, model: {ai_model}")
 except Exception as e:
     logger.warning(f"Failed to load AI config from database: {e}. Using defaults.")
     ai_provider = "openai"
     ai_model = "whisper-1"
 
 # Get OpenAI API key from database (with environment variable fallback)
-openai_api_key = None
-if ai_provider == "openai":
-    openai_api_key = get_api_key("openai")
-    if not openai_api_key:
-        openai_api_key = os.getenv("OPENAI_API_KEY")
-        if openai_api_key:
-            logger.info("Using OPENAI_API_KEY from environment (fallback)")
-        else:
-            logger.warning("OPENAI_API_KEY not configured in database or environment")
-    
+# Voice processor ALWAYS needs OpenAI key for Whisper transcription,
+# regardless of what the main AI provider is set to
+openai_api_key = get_api_key("openai")
+if not openai_api_key:
+    openai_api_key = os.getenv("OPENAI_API_KEY")
     if openai_api_key:
-        openai.api_key = openai_api_key
+        logger.info("Using OPENAI_API_KEY from environment (fallback)")
+    else:
+        logger.warning("OPENAI_API_KEY not configured in database or environment - Whisper transcription will not work")
+
+if openai_api_key:
+    openai.api_key = openai_api_key
+    logger.info(f"OpenAI API key configured (length: {len(openai_api_key)})")
 
 # Initialize Redis client
 redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
