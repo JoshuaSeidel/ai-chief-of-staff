@@ -24,8 +24,6 @@ const skipCertVerification = process.env.ALLOW_INSECURE_TLS === 'true' ||
                               isInternalService;
 const httpsAgent = new https.Agent({ rejectUnauthorized: !skipCertVerification });
 
-logger.info(`Voice processor URL: ${VOICE_PROCESSOR_URL}, skip cert verification: ${skipCertVerification}`);
-
 // Audio file MIME types that need transcription
 const AUDIO_MIME_TYPES = [
   'audio/webm',
