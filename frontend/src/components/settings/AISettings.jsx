@@ -493,6 +493,23 @@ export function AISettings() {
               </div>
             </div>
 
+            {/* Show OpenAI API key field when using OpenAI Whisper and main provider is not OpenAI */}
+            {(config.voiceProcessorProvider === 'openai' || config.voiceProcessorProvider === '') && config.aiProvider !== 'openai' && (
+              <div className="form-group">
+                <label className="form-label">
+                  OpenAI API Key for Whisper <ScopeBadge scope="global" />
+                </label>
+                <input
+                  type="password"
+                  value={config.openaiApiKey}
+                  onChange={(e) => handleChange('openaiApiKey', e.target.value)}
+                  placeholder="sk-..."
+                  className="form-input"
+                />
+                <p className="form-hint">Required for OpenAI Whisper transcription when using a different main AI provider</p>
+              </div>
+            )}
+
             {/* Storage Configuration */}
             <div className="section-divider">
               <h6 className="config-subsection-subtitle">💾 Storage Configuration</h6>
