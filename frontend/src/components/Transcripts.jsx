@@ -303,7 +303,12 @@ function Transcripts() {
         setUploading(false);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload recording');
+      const errorData = err.response?.data;
+      let errorMessage = errorData?.message || 'Failed to upload recording';
+      if (errorData?.hint) {
+        errorMessage += `\n${errorData.hint}`;
+      }
+      setError(errorMessage);
       setUploading(false);
     }
   };

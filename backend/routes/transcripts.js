@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const https = require('https');
 const { getDb, getDbType } = require('../database/db');
 const { extractCommitments } = require('../services/claude');
 const googleCalendar = require('../services/google-calendar');
@@ -14,6 +15,16 @@ const logger = createModuleLogger('TRANSCRIPTS');
 
 // Voice processor service URL
 const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004';
+
+// Allow insecure TLS for self-signed certs (Docker inter-service communication)
+// Always skip cert verification for internal service URLs (aicos-*, localhost)
+const isInternalService = VOICE_PROCESSOR_URL.includes('aicos-') || VOICE_PROCESSOR_URL.includes('localhost');
+const skipCertVerification = process.env.ALLOW_INSECURE_TLS === 'true' ||
+                              process.env.NODE_ENV !== 'production' ||
+                              isInternalService;
+const httpsAgent = new https.Agent({ rejectUnauthorized: !skipCertVerification });
+
+logger.info(`Voice processor URL: ${VOICE_PROCESSOR_URL}, skip cert verification: ${skipCertVerification}`);
 
 // Audio file MIME types that need transcription
 const AUDIO_MIME_TYPES = [
@@ -393,7 +404,8 @@ router.post('/upload', (req, res) => {
               headers: formData.getHeaders(),
               timeout: 300000, // 5 minutes for transcription
               maxContentLength: Infinity,
-              maxBodyLength: Infinity
+              maxBodyLength: Infinity,
+              httpsAgent
             }
           );
 
@@ -405,6 +417,9 @@ router.post('/upload', (req, res) => {
           }
         } catch (transcribeErr) {
           logger.error('Error transcribing audio:', transcribeErr.message);
+          if (transcribeErr.response) {
+            logger.error('Voice processor response:', transcribeErr.response.status, transcribeErr.response.data);
+          }
 
           // Clean up uploaded file
           try {
@@ -413,10 +428,28 @@ router.post('/upload', (req, res) => {
             logger.warn('Failed to clean up uploaded file:', cleanupErr);
           }
 
+          // Provide helpful error messages based on error type
+          let hint = 'Make sure the voice-processor service is running';
+          let errorMessage = transcribeErr.message;
+
+          if (transcribeErr.code === 'ECONNREFUSED' || transcribeErr.code === 'ENOTFOUND') {
+            hint = `Voice processor service is not reachable at ${VOICE_PROCESSOR_URL}. Check if the service is running.`;
+          } else if (transcribeErr.code === 'ETIMEDOUT' || transcribeErr.code === 'ECONNABORTED') {
+            hint = 'Transcription timed out. The audio file may be too long or the service is overloaded.';
+          } else if (transcribeErr.response?.status === 503) {
+            hint = 'OpenAI API key may not be configured in the voice-processor service.';
+            errorMessage = transcribeErr.response.data?.detail || errorMessage;
+          } else if (transcribeErr.response?.status === 413) {
+            hint = 'Audio file is too large. Maximum size is 25MB.';
+            errorMessage = transcribeErr.response.data?.detail || errorMessage;
+          } else if (transcribeErr.response?.data?.detail) {
+            errorMessage = transcribeErr.response.data.detail;
+          }
+
           return res.status(500).json({
             error: 'Failed to transcribe audio',
-            message: transcribeErr.message,
-            hint: 'Make sure the voice-processor service is running'
+            message: errorMessage,
+            hint
           });
         }
       } else {

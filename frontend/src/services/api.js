@@ -31,6 +31,7 @@ export const briefAPI = {
 export const transcriptsAPI = {
   upload: (formData) => api.post('/transcripts/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000, // 5 minutes for audio transcription
   }),
   uploadText: (data) => api.post('/transcripts/upload-text', data),
   getAll: (limit = 50) => api.get(`/transcripts?limit=${limit}`),
