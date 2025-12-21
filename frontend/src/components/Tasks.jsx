@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { commitmentsAPI, intelligenceAPI, plannerAPI } from '../services/api';
+import { commitmentsAPI, intelligenceAPI, plannerAPI, tasksAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 import CompletionModal from './CompletionModal';
 import { useToast } from '../contexts/ToastContext';
@@ -9,6 +9,7 @@ import { Button } from './common/Button';
 import { QuickAddBar } from './common/QuickAddBar';
 import { TaskListSkeleton } from './common/LoadingSkeleton';
 import { formatRelativeTime, DeadlineTime } from './common/RelativeTime';
+import ReactMarkdown from 'react-markdown';
 
 function Commitments() {
   const [commitments, setCommitments] = useState([]);
@@ -36,6 +37,15 @@ function Commitments() {
   const [completingTask, setCompletingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [syncConfirm, setSyncConfirm] = useState(null);
+  // Work Summary state
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
+  const [summaryDates, setSummaryDates] = useState({
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 week ago
+    endDate: new Date().toISOString().split('T')[0] // today
+  });
+  const [summaryStyle, setSummaryStyle] = useState('executive');
 
   const toast = useToast();
 
@@ -256,6 +266,58 @@ function Commitments() {
 
   const handleRefresh = async () => {
     await loadCommitments();
+  };
+
+  const handleGenerateSummary = async () => {
+    if (!summaryDates.startDate || !summaryDates.endDate) {
+      toast.error('Please select both start and end dates');
+      return;
+    }
+
+    setSummaryLoading(true);
+    setSummaryData(null);
+
+    try {
+      const response = await tasksAPI.generateWorkSummary(
+        summaryDates.startDate,
+        summaryDates.endDate,
+        summaryStyle
+      );
+
+      if (response.data.success) {
+        setSummaryData(response.data);
+        toast.success(`Generated summary for ${response.data.taskCount} tasks`);
+      } else {
+        toast.error('Failed to generate summary');
+      }
+    } catch (err) {
+      console.error('Error generating summary:', err);
+      toast.error(err.response?.data?.message || 'Failed to generate work summary');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  const handleCopySummary = () => {
+    if (summaryData?.summary) {
+      navigator.clipboard.writeText(summaryData.summary);
+      toast.success('Summary copied to clipboard');
+    }
+  };
+
+  const handleDownloadSummary = () => {
+    if (summaryData?.summary) {
+      const blob = new Blob([summaryData.summary], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `work-summary-${summaryDates.startDate}-to-${summaryDates.endDate}.md`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Summary downloaded');
+    }
   };
 
   const handleSmartGroup = async () => {
@@ -576,6 +638,14 @@ function Commitments() {
                     )}
                   </>
                 )}
+                <Button
+                  onClick={() => setShowSummaryModal(true)}
+                  icon="📊"
+                  style={{ backgroundColor: '#10b981' }}
+                  title="Generate a summary of completed work"
+                >
+                  Work Summary
+                </Button>
                 <Button variant="secondary" onClick={loadCommitments} disabled={loading} icon="🔄">
                   {loading ? 'Loading...' : 'Refresh'}
                 </Button>
@@ -904,6 +974,195 @@ function Commitments() {
           onCancel={() => setCompletingTask(null)}
         />
       )}
+
+      {/* Work Summary Modal */}
+      <Modal
+        isOpen={showSummaryModal}
+        onClose={() => {
+          setShowSummaryModal(false);
+          setSummaryData(null);
+        }}
+        title="📊 Generate Work Summary"
+        size="lg"
+        footer={
+          <div className="modal-actions">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowSummaryModal(false);
+                setSummaryData(null);
+              }}
+            >
+              Close
+            </Button>
+            {summaryData && (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={handleCopySummary}
+                  icon="📋"
+                >
+                  Copy
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleDownloadSummary}
+                  icon="💾"
+                >
+                  Download
+                </Button>
+              </>
+            )}
+            <Button
+              variant="success"
+              onClick={handleGenerateSummary}
+              disabled={summaryLoading}
+              loading={summaryLoading}
+              icon="✨"
+            >
+              {summaryLoading ? 'Generating...' : 'Generate Summary'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="mb-md">
+          <p className="text-muted mb-md">
+            Generate an AI-powered summary of completed work within a date range.
+            Includes task details and any completion notes.
+          </p>
+
+          <div className="grid-2-col gap-md mb-md">
+            <div>
+              <label className="form-label">Start Date</label>
+              <input
+                type="date"
+                value={summaryDates.startDate}
+                onChange={(e) => setSummaryDates({ ...summaryDates, startDate: e.target.value })}
+                className="form-input"
+                disabled={summaryLoading}
+              />
+            </div>
+            <div>
+              <label className="form-label">End Date</label>
+              <input
+                type="date"
+                value={summaryDates.endDate}
+                onChange={(e) => setSummaryDates({ ...summaryDates, endDate: e.target.value })}
+                className="form-input"
+                disabled={summaryLoading}
+              />
+            </div>
+          </div>
+
+          <div className="mb-md">
+            <label className="form-label">Summary Style</label>
+            <select
+              value={summaryStyle}
+              onChange={(e) => setSummaryStyle(e.target.value)}
+              className="form-select"
+              disabled={summaryLoading}
+            >
+              <option value="executive">📈 Executive Summary - High-level overview for stakeholders</option>
+              <option value="detailed">📝 Detailed Summary - Comprehensive record of all work</option>
+              <option value="grouped">📊 Grouped Summary - Organized by task type and theme</option>
+            </select>
+          </div>
+
+          {/* Quick date range buttons */}
+          <div className="flex gap-sm flex-wrap mb-md">
+            <span className="text-muted text-sm">Quick select:</span>
+            <button
+              className="btn-filter secondary"
+              onClick={() => {
+                const today = new Date();
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                setSummaryDates({
+                  startDate: weekAgo.toISOString().split('T')[0],
+                  endDate: today.toISOString().split('T')[0]
+                });
+              }}
+              disabled={summaryLoading}
+            >
+              Last 7 days
+            </button>
+            <button
+              className="btn-filter secondary"
+              onClick={() => {
+                const today = new Date();
+                const twoWeeksAgo = new Date(today);
+                twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+                setSummaryDates({
+                  startDate: twoWeeksAgo.toISOString().split('T')[0],
+                  endDate: today.toISOString().split('T')[0]
+                });
+              }}
+              disabled={summaryLoading}
+            >
+              Last 2 weeks
+            </button>
+            <button
+              className="btn-filter secondary"
+              onClick={() => {
+                const today = new Date();
+                const monthAgo = new Date(today);
+                monthAgo.setMonth(monthAgo.getMonth() - 1);
+                setSummaryDates({
+                  startDate: monthAgo.toISOString().split('T')[0],
+                  endDate: today.toISOString().split('T')[0]
+                });
+              }}
+              disabled={summaryLoading}
+            >
+              Last month
+            </button>
+            <button
+              className="btn-filter secondary"
+              onClick={() => {
+                const today = new Date();
+                const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                setSummaryDates({
+                  startDate: firstOfMonth.toISOString().split('T')[0],
+                  endDate: today.toISOString().split('T')[0]
+                });
+              }}
+              disabled={summaryLoading}
+            >
+              This month
+            </button>
+          </div>
+        </div>
+
+        {/* Summary Result */}
+        {summaryLoading && (
+          <div className="text-center py-lg">
+            <div className="loading-spinner mb-md"></div>
+            <p className="text-muted">Generating your work summary...</p>
+          </div>
+        )}
+
+        {summaryData && !summaryLoading && (
+          <div className="summary-result" style={{
+            backgroundColor: '#09090b',
+            padding: '1.5rem',
+            borderRadius: '8px',
+            border: '1px solid #3f3f46',
+            maxHeight: '400px',
+            overflowY: 'auto'
+          }}>
+            <div className="flex-between mb-md">
+              <div className="text-sm text-muted">
+                📅 {summaryDates.startDate} to {summaryDates.endDate} •
+                {summaryData.taskCount} task{summaryData.taskCount !== 1 ? 's' : ''} •
+                {summaryData.style} style
+              </div>
+            </div>
+            <div className="markdown-content prose prose-invert">
+              <ReactMarkdown>{summaryData.summary}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+      </Modal>
     </>
   );
 }

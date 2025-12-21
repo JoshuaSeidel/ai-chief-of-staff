@@ -530,6 +530,124 @@ router.post('/', async (req, res) => {
 });
 
 /**
+ * Generate work summary for completed tasks in a date range
+ */
+router.post('/work-summary', async (req, res) => {
+  const { startDate, endDate, summaryStyle } = req.body;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'Start date and end date are required' });
+  }
+
+  const validStyles = ['executive', 'detailed', 'grouped'];
+  const style = validStyles.includes(summaryStyle) ? summaryStyle : 'executive';
+
+  logger.info(`Generating work summary from ${startDate} to ${endDate} with style: ${style}`);
+
+  try {
+    const db = getDb();
+    const { generateResponse } = require('../services/ai-service');
+
+    // Fetch completed tasks within the date range (by completion date)
+    // Also include tasks with completion notes even if still pending
+    const tasks = await db.all(
+      `SELECT * FROM commitments
+       WHERE profile_id = ?
+       AND (
+         (status = 'completed' AND completed_date >= ? AND completed_date <= ?)
+         OR (completion_note IS NOT NULL AND completion_note != '' AND created_date >= ? AND created_date <= ?)
+       )
+       ORDER BY completed_date DESC, created_date DESC`,
+      [req.profileId, startDate, endDate + 'T23:59:59.999Z', startDate, endDate + 'T23:59:59.999Z']
+    );
+
+    if (tasks.length === 0) {
+      return res.json({
+        success: true,
+        summary: 'No completed tasks or tasks with notes found in the selected date range.',
+        taskCount: 0,
+        dateRange: { startDate, endDate }
+      });
+    }
+
+    // Format tasks for the AI prompt
+    const taskList = tasks.map(task => {
+      let taskInfo = `- **${task.description}**`;
+      if (task.task_type) taskInfo += ` [${task.task_type}]`;
+      if (task.assignee) taskInfo += ` (Assigned: ${task.assignee})`;
+      if (task.deadline) taskInfo += ` | Deadline: ${new Date(task.deadline).toLocaleDateString()}`;
+      if (task.completed_date) taskInfo += ` | Completed: ${new Date(task.completed_date).toLocaleDateString()}`;
+      if (task.completion_note) taskInfo += `\n  Notes: ${task.completion_note}`;
+      if (task.suggested_approach) taskInfo += `\n  Approach: ${task.suggested_approach}`;
+      return taskInfo;
+    }).join('\n\n');
+
+    // Build the prompt based on summary style
+    let styleInstructions = '';
+    switch (style) {
+      case 'executive':
+        styleInstructions = `Create an executive summary that:
+- Provides a high-level overview of accomplishments (2-3 paragraphs)
+- Highlights key achievements and milestones
+- Notes any significant patterns or themes in the work
+- Summarizes the overall impact and value delivered
+- Keep it concise and suitable for sharing with stakeholders`;
+        break;
+      case 'detailed':
+        styleInstructions = `Create a detailed summary that:
+- Lists every task with its full details
+- Groups related work together logically
+- Includes all completion notes and context
+- Provides a comprehensive record of all work done
+- Suitable for personal records or detailed reporting`;
+        break;
+      case 'grouped':
+        styleInstructions = `Create a grouped summary that:
+- Organizes tasks by type (commitments, actions, follow-ups, risks)
+- Groups related tasks together by project or theme
+- Provides subtotals and metrics for each group
+- Highlights cross-cutting achievements
+- Suitable for team updates or project reviews`;
+        break;
+    }
+
+    const systemPrompt = `You are an expert at summarizing work accomplishments. You create clear, professional summaries that effectively communicate what was achieved.`;
+
+    const userPrompt = `Generate a work summary for tasks completed between ${startDate} and ${endDate}.
+
+${styleInstructions}
+
+Here are the completed tasks with their details:
+
+${taskList}
+
+Total tasks: ${tasks.length}
+
+Please provide a well-formatted markdown summary.`;
+
+    logger.info(`Generating ${style} work summary for ${tasks.length} tasks`);
+
+    const summary = await generateResponse(userPrompt, systemPrompt, 4096, req.profileId);
+
+    logger.info('Work summary generated successfully');
+
+    res.json({
+      success: true,
+      summary,
+      taskCount: tasks.length,
+      dateRange: { startDate, endDate },
+      style
+    });
+  } catch (err) {
+    logger.error('Error generating work summary:', err);
+    res.status(500).json({
+      error: 'Error generating work summary',
+      message: err.message
+    });
+  }
+});
+
+/**
  * Confirm or reject a task (for tasks needing confirmation)
  */
 router.post('/:id/confirm', async (req, res) => {

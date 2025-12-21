@@ -130,6 +130,8 @@ export const tasksAPI = {
   delete: (id) => api.delete(`/commitments/${id}`),
   getOverdue: () => api.get('/commitments/status/overdue'),
   confirm: (id, confirmed) => api.post(`/commitments/${id}/confirm`, { confirmed }),
+  generateWorkSummary: (startDate, endDate, summaryStyle = 'executive') =>
+    api.post('/commitments/work-summary', { startDate, endDate, summaryStyle }, { timeout: 120000 }),
 };
 
 // Keep old name for backwards compatibility
