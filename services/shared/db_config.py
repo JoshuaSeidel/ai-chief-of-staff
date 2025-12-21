@@ -315,6 +315,45 @@ def get_api_key(provider: str) -> Optional[str]:
         return None
 
 
+def get_voice_processor_config() -> dict:
+    """
+    Get voice processor specific configuration from database
+
+    Returns:
+        Dict with provider, model, and whisper_model settings
+    """
+    defaults = {
+        "provider": "openai",  # openai or ollama
+        "model": "whisper-1",
+        "whisper_model": "base"  # For local whisper: tiny, base, small, medium, large-v3
+    }
+
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT key, value FROM config WHERE key IN ('voiceProcessorProvider', 'voiceProcessorModel', 'voiceProcessorWhisperModel')"
+            )
+            rows = cursor.fetchall()
+            cursor.close()
+
+        config = defaults.copy()
+        for key, value in rows:
+            if key == "voiceProcessorProvider" and value:
+                config["provider"] = value.strip().lower()
+            elif key == "voiceProcessorModel" and value:
+                config["model"] = value.strip()
+            elif key == "voiceProcessorWhisperModel" and value:
+                config["whisper_model"] = value.strip()
+
+        logger.info(f"Loaded voice processor config: provider={config['provider']}, model={config['model']}")
+        return config
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch voice processor config from database: {e}. Using defaults")
+        return defaults
+
+
 def get_ollama_config() -> dict:
     """
     Get Ollama configuration from database

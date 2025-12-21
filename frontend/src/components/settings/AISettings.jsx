@@ -26,6 +26,7 @@ export function AISettings() {
     aiIntelligenceModel: '',
     voiceProcessorProvider: '',
     voiceProcessorModel: '',
+    voiceProcessorWhisperModel: 'base',
     patternRecognitionProvider: '',
     patternRecognitionModel: '',
     nlParserProvider: '',
@@ -104,6 +105,7 @@ export function AISettings() {
         aiIntelligenceModel: profilePrefs.aiIntelligenceModel || data.aiIntelligenceModel || '',
         voiceProcessorProvider: profilePrefs.voiceProcessorProvider || data.voiceProcessorProvider || '',
         voiceProcessorModel: profilePrefs.voiceProcessorModel || data.voiceProcessorModel || '',
+        voiceProcessorWhisperModel: data.voiceProcessorWhisperModel || 'base',
         patternRecognitionProvider: profilePrefs.patternRecognitionProvider || data.patternRecognitionProvider || '',
         patternRecognitionModel: profilePrefs.patternRecognitionModel || data.patternRecognitionModel || '',
         nlParserProvider: profilePrefs.nlParserProvider || data.nlParserProvider || '',
@@ -159,6 +161,9 @@ export function AISettings() {
       globalSettings.ollamaBaseUrl = config.ollamaBaseUrl;
       globalSettings.aiMaxTokens = config.aiMaxTokens;
       globalSettings.aiTemperature = config.aiTemperature;
+      // Voice processor settings (global, shared across profiles)
+      globalSettings.voiceProcessorProvider = config.voiceProcessorProvider;
+      globalSettings.voiceProcessorWhisperModel = config.voiceProcessorWhisperModel;
       globalSettings.storageType = config.storageType;
       globalSettings.storagePath = config.storagePath;
       globalSettings.s3Bucket = config.s3Bucket;
@@ -508,6 +513,47 @@ export function AISettings() {
                 />
                 <p className="form-hint">Required for OpenAI Whisper transcription when using a different main AI provider</p>
               </div>
+            )}
+
+            {/* Show Ollama configuration when using Ollama Whisper */}
+            {config.voiceProcessorProvider === 'ollama' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">
+                    Ollama Base URL <ScopeBadge scope="global" />
+                  </label>
+                  <input
+                    type="text"
+                    value={config.ollamaBaseUrl}
+                    onChange={(e) => handleChange('ollamaBaseUrl', e.target.value)}
+                    placeholder="http://localhost:11434"
+                    className="form-input"
+                  />
+                  <p className="form-hint">URL of your Ollama server for local Whisper transcription</p>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Local Whisper Model Size</label>
+                  <select
+                    value={config.voiceProcessorWhisperModel || 'base'}
+                    onChange={(e) => handleChange('voiceProcessorWhisperModel', e.target.value)}
+                    className="form-select"
+                  >
+                    <option value="tiny">Tiny (~75MB, fastest, lower accuracy)</option>
+                    <option value="base">Base (~140MB, good balance)</option>
+                    <option value="small">Small (~460MB, better accuracy)</option>
+                    <option value="medium">Medium (~1.5GB, high accuracy)</option>
+                    <option value="large-v3">Large V3 (~3GB, best accuracy)</option>
+                  </select>
+                  <p className="form-hint">Larger models are more accurate but slower and require more memory</p>
+                </div>
+
+                <div className="form-group">
+                  <p className="form-hint" style={{ color: '#f59e0b' }}>
+                    ⚠️ Note: After saving, restart the voice-processor service. The model will be downloaded automatically on first use.
+                  </p>
+                </div>
+              </>
             )}
 
             {/* Storage Configuration */}

@@ -28,7 +28,7 @@ except ImportError:
 
 # Add shared modules to path
 sys.path.insert(0, '/app/shared')
-from db_config import get_ai_model, get_ai_provider, get_api_key
+from db_config import get_ai_model, get_ai_provider, get_api_key, get_voice_processor_config, get_ollama_config
 
 # Configure logging
 logging.basicConfig(
@@ -66,38 +66,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Get AI configuration from database
-# Voice processor defaults to OpenAI Whisper for transcription
+# Get voice processor specific configuration from database
 try:
-    ai_provider = get_ai_provider()
-    ai_model = get_ai_model(provider=ai_provider)
-    logger.info(f"Main AI provider from database: {ai_provider}, model: {ai_model}")
-
-    # For voice processor, we use OpenAI Whisper by default
-    # unless explicitly configured otherwise
-    if ai_provider != "ollama":
-        ai_provider = "openai"
-        ai_model = "whisper-1"
-    logger.info(f"Voice processor using: {ai_provider}, model: {ai_model}")
+    voice_config = get_voice_processor_config()
+    ai_provider = voice_config["provider"]
+    ai_model = voice_config["model"]
+    LOCAL_WHISPER_MODEL_SIZE = voice_config["whisper_model"]
+    logger.info(f"Voice processor config: provider={ai_provider}, model={ai_model}, whisper_model={LOCAL_WHISPER_MODEL_SIZE}")
 except Exception as e:
-    logger.warning(f"Failed to load AI config from database: {e}. Using defaults.")
+    logger.warning(f"Failed to load voice processor config from database: {e}. Using defaults.")
     ai_provider = "openai"
     ai_model = "whisper-1"
 
-# Get OpenAI API key from database (with environment variable fallback)
-# Voice processor ALWAYS needs OpenAI key for Whisper transcription,
-# regardless of what the main AI provider is set to
-openai_api_key = get_api_key("openai")
-if not openai_api_key:
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if openai_api_key:
-        logger.info("Using OPENAI_API_KEY from environment (fallback)")
-    else:
-        logger.warning("OPENAI_API_KEY not configured in database or environment - Whisper transcription will not work")
+# Get Ollama configuration if using Ollama
+ollama_base_url = None
+if ai_provider == "ollama":
+    try:
+        ollama_config = get_ollama_config()
+        ollama_base_url = ollama_config["base_url"]
+        logger.info(f"Ollama configured at: {ollama_base_url}")
+    except Exception as e:
+        logger.warning(f"Failed to load Ollama config: {e}")
+        ollama_base_url = "http://localhost:11434"
 
-if openai_api_key:
-    openai.api_key = openai_api_key
-    logger.info(f"OpenAI API key configured (length: {len(openai_api_key)})")
+# Get OpenAI API key if using OpenAI
+openai_api_key = None
+if ai_provider == "openai":
+    openai_api_key = get_api_key("openai")
+    if not openai_api_key:
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if openai_api_key:
+            logger.info("Using OPENAI_API_KEY from environment (fallback)")
+        else:
+            logger.warning("OPENAI_API_KEY not configured - OpenAI Whisper transcription will not work")
+
+    if openai_api_key:
+        openai.api_key = openai_api_key
+        logger.info(f"OpenAI API key configured (length: {len(openai_api_key)})")
+else:
+    logger.info(f"Using {ai_provider} for transcription - OpenAI API key not required")
 
 # Initialize Redis client
 redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
@@ -119,7 +126,9 @@ except Exception as e:
 
 # Initialize local Whisper model for Ollama/local transcription
 local_whisper_model = None
-LOCAL_WHISPER_MODEL_SIZE = os.getenv("LOCAL_WHISPER_MODEL", "base")  # tiny, base, small, medium, large-v3
+# LOCAL_WHISPER_MODEL_SIZE is set from database config above, with env fallback
+if 'LOCAL_WHISPER_MODEL_SIZE' not in dir():
+    LOCAL_WHISPER_MODEL_SIZE = os.getenv("LOCAL_WHISPER_MODEL", "base")  # tiny, base, small, medium, large-v3
 
 def get_local_whisper_model():
     """Lazy-load the local Whisper model"""
@@ -641,6 +650,72 @@ async def get_supported_formats():
             "language_detection"
         ]
     }
+
+@app.post("/download-model")
+async def download_whisper_model(model_size: str = "base"):
+    """
+    Download/prepare a local Whisper model for transcription.
+    This uses faster-whisper which downloads models from Hugging Face.
+
+    Available sizes: tiny, base, small, medium, large-v3
+    """
+    valid_sizes = ["tiny", "base", "small", "medium", "large-v3"]
+    if model_size not in valid_sizes:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid model size. Must be one of: {', '.join(valid_sizes)}"
+        )
+
+    if not FASTER_WHISPER_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="faster-whisper is not installed. Cannot download local models."
+        )
+
+    try:
+        logger.info(f"Downloading Whisper model: {model_size}")
+
+        # Determine device and compute type
+        device = "cuda" if os.path.exists("/dev/nvidia0") else "cpu"
+        compute_type = "float16" if device == "cuda" else "int8"
+
+        # This will download the model if not cached
+        model = WhisperModel(
+            model_size,
+            device=device,
+            compute_type=compute_type
+        )
+
+        logger.info(f"✅ Whisper model {model_size} downloaded/loaded successfully")
+
+        return {
+            "success": True,
+            "message": f"Model {model_size} is ready",
+            "model_size": model_size,
+            "device": device,
+            "compute_type": compute_type
+        }
+    except Exception as e:
+        logger.error(f"Failed to download model {model_size}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to download model: {str(e)}"
+        )
+
+
+@app.get("/model-status")
+async def get_model_status():
+    """Get the status of the currently configured Whisper model"""
+    return {
+        "provider": ai_provider,
+        "model": ai_model,
+        "local_model_size": LOCAL_WHISPER_MODEL_SIZE if ai_provider == "ollama" else None,
+        "faster_whisper_available": FASTER_WHISPER_AVAILABLE,
+        "local_model_loaded": local_whisper_model is not None,
+        "openai_configured": bool(openai_api_key) if ai_provider == "openai" else None,
+        "ollama_url": ollama_base_url if ai_provider == "ollama" else None
+    }
+
 
 if __name__ == "__main__":
     import uvicorn
