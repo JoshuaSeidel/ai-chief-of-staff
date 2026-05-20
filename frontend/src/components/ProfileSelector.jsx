@@ -4,7 +4,46 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import {
+  BookOpen,
+  BriefcaseBusiness,
+  Brush,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Home,
+  Lightbulb,
+  Rocket,
+  Star,
+  Target,
+  UserRound
+} from 'lucide-react';
 import { useProfile } from '../contexts/ProfileContext';
+
+const PROFILE_ICONS = {
+  briefcase: BriefcaseBusiness,
+  home: Home,
+  books: BookOpen,
+  target: Target,
+  lightbulb: Lightbulb,
+  rocket: Rocket,
+  art: Brush,
+  star: Star,
+  user: UserRound,
+  '💼': BriefcaseBusiness,
+  '🏠': Home,
+  '📚': BookOpen,
+  '🎯': Target,
+  '💡': Lightbulb,
+  '🚀': Rocket,
+  '🎨': Brush,
+  '🌟': Star
+};
+
+function ProfileIcon({ value }) {
+  const Icon = PROFILE_ICONS[value] || UserRound;
+  return <Icon size={16} strokeWidth={2} />;
+}
 
 function ProfileSelector() {
   const { currentProfile, profiles, switchProfile } = useProfile();
@@ -48,10 +87,12 @@ function ProfileSelector() {
         aria-expanded={isOpen}
       >
         <span className="profile-icon" style={{ backgroundColor: currentProfile.color }}>
-          {currentProfile.icon || '👤'}
+          <ProfileIcon value={currentProfile.icon} />
         </span>
         <span className="profile-name">{currentProfile.name}</span>
-        <span className="profile-chevron">{isOpen ? '▴' : '▾'}</span>
+        <span className="profile-chevron" aria-hidden="true">
+          {isOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+        </span>
       </button>
 
       {isOpen && (
@@ -63,7 +104,7 @@ function ProfileSelector() {
               onClick={() => handleProfileSwitch(profile.id)}
             >
               <span className="profile-icon" style={{ backgroundColor: profile.color }}>
-                {profile.icon || '👤'}
+                <ProfileIcon value={profile.icon} />
               </span>
               <span className="profile-info">
                 <span className="profile-name">{profile.name}</span>
@@ -75,7 +116,7 @@ function ProfileSelector() {
                 <span className="profile-badge">Default</span>
               )}
               {profile.id === currentProfile.id && (
-                <span className="profile-check">✓</span>
+                <span className="profile-check"><Check size={15} /></span>
               )}
             </button>
           ))}

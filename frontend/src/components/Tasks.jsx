@@ -1,4 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import {
+  AlertTriangle,
+  Bot,
+  CheckCircle2,
+  ClipboardList,
+  Plus,
+  RefreshCw,
+  Target,
+  Trash2,
+  Undo2,
+  Zap
+} from 'lucide-react';
 import { commitmentsAPI, intelligenceAPI, plannerAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 import CompletionModal from './CompletionModal';
@@ -453,15 +465,8 @@ function Commitments() {
   const grouped = groupByStatus();
   const byType = groupByType();
 
-  const typeEmojis = {
-    'all': '📋',
-    'commitment': '📋',
-    'action': '⚡',
-    'follow-up': '🔄',
-    'risk': '⚠️'
-  };
-
   const typeLabels = {
+    'all': 'All Types',
     'commitment': 'Commitments',
     'action': 'Action Items',
     'follow-up': 'Follow-ups',
@@ -491,9 +496,9 @@ function Commitments() {
               {commitment.description}
             </p>
             <div className="task-metadata-wrap text-muted" style={{ fontSize: '0.875rem' }}>
-              {commitment.assignee && <span>👤 {commitment.assignee} • </span>}
+              {commitment.assignee && <span>{commitment.assignee} • </span>}
               {variant === 'completed' ? (
-                <span>✓ Completed: {formatRelativeTime(commitment.completed_date)}</span>
+                <span>Completed: {formatRelativeTime(commitment.completed_date)}</span>
               ) : (
                 <DeadlineTime date={commitment.deadline} />
               )}
@@ -501,15 +506,15 @@ function Commitments() {
           </div>
           <div className="flex gap-sm flex-wrap" style={{ marginTop: '0.5rem' }}>
             {variant === 'completed' ? (
-              <Button variant="secondary" size="sm" onClick={() => updateStatus(commitment.id, 'pending')} icon="↩️">
+              <Button variant="secondary" size="sm" onClick={() => updateStatus(commitment.id, 'pending')} icon={<Undo2 size={15} />}>
                 Reopen
               </Button>
             ) : (
-              <Button variant="success" size="sm" onClick={() => updateStatus(commitment.id, 'completed')} icon="✅">
+              <Button variant="success" size="sm" onClick={() => updateStatus(commitment.id, 'completed')} icon={<CheckCircle2 size={15} />}>
                 Complete
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={() => deleteTask(commitment.id, commitment.description)} icon="🗑️">
+            <Button variant="ghost" size="sm" onClick={() => deleteTask(commitment.id, commitment.description)} icon={<Trash2 size={15} />}>
               Delete
             </Button>
           </div>
@@ -526,14 +531,14 @@ function Commitments() {
             <div className="flex-between mb-lg flex-wrap gap-lg">
               <h2 className="mt-0 mb-0">Task Management</h2>
               <div className="flex gap-sm flex-wrap">
-                <Button variant="success" onClick={() => setShowCreateModal(true)} icon="➕" title="Create a new task (Cmd+N)">
+                <Button variant="success" onClick={() => setShowCreateModal(true)} icon={<Plus size={16} />} title="Create a new task (Cmd+N)">
                   Create Task
                 </Button>
                 <Button
                   onClick={handleSmartGroup}
                   disabled={clusteringTasks || loading || filteredCommitments.filter(c => c.status !== 'completed').length < 2}
                   loading={clusteringTasks}
-                  icon="🤖"
+                  icon={<Bot size={16} />}
                   style={{ backgroundColor: '#8b5cf6' }}
                   title="AI-powered task grouping"
                 >
@@ -544,7 +549,7 @@ function Commitments() {
                     onClick={handleSyncToMicrosoft}
                     disabled={syncingMicrosoft || loading}
                     loading={syncingMicrosoft}
-                    icon="📋"
+                    icon={<ClipboardList size={16} />}
                     style={{ backgroundColor: '#0078d4' }}
                     title="Sync tasks to Microsoft Planner"
                   >
@@ -557,7 +562,7 @@ function Commitments() {
                       onClick={handleSyncToJira}
                       disabled={syncingJira || loading}
                       loading={syncingJira}
-                      icon="🎯"
+                      icon={<Target size={16} />}
                       style={{ backgroundColor: '#0052CC' }}
                       title="Sync tasks to Jira"
                     >
@@ -568,7 +573,7 @@ function Commitments() {
                         onClick={handleSyncFailedToJira}
                         disabled={syncingJira || loading}
                         variant="warning"
-                        icon="🔄"
+                        icon={<RefreshCw size={16} />}
                         title="Retry syncing failed/pending tasks to Jira"
                       >
                         Retry Failed
@@ -576,7 +581,7 @@ function Commitments() {
                     )}
                   </>
                 )}
-                <Button variant="secondary" onClick={loadCommitments} disabled={loading} icon="🔄">
+                <Button variant="secondary" onClick={loadCommitments} disabled={loading} icon={<RefreshCw size={16} />}>
                   {loading ? 'Loading...' : 'Refresh'}
                 </Button>
               </div>
@@ -594,37 +599,37 @@ function Commitments() {
             <div className="grid-auto-fit">
               <div className="stat-box-bordered">
                 <div className="stat-number-error">{grouped.overdue.length}</div>
-                <div className="stat-caption">⚠️ Overdue</div>
+                <div className="stat-caption">Overdue</div>
               </div>
               <div className="stat-box-bordered">
                 <div className="stat-number-warning">{grouped.pending.length}</div>
-                <div className="stat-caption">⏳ Pending</div>
+                <div className="stat-caption">Pending</div>
               </div>
               <div className="stat-box-bordered">
                 <div className="stat-number-success">{grouped.completed.length}</div>
-                <div className="stat-caption">✅ Completed</div>
+                <div className="stat-caption">Completed</div>
               </div>
             </div>
 
             {/* Task Type Stats */}
             <div className="grid-auto-fit-sm">
               <div className="stat-box-bordered text-center">
-                <div className="stat-large-icon">📋</div>
+                <div className="stat-large-icon"><ClipboardList size={20} /></div>
                 <div className="stat-title">{byType.commitments.length}</div>
                 <div className="text-xs text-muted">Commitments</div>
               </div>
               <div className="stat-box-bordered text-center">
-                <div className="stat-large-icon">⚡</div>
+                <div className="stat-large-icon"><Zap size={20} /></div>
                 <div className="stat-title">{byType.actions.length}</div>
                 <div className="text-xs text-muted">Actions</div>
               </div>
               <div className="stat-box-bordered text-center">
-                <div className="stat-large-icon">🔄</div>
+                <div className="stat-large-icon"><RefreshCw size={20} /></div>
                 <div className="stat-title">{byType.followUps.length}</div>
                 <div className="text-xs text-muted">Follow-ups</div>
               </div>
               <div className="stat-box-bordered text-center">
-                <div className="stat-large-icon">⚠️</div>
+                <div className="stat-large-icon"><AlertTriangle size={20} /></div>
                 <div className="stat-title">{byType.risks.length}</div>
                 <div className="text-xs text-muted">Risks</div>
               </div>
@@ -656,7 +661,7 @@ function Commitments() {
                     onClick={() => setTypeFilter(type)}
                     className={typeFilter === type ? 'btn-filter' : 'secondary btn-filter'}
                   >
-                    {typeEmojis[type]} {type === 'all' ? 'All Types' : typeLabels[type]}
+                    {typeLabels[type]}
                   </button>
                 ))}
               </div>
@@ -675,7 +680,7 @@ function Commitments() {
             const confirmationGroup = groupByConfirmation();
             return confirmationGroup.needsConfirmation.length > 0 && (
               <div className="card card-warning-border">
-                <h3 className="heading-warning-mb-md">🔔 Tasks Needing Confirmation</h3>
+                <h3 className="heading-warning-mb-md">Tasks Needing Confirmation</h3>
                 <p className="text-sm-muted-mb-md">
                   These tasks have unclear assignees. Confirm if they&apos;re yours, or reject to remove them.
                 </p>
@@ -687,13 +692,13 @@ function Commitments() {
                     </div>
                     <p className="task-description">{commitment.description}</p>
                     <div className="task-metadata">
-                      <div>👤 Assignee: <strong>{commitment.assignee || 'Unknown'}</strong></div>
+                      <div>Assignee: <strong>{commitment.assignee || 'Unknown'}</strong></div>
                       {commitment.deadline && <DeadlineTime date={commitment.deadline} />}
                     </div>
                     <div className="flex gap-sm mt-md flex-wrap">
-                      <Button variant="success" size="sm" onClick={() => confirmTask(commitment.id, true)} icon="✅">Confirm</Button>
-                      <Button variant="error" size="sm" onClick={() => confirmTask(commitment.id, false)} icon="❌">Reject</Button>
-                      <Button variant="ghost" size="sm" onClick={() => deleteTask(commitment.id, commitment.description)} icon="🗑️">Delete</Button>
+                      <Button variant="success" size="sm" onClick={() => confirmTask(commitment.id, true)} icon={<CheckCircle2 size={15} />}>Confirm</Button>
+                      <Button variant="error" size="sm" onClick={() => confirmTask(commitment.id, false)} icon={<Trash2 size={15} />}>Reject</Button>
+                      <Button variant="ghost" size="sm" onClick={() => deleteTask(commitment.id, commitment.description)} icon={<Trash2 size={15} />}>Delete</Button>
                     </div>
                   </div>
                 ))}
@@ -704,7 +709,7 @@ function Commitments() {
           {/* Overdue Commitments */}
           {grouped.overdue.length > 0 && (filter === 'all' || filter === 'overdue') && (
             <div className="card">
-              <h3 className="heading-error-mb-md">⚠️ Overdue Commitments</h3>
+              <h3 className="heading-error-mb-md">Overdue Commitments</h3>
               {grouped.overdue.map(commitment => (
                 <TaskCard key={commitment.id} commitment={commitment} variant="overdue" />
               ))}
@@ -714,7 +719,7 @@ function Commitments() {
           {/* Pending Commitments */}
           {grouped.pending.length > 0 && (filter === 'all' || filter === 'pending') && (
             <div className="card">
-              <h3 className="text-warning-mb">⏳ Pending Commitments</h3>
+              <h3 className="text-warning-mb">Pending Commitments</h3>
               {grouped.pending.map(commitment => (
                 <TaskCard key={commitment.id} commitment={commitment} variant="pending" />
               ))}
@@ -724,7 +729,7 @@ function Commitments() {
           {/* Completed Commitments */}
           {grouped.completed.length > 0 && (filter === 'all' || filter === 'completed') && (
             <div className="card">
-              <h3 style={{ color: '#34c759', marginBottom: '1rem' }}>✅ Completed Commitments</h3>
+              <h3 style={{ color: '#34c759', marginBottom: '1rem' }}>Completed Commitments</h3>
               {grouped.completed.map(commitment => (
                 <TaskCard key={commitment.id} commitment={commitment} variant="completed" />
               ))}
@@ -777,10 +782,10 @@ function Commitments() {
             className="form-select"
             disabled={creating}
           >
-            <option value="commitment">📋 Commitment</option>
-            <option value="action">⚡ Action Item</option>
-            <option value="follow-up">🔄 Follow-up</option>
-            <option value="risk">⚠️ Risk</option>
+            <option value="commitment">Commitment</option>
+            <option value="action">Action Item</option>
+            <option value="follow-up">Follow-up</option>
+            <option value="risk">Risk</option>
           </select>
         </div>
 
@@ -839,7 +844,7 @@ function Commitments() {
       <Modal
         isOpen={showClusters && clusters}
         onClose={() => setShowClusters(false)}
-        title="🤖 AI-Grouped Tasks"
+        title="AI-Grouped Tasks"
         size="lg"
       >
         {clusters?.clusters?.map((cluster, idx) => (
@@ -861,7 +866,7 @@ function Commitments() {
 
         {clusters?.recommendations && (
           <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#1a2e1a', borderRadius: '8px', border: '1px solid #22c55e' }}>
-            <h4 style={{ color: '#22c55e', marginTop: 0, marginBottom: '0.5rem' }}>💡 Recommendations</h4>
+            <h4 style={{ color: '#22c55e', marginTop: 0, marginBottom: '0.5rem' }}>Recommendations</h4>
             <p style={{ color: '#e5e5e7', fontSize: '0.9rem', margin: 0 }}>{clusters.recommendations}</p>
           </div>
         )}

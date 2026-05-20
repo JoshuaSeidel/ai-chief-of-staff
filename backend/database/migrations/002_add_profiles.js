@@ -54,20 +54,25 @@ async function migrateSQLite(db) {
 
       // 2. Profile integrations table
       db.run(`
-        CREATE TABLE IF NOT EXISTS profile_integrations (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          profile_id INTEGER NOT NULL,
-          integration_type TEXT NOT NULL,
-          config TEXT NOT NULL,
-          status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'error')),
-          last_sync_at DATETIME,
-          last_sync_status TEXT,
-          error_message TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
-          UNIQUE(profile_id, integration_type)
-        )
+	        CREATE TABLE IF NOT EXISTS profile_integrations (
+	          id INTEGER PRIMARY KEY AUTOINCREMENT,
+	          profile_id INTEGER NOT NULL,
+	          integration_type TEXT NOT NULL,
+	          integration_name TEXT NOT NULL DEFAULT 'default',
+	          token_data TEXT,
+	          config TEXT DEFAULT '{}',
+	          is_enabled INTEGER DEFAULT 1,
+	          status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'error')),
+	          last_sync_at DATETIME,
+	          last_sync_status TEXT,
+	          error_message TEXT,
+	          created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+	          updated_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+	          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	          FOREIGN KEY (profile_id) REFERENCES profiles(id) ON DELETE CASCADE,
+	          UNIQUE(profile_id, integration_type, integration_name)
+	        )
       `, (err) => {
         if (err) logger.error('Error creating profile_integrations table:', err);
         else logger.info('✓ Created profile_integrations table');
@@ -173,11 +178,15 @@ async function migrateSQLite(db) {
       ];
 
       let indexCount = 0;
-      indexes.forEach((indexSql, idx) => {
-        db.run(indexSql, (err) => {
-          if (err && !err.message.includes('already exists')) {
-            logger.error(`Error creating index ${idx}:`, err);
-          }
+	      indexes.forEach((indexSql, idx) => {
+	        db.run(indexSql, (err) => {
+	          if (err && !err.message.includes('already exists')) {
+	            if (err.message.includes('no such column') || err.message.includes('no such table')) {
+	              logger.info(`  Skipped index ${idx} (${err.message})`);
+	            } else {
+	              logger.error(`Error creating index ${idx}:`, err);
+	            }
+	          }
           indexCount++;
           
           if (indexCount === indexes.length) {
@@ -238,19 +247,24 @@ async function migratePostgreSQL(pool) {
 
     // 2. Profile integrations table
     await client.query(`
-      CREATE TABLE IF NOT EXISTS profile_integrations (
-        id SERIAL PRIMARY KEY,
-        profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-        integration_type VARCHAR(50) NOT NULL,
-        config JSONB NOT NULL,
-        status VARCHAR(20) DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'error')),
-        last_sync_at TIMESTAMP,
-        last_sync_status VARCHAR(20),
-        error_message TEXT,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(profile_id, integration_type)
-      )
+	      CREATE TABLE IF NOT EXISTS profile_integrations (
+	        id SERIAL PRIMARY KEY,
+	        profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+	        integration_type VARCHAR(50) NOT NULL,
+	        integration_name VARCHAR(50) NOT NULL DEFAULT 'default',
+	        token_data TEXT,
+	        config JSONB DEFAULT '{}',
+	        is_enabled BOOLEAN DEFAULT TRUE,
+	        status VARCHAR(20) DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'error')),
+	        last_sync_at TIMESTAMP,
+	        last_sync_status VARCHAR(20),
+	        error_message TEXT,
+	        created_date TIMESTAMP DEFAULT NOW(),
+	        updated_date TIMESTAMP DEFAULT NOW(),
+	        created_at TIMESTAMP DEFAULT NOW(),
+	        updated_at TIMESTAMP DEFAULT NOW(),
+	        UNIQUE(profile_id, integration_type, integration_name)
+	      )
     `);
     logger.info('✓ Created profile_integrations table');
 

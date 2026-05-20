@@ -120,13 +120,7 @@ export function DeadlineTime({ date, className = '' }) {
   if (isPast) statusClass = 'deadline-overdue';
   else if (isToday) statusClass = 'deadline-today';
 
-  return (
-    <RelativeTime
-      date={date}
-      prefix="📅 "
-      className={`deadline-time ${statusClass} ${className}`}
-    />
-  );
+  return <RelativeTime date={date} className={`deadline-time ${statusClass} ${className}`} />;
 }
 
 export default RelativeTime;

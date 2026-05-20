@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Edit3, RotateCcw } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
@@ -125,7 +126,7 @@ export function PromptsSettings() {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleEdit(prompt)}
-                  icon="✏️"
+                  icon={<Edit3 size={15} />}
                 >
                   Edit
                 </Button>
@@ -134,7 +135,7 @@ export function PromptsSettings() {
                     variant="ghost"
                     size="sm"
                     onClick={() => handleReset(prompt.key)}
-                    icon="↺"
+                    icon={<RotateCcw size={15} />}
                   >
                     Reset
                   </Button>

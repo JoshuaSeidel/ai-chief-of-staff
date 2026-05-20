@@ -104,6 +104,37 @@ async function transcribeAudio(filePath, originalFilename) {
   }
 }
 
+async function createAndProcessTranscript({
+  filename,
+  content,
+  source = 'manual',
+  meetingDate = null,
+  profileId = 2
+}) {
+  if (!filename || !content) {
+    throw new Error('Filename and content are required');
+  }
+
+  const db = getDb();
+  const result = await db.run(
+    'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [filename, content, source, meetingDate, 'processing', 0, profileId]
+  );
+
+  const transcriptId = result.lastID;
+  const transcript = { id: transcriptId, filename, content, meeting_date: meetingDate };
+  const reqContext = { profileId };
+
+  processTranscriptAsync(transcriptId, transcript, db, reqContext).catch(err => {
+    logger.error(`Background processing error for transcript ${transcriptId}:`, err);
+  });
+
+  return {
+    transcriptId,
+    status: 'processing'
+  };
+}
+
 /**
  * Save all task types (commitments, actions, follow-ups, risks) and create calendar events
  */
@@ -431,7 +462,10 @@ router.post('/upload', (req, res) => {
   
   upload.single('transcript')(req, res, async (err) => {
     if (err) {
-      logger.error('File upload error:', err);
+      logger.warn('File upload rejected', {
+        reason: err.message,
+        code: err.code
+      });
       return res.status(400).json({ error: 'File upload failed', message: err.message });
     }
 
@@ -546,16 +580,13 @@ router.post('/upload-text', async (req, res) => {
   logger.info(`Manual text upload: ${filename} (${content.length} characters), meeting date: ${meetingDateValue || 'not provided'}`);
 
   try {
-    const db = getDb();
-
-    // Save to database with processing status
-    const result = await db.run(
-      'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [filename, content, source || 'manual', meetingDateValue, 'processing', 0, req.profileId]
-    );
-
-    const transcriptId = result.lastID;
-    logger.info(`Transcript saved with ID: ${transcriptId}`);
+    const { transcriptId } = await createAndProcessTranscript({
+      filename,
+      content,
+      source: source || 'manual',
+      meetingDate: meetingDateValue,
+      profileId: req.profileId
+    });
 
     // Return immediately - process in background
     res.json({ 
@@ -563,12 +594,6 @@ router.post('/upload-text', async (req, res) => {
       message: 'Transcript saved, processing in background',
       transcriptId,
       status: 'processing'
-    });
-
-    // Process in background
-    const transcript = { id: transcriptId, filename, content, meeting_date: meetingDateValue };
-    processTranscriptAsync(transcriptId, transcript, db, req).catch(err => {
-      logger.error(`Background processing error for transcript ${transcriptId}:`, err);
     });
   } catch (error) {
     logger.error('Error processing text upload:', error);
@@ -931,5 +956,7 @@ router.post('/:id/meeting-notes', async (req, res) => {
     });
   }
 });
+
+router.createAndProcessTranscript = createAndProcessTranscript;
 
 module.exports = router;

@@ -11,10 +11,10 @@ export const THEMES = {
 const STORAGE_KEY = 'aicos-theme-preference';
 
 export function ThemeProvider({ children }) {
-  // Initialize from localStorage or default to system
+  // Initialize from localStorage or default to dark for a stronger product presentation
   const [themePreference, setThemePreference] = useState(() => {
-    if (typeof window === 'undefined') return THEMES.SYSTEM;
-    return localStorage.getItem(STORAGE_KEY) || THEMES.SYSTEM;
+    if (typeof window === 'undefined') return THEMES.DARK;
+    return localStorage.getItem(STORAGE_KEY) || THEMES.DARK;
   });
 
   // Actual resolved theme (light or dark)

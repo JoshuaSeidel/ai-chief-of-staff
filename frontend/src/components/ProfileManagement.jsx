@@ -4,7 +4,46 @@
  */
 
 import React, { useState } from 'react';
+import {
+  BookOpen,
+  BriefcaseBusiness,
+  Brush,
+  Edit3,
+  Home,
+  Lightbulb,
+  Rocket,
+  Star,
+  Target,
+  Trash2,
+  UserRound,
+  X
+} from 'lucide-react';
 import { useProfile } from '../contexts/ProfileContext';
+
+const PROFILE_ICONS = {
+  briefcase: BriefcaseBusiness,
+  home: Home,
+  books: BookOpen,
+  target: Target,
+  lightbulb: Lightbulb,
+  rocket: Rocket,
+  art: Brush,
+  star: Star,
+  user: UserRound,
+  '💼': BriefcaseBusiness,
+  '🏠': Home,
+  '📚': BookOpen,
+  '🎯': Target,
+  '💡': Lightbulb,
+  '🚀': Rocket,
+  '🎨': Brush,
+  '🌟': Star
+};
+
+function ProfileIcon({ value, size = 18 }) {
+  const Icon = PROFILE_ICONS[value] || UserRound;
+  return <Icon size={size} strokeWidth={2} />;
+}
 
 function ProfileManagement() {
   const { profiles, currentProfile, createProfile, updateProfile, deleteProfile, setDefaultProfile } = useProfile();
@@ -21,19 +60,19 @@ function ProfileManagement() {
   const [migrateToId, setMigrateToId] = useState(null);
 
   const iconOptions = [
-    { value: '💼', label: 'Briefcase' },
-    { value: '🏠', label: 'Home' },
-    { value: '📚', label: 'Books' },
-    { value: '🎯', label: 'Target' },
-    { value: '💡', label: 'Lightbulb' },
-    { value: '🚀', label: 'Rocket' },
-    { value: '🎨', label: 'Art' },
-    { value: '🌟', label: 'Star' }
+    { value: 'briefcase', label: 'Briefcase' },
+    { value: 'home', label: 'Home' },
+    { value: 'books', label: 'Books' },
+    { value: 'target', label: 'Target' },
+    { value: 'lightbulb', label: 'Lightbulb' },
+    { value: 'rocket', label: 'Rocket' },
+    { value: 'art', label: 'Art' },
+    { value: 'star', label: 'Star' }
   ];
   const colorOptions = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#EC4899', '#06B6D4', '#6366F1'];
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', color: '#3B82F6', icon: '💼' });
+    setFormData({ name: '', description: '', color: '#3B82F6', icon: 'briefcase' });
     setShowCreateForm(false);
     setEditingId(null);
     setError(null);
@@ -92,7 +131,7 @@ function ProfileManagement() {
         <h2>Profiles</h2>
         {!showCreateForm && (
           <button className="btn-primary" onClick={() => setShowCreateForm(true)}>
-            + New Profile
+            New Profile
           </button>
         )}
       </div>
@@ -100,7 +139,7 @@ function ProfileManagement() {
       {error && (
         <div className="message-error">
           {error}
-          <button onClick={() => setError(null)}>✕</button>
+          <button onClick={() => setError(null)} aria-label="Dismiss error"><X size={15} /></button>
         </div>
       )}
 
@@ -140,7 +179,7 @@ function ProfileManagement() {
                   onClick={() => setFormData({ ...formData, icon: icon.value })}
                   title={icon.label}
                 >
-                  {icon.value}
+                  <ProfileIcon value={icon.value} />
                 </button>
               ))}
             </div>
@@ -177,7 +216,7 @@ function ProfileManagement() {
         {profiles.map(profile => (
           <div key={profile.id} className="profile-card">
             <span className="profile-icon" style={{ backgroundColor: profile.color }}>
-              {profile.icon || '👤'}
+              <ProfileIcon value={profile.icon} />
             </span>
             <div className="profile-card-info">
               <div className="profile-card-name">
@@ -195,11 +234,11 @@ function ProfileManagement() {
             </div>
             <div className="profile-card-actions">
               <button className="btn-secondary btn-sm" onClick={() => handleEdit(profile)} title="Edit profile">
-                ✏️
+                <Edit3 size={15} />
               </button>
               {!profile.is_default && (
                 <button className="btn-secondary btn-sm" onClick={() => handleSetDefault(profile.id)} title="Set as default">
-                  ⭐
+                  <Star size={15} />
                 </button>
               )}
               {profiles.length > 1 && (
@@ -213,7 +252,7 @@ function ProfileManagement() {
                   }}
                   title="Delete profile"
                 >
-                  🗑️
+                  <Trash2 size={15} />
                 </button>
               )}
             </div>

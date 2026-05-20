@@ -13,6 +13,32 @@ const logger = createModuleLogger('CONFIG');
 // Use centralized HTTPS agent (cached in memory)
 const getAgent = () => getHttpsAgent();
 
+function isSensitiveConfigKey(key = '') {
+  return /(secret|password|token|api[_-]?key|private|credential|vapid|oauthstatesecret)/i.test(String(key));
+}
+
+function isMaskedValue(value) {
+  return typeof value === 'string' && (/^[*•]{6,}$/.test(value) || value === '***REDACTED***');
+}
+
+function maskConfigValue(key, value) {
+  if (!isSensitiveConfigKey(key)) return value;
+  return value ? '********' : '';
+}
+
+function sanitizeConfigObject(config = {}) {
+  if (!config || typeof config !== 'object') return config;
+  if (Array.isArray(config)) return config.map(item => sanitizeConfigObject(item));
+
+  return Object.fromEntries(
+    Object.entries(config).map(([key, value]) => {
+      if (isSensitiveConfigKey(key)) return [key, maskConfigValue(key, value)];
+      if (value && typeof value === 'object') return [key, sanitizeConfigObject(value)];
+      return [key, value];
+    })
+  );
+}
+
 /**
  * Get system configuration from /app/data/config.json
  * Also includes actual runtime database type
@@ -37,7 +63,7 @@ router.get('/system', (req, res) => {
       }
     }
     
-    res.json(response);
+    res.json(sanitizeConfigObject(response));
   } catch (err) {
     logger.error('Error loading system config', err);
     res.status(500).json({ error: 'Error loading system configuration', message: err.message });
@@ -71,7 +97,7 @@ router.post('/system', async (req, res) => {
       });
     }
     
-    res.json({ message: 'Configuration updated successfully', config: newConfig });
+    res.json({ message: 'Configuration updated successfully', config: sanitizeConfigObject(newConfig) });
   } catch (err) {
     logger.error('Error updating system config', err);
     res.status(500).json({ error: 'Error updating system configuration', message: err.message });
@@ -121,7 +147,7 @@ router.get('/', async (req, res) => {
     });
     
     logger.info(`Retrieved ${Object.keys(config).length} config keys`);
-    res.json(config);
+    res.json(sanitizeConfigObject(config));
   } catch (err) {
     logger.error('Error fetching config', err);
     res.status(500).json({ error: 'Error fetching configuration', message: err.message });
@@ -142,6 +168,10 @@ router.post('/', async (req, res) => {
     
     logger.info(`Updating config key: ${key} (type: ${typeof value}, length: ${value?.length || 0})`);
     const db = getDb();
+
+    if (isSensitiveConfigKey(key) && isMaskedValue(value)) {
+      return res.json({ message: 'Masked secret unchanged', key, value: maskConfigValue(key, value) });
+    }
     
     // Always store as plain string - never JSON.stringify strings
     // Express has already parsed the JSON request body, so value is the actual value
@@ -156,7 +186,7 @@ router.post('/', async (req, res) => {
     );
     
     logger.info(`Config key updated successfully: ${key}`);
-    res.json({ message: 'Configuration updated successfully', key, value });
+    res.json({ message: 'Configuration updated successfully', key, value: maskConfigValue(key, value) });
   } catch (err) {
     logger.error('Error updating config', err);
     res.status(500).json({ error: 'Error updating configuration', message: err.message });
@@ -184,9 +214,13 @@ router.put('/', async (req, res) => {
     const stmt = db.prepare('INSERT OR REPLACE INTO config (key, value, updated_date) VALUES (?, ?, CURRENT_TIMESTAMP)');
     
     for (const [key, value] of Object.entries(config)) {
+      if (isSensitiveConfigKey(key) && isMaskedValue(value)) {
+        logger.info(`Bulk update: ${key} unchanged (masked secret placeholder)`);
+        continue;
+      }
       // Always store as plain string - Express has already parsed JSON
       const storedValue = String(value);
-      logger.info(`Bulk update: ${key} = ${storedValue.substring(0, 20)}... (length: ${storedValue.length})`);
+      logger.info(`Bulk update: ${key} = ${isSensitiveConfigKey(key) ? '[REDACTED]' : `${storedValue.substring(0, 20)}...`} (length: ${storedValue.length})`);
       stmt.run(key, storedValue);
     }
     
@@ -340,11 +374,11 @@ router.get('/ai-provider/:serviceName', async (req, res) => {
       provider,
       model,
       apiKeys: {
-        anthropic: anthropicKeyRow?.value,
-        openai: openaiKeyRow?.value,
+        anthropic: maskConfigValue('anthropicApiKey', anthropicKeyRow?.value),
+        openai: maskConfigValue('openaiApiKey', openaiKeyRow?.value),
         ollamaBaseUrl: ollamaUrlRow?.value || 'http://localhost:11434',
-        awsAccessKeyId: awsKeyIdRow?.value,
-        awsSecretAccessKey: awsSecretRow?.value
+        awsAccessKeyId: maskConfigValue('awsAccessKeyId', awsKeyIdRow?.value),
+        awsSecretAccessKey: maskConfigValue('awsSecretAccessKey', awsSecretRow?.value)
       }
     });
   } catch (err) {
@@ -408,51 +442,18 @@ router.get('/microservices', async (req, res) => {
 });
 
 /**
- * Get specific config value from database
- */
-router.get('/:key', async (req, res) => {
-  try {
-    const key = req.params.key;
-    
-    // Prevent AI provider route conflict
-    if (key === 'ai-provider') {
-      return res.status(400).json({ error: 'Use /ai-provider/:serviceName endpoint instead' });
-    }
-    
-    logger.info(`Fetching config key: ${key}`);
-    
-    const db = getDb();
-    
-    // Use unified interface - works for both SQLite and PostgreSQL
-    const row = await db.get('SELECT value FROM config WHERE key = ?', [key]);
-    
-    if (!row) {
-      logger.warn(`Config key not found: ${key}`);
-      return res.status(404).json({ error: 'Configuration key not found' });
-    }
-    
-    // Return value as-is (it's stored as a plain string)
-    logger.info(`Returning config value for ${key} (length: ${row.value?.length || 0})`);
-    res.json({ key, value: row.value });
-  } catch (err) {
-    logger.error(`Error fetching config key: ${req.params.key}`, err);
-    res.status(500).json({ error: 'Error fetching configuration', message: err.message });
-  }
-});
-
-/**
  * Health check for config system - verifies database connection and table
  */
 router.get('/health', async (req, res) => {
   try {
     const db = getDb();
     const dbType = getDbType();
-    
+
     // Try to query the config table
     let tableExists = false;
     let rowCount = 0;
     let sampleKeys = [];
-    
+
     try {
       const rows = await db.all('SELECT key FROM config LIMIT 5');
       tableExists = true;
@@ -461,7 +462,7 @@ router.get('/health', async (req, res) => {
     } catch (tableError) {
       tableExists = false;
     }
-    
+
     res.json({
       status: 'ok',
       database: {
@@ -485,10 +486,47 @@ router.get('/health', async (req, res) => {
 });
 
 /**
+ * Get specific config value from database
+ */
+router.get('/:key', async (req, res) => {
+  try {
+    const key = req.params.key;
+
+    // Prevent AI provider route conflict
+    if (key === 'ai-provider') {
+      return res.status(400).json({ error: 'Use /ai-provider/:serviceName endpoint instead' });
+    }
+
+    logger.info(`Fetching config key: ${key}`);
+
+    const db = getDb();
+
+    // Use unified interface - works for both SQLite and PostgreSQL
+    const row = await db.get('SELECT value FROM config WHERE key = ?', [key]);
+
+    if (!row) {
+      logger.warn(`Config key not found: ${key}`);
+      return res.status(404).json({ error: 'Configuration key not found' });
+    }
+
+    // Return value as-is (it's stored as a plain string)
+    logger.info(`Returning config value for ${key} (length: ${row.value?.length || 0})`);
+    res.json({ key, value: maskConfigValue(key, row.value) });
+  } catch (err) {
+    logger.error(`Error fetching config key: ${req.params.key}`, err);
+    res.status(500).json({ error: 'Error fetching configuration', message: err.message });
+  }
+});
+
+/**
  * Debug endpoint to check what's actually stored in the database
  */
 router.get('/debug/raw/:key', async (req, res) => {
   try {
+    if (process.env.ALLOW_CONFIG_DEBUG !== 'true') {
+      return res.status(404).json({ error: 'Debug endpoint disabled' });
+    }
+
     const key = req.params.key;
     logger.info(`DEBUG: Fetching raw config key: ${key}`);
     
@@ -514,8 +552,8 @@ router.get('/debug/raw/:key', async (req, res) => {
       key: row.key,
       valueLength: row.value ? row.value.length : 0,
       valueType: typeof row.value,
-      valueStartsWith: row.value ? row.value.substring(0, 8) : null,
-      valueEndsWith: row.value ? row.value.substring(row.value.length - 8) : null,
+      valueStartsWith: isSensitive ? '[REDACTED]' : (row.value ? row.value.substring(0, 8) : null),
+      valueEndsWith: isSensitive ? '[REDACTED]' : (row.value ? row.value.substring(row.value.length - 8) : null),
       displayValue,
       startsWithQuote: row.value ? row.value.startsWith('"') : false,
       endsWithQuote: row.value ? row.value.endsWith('"') : false,

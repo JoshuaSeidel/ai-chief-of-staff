@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { CalendarDays, Plus, RefreshCw, X } from 'lucide-react';
 import { calendarAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
@@ -134,20 +135,20 @@ function Calendar() {
       <div className="calendar">
       <div className="card">
         <div className="flex justify-between items-center mb-md gap-md flex-wrap">
-          <h2 className="mt-0 mb-0">📅 Calendar</h2>
+          <h2 className="mt-0 mb-0">Calendar</h2>
           <div className="flex gap-sm items-center">
             <button 
               onClick={loadEvents} 
               disabled={loading}
               className="glass-button btn-icon-square"
             >
-              {loading ? '⏳' : '🔄'}
+              <RefreshCw size={16} className={loading ? 'icon-spin' : ''} />
             </button>
             <button 
               onClick={() => setShowCreateForm(!showCreateForm)}
               className="glass-button-primary btn-icon-square"
             >
-              {showCreateForm ? '✕' : '➕'}
+              {showCreateForm ? <X size={16} /> : <Plus size={16} />}
             </button>
           </div>
         </div>
@@ -165,7 +166,7 @@ function Calendar() {
 
         {infoMessage && (
           <div className="calendar-info-box">
-            <strong>ℹ️ {infoMessage}</strong>
+            <strong>{infoMessage}</strong>
           </div>
         )}
 
@@ -245,7 +246,7 @@ function Calendar() {
 
         {!loading && events.length === 0 && !error && (
           <div className="empty-state">
-            <div className="empty-icon">📅</div>
+            <div className="empty-icon"><CalendarDays size={28} /></div>
             <p>No upcoming events found.</p>
             {error && error.includes('not configured') ? (
               <p className="text-sm-gray-mt-sm">
@@ -275,11 +276,11 @@ function Calendar() {
                           {event.summary}
                         </h4>
                         <p className="calendar-event-time">
-                          ⏰ {formatTime(event.start)} - {formatTime(event.end)}
+                          {formatTime(event.start)} - {formatTime(event.end)}
                         </p>
                         {event.location && (
                           <p className="text-sm text-muted">
-                            📍 {event.location}
+                            {event.location}
                           </p>
                         )}
                         {event.description && (
@@ -298,7 +299,7 @@ function Calendar() {
       </div>
 
       <div className="card">
-        <h2>💡 Tips</h2>
+        <h2>Tips</h2>
         <ul className="text-sm text-muted" style={{ lineHeight: '1.8' }}>
           <li>Create time blocks for focus time, meetings, and deep work</li>
           <li>Download the .ics file and import it into any calendar app</li>
@@ -312,4 +313,3 @@ function Calendar() {
 }
 
 export default Calendar;
-

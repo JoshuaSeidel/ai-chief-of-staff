@@ -1,4 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
+import {
+  ClipboardEdit,
+  FileText,
+  FileUp,
+  Loader2,
+  Mic,
+  RefreshCw,
+  Save,
+  Square,
+  X
+} from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { transcriptsAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
@@ -78,7 +89,7 @@ function Transcripts() {
         if (transcript.processing_status === 'completed') {
           setProcessingTranscriptId(null);
           setProcessingProgress(100);
-          setSuccessMessage(`✓ Processing complete: ${transcript.filename}`);
+          setSuccessMessage(`Processing complete: ${transcript.filename}`);
           loadTranscripts();
           setTimeout(() => {
             setSuccessMessage(null);
@@ -139,7 +150,7 @@ function Transcripts() {
       
       if (data.success && data.status === 'processing') {
         // Processing in background
-        setSuccessMessage(`✓ Uploaded: ${file.name}\n⏳ Processing in background...`);
+        setSuccessMessage(`Uploaded: ${file.name}\nProcessing in background...`);
         setProcessingTranscriptId(data.transcriptId);
         setProcessingProgress(0);
         loadTranscripts(); // Reload to show new transcript
@@ -184,7 +195,7 @@ function Transcripts() {
       
       if (data.success && data.status === 'processing') {
         // Processing in background
-        setSuccessMessage(`✓ Saved: ${pasteData.filename}\n⏳ Processing in background...`);
+        setSuccessMessage(`Saved: ${pasteData.filename}\nProcessing in background...`);
         setProcessingTranscriptId(data.transcriptId);
         setProcessingProgress(0);
         setPasteData({ filename: '', content: '', source: 'manual', meetingDate: '' });
@@ -283,7 +294,7 @@ function Transcripts() {
       const data = response.data;
       
       if (data.success && data.status === 'processing') {
-        setSuccessMessage(`✓ Recording uploaded!\n⏳ Transcribing with AI...`);
+        setSuccessMessage('Recording uploaded.\nTranscribing with AI...');
         setProcessingTranscriptId(data.transcriptId);
         setProcessingProgress(0);
         setAudioBlob(null);
@@ -345,10 +356,10 @@ function Transcripts() {
       if (data.success) {
         let message = `Successfully reprocessed: ${filename}`;
         if (data.extracted) {
-          message += `\n✓ Extracted ${data.extracted.commitments || 0} commitments`;
-          message += `\n✓ Extracted ${data.extracted.actionItems || 0} action items`;
-          message += `\n✓ Extracted ${data.extracted.followUps || 0} follow-ups`;
-          message += `\n✓ Extracted ${data.extracted.risks || 0} risks`;
+          message += `\nExtracted ${data.extracted.commitments || 0} commitments`;
+          message += `\nExtracted ${data.extracted.actionItems || 0} action items`;
+          message += `\nExtracted ${data.extracted.followUps || 0} follow-ups`;
+          message += `\nExtracted ${data.extracted.risks || 0} risks`;
         }
         setSuccessMessage(message);
       } else {
@@ -412,7 +423,7 @@ function Transcripts() {
               }}
               className="secondary glass-button btn-icon-square"
             >
-              {showRecording ? '📁' : '🎤'}
+              {showRecording ? <FileUp size={16} /> : <Mic size={16} />}
             </button>
             <button 
               onClick={() => {
@@ -421,7 +432,7 @@ function Transcripts() {
               }}
               className="secondary glass-button btn-icon-square"
             >
-              {showPasteForm ? '📁' : '📝'}
+              {showPasteForm ? <FileUp size={16} /> : <ClipboardEdit size={16} />}
             </button>
           </div>
         </div>
@@ -461,7 +472,7 @@ function Transcripts() {
           }}>
             <div className="flex-between-center-mb-sm">
               <span className="text-primary-sm-medium">
-                ⏳ Processing transcript...
+                Processing transcript...
               </span>
               <span className="text-xs text-muted">
                 {processingProgress}%
@@ -491,7 +502,7 @@ function Transcripts() {
                   </>
                 )}
                 <div className={`recording-icon ${isRecording ? 'recording' : ''}`}>
-                  🎤
+                  <Mic size={28} />
                 </div>
               </div>
               
@@ -508,7 +519,7 @@ function Transcripts() {
               {audioBlob && !isRecording && (
                 <div className="mt-md-mb-md">
                   <p className="text-success-mb-sm-medium">
-                    ✓ Recording complete ({formatTime(recordingTime)})
+                    Recording complete ({formatTime(recordingTime)})
                   </p>
                   <audio 
                     controls 
@@ -528,7 +539,7 @@ function Transcripts() {
                     onClick={startRecording}
                     className="primary glass-button-primary btn-large-padding"
                   >
-                    <span className="recording-button-icon">⏺</span>
+                    <span className="recording-button-icon"><Mic size={16} /></span>
                     Start Recording
                   </button>
                 )}
@@ -538,7 +549,7 @@ function Transcripts() {
                     onClick={stopRecording}
                     className="glass-button-stop btn-large-padding"
                   >
-                    <span className="recording-button-icon">⏹</span>
+                    <span className="recording-button-icon"><Square size={16} /></span>
                     Stop
                   </button>
                 )}
@@ -550,13 +561,13 @@ function Transcripts() {
                       disabled={uploading}
                       className="primary glass-button-primary btn-large-padding"
                     >
-                      {uploading ? '⏳ Processing...' : '✓ Upload & Transcribe'}
+                      {uploading ? 'Processing...' : 'Upload & Transcribe'}
                     </button>
                     <button 
                       onClick={cancelRecording}
                       className="secondary glass-button btn-padding-lg"
                     >
-                      ✕ Cancel
+                      <X size={16} /> Cancel
                     </button>
                   </>
                 )}
@@ -594,7 +605,7 @@ function Transcripts() {
               />
               <div>
                 <p className="text-md-mb-sm">
-                  {uploading ? '⏳ Uploading & Processing...' : '📁 Click to upload transcript or audio file'}
+                  {uploading ? 'Uploading and processing...' : 'Click to upload transcript or audio file'}
                 </p>
                 <p className="text-sm-gray">
                   Supports .txt, .doc, .docx, .pdf files and audio files (.mp3, .mp4, .m4a, .wav, .webm, .ogg, .flac) - max 10MB
@@ -665,7 +676,7 @@ function Transcripts() {
 
             <div className="flex-gap-md-mt-md">
               <button type="submit" disabled={uploading}>
-                {uploading ? '⏳ Processing...' : '💾 Save & Process'}
+                {uploading ? 'Processing...' : <><Save size={16} /> Save & Process</>}
               </button>
               <button 
                 type="button" 
@@ -687,7 +698,7 @@ function Transcripts() {
         
         {transcripts.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">📝</div>
+            <div className="empty-icon"><FileText size={28} /></div>
             <p>No transcripts uploaded yet.</p>
             <p className="text-sm-gray-mt-sm">
               Upload a file or paste transcript text to get started.
@@ -731,7 +742,7 @@ function Transcripts() {
                         <td className="transcript-table-cell">
                           {isProcessing ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span className="text-processing">⏳ Processing</span>
+                              <span className="text-processing">Processing</span>
                               <div style={{
                                 width: '60px',
                                 height: '4px',
@@ -751,9 +762,9 @@ function Transcripts() {
                               </span>
                             </div>
                           ) : isFailed ? (
-                            <span className="text-failed">❌ Failed</span>
+                            <span className="text-failed">Failed</span>
                           ) : (
-                            <span className="text-complete">✓ Complete</span>
+                            <span className="text-complete">Complete</span>
                           )}
                         </td>
                         <td style={{ padding: '0.75rem', textAlign: 'right' }}>
@@ -771,7 +782,7 @@ function Transcripts() {
                             disabled={isProcessing || isFailed}
                             title="View AI-generated meeting recap"
                           >
-                            📝 Meeting Recap
+                            Meeting Recap
                           </button>
                           <button
                             className="secondary"
@@ -780,7 +791,7 @@ function Transcripts() {
                             disabled={uploading || isProcessing}
                             title="Re-extract commitments and action items"
                           >
-                            🔄 Reprocess
+                            <RefreshCw size={14} /> Reprocess
                           </button>
                           <button
                             className="secondary"
@@ -842,7 +853,7 @@ function Transcripts() {
                         <span className="text-muted">Status:</span>
                         {isProcessing ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end' }}>
-                            <span className="text-processing">⏳ Processing</span>
+                            <span className="text-processing">Processing</span>
                             <div style={{
                               width: '60px',
                               height: '4px',
@@ -862,9 +873,9 @@ function Transcripts() {
                             </span>
                           </div>
                         ) : isFailed ? (
-                          <span className="text-failed">❌ Failed</span>
+                          <span className="text-failed">Failed</span>
                         ) : (
-                          <span className="text-complete">✓ Complete</span>
+                          <span className="text-complete">Complete</span>
                         )}
                       </div>
                     </div>
@@ -893,7 +904,7 @@ function Transcripts() {
                           disabled={uploading || isProcessing}
                           title="Re-extract commitments and action items"
                         >
-                          🔄 Reprocess
+                          <RefreshCw size={14} /> Reprocess
                         </button>
                         <button
                           className="secondary"
@@ -921,9 +932,9 @@ function Transcripts() {
         <div className="modal-overlay" onClick={handleCloseTranscriptView}>
           <div className="modal-content modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="mt-0 mb-0">📄 {viewingTranscript.filename}</h2>
-              <button className="modal-close-btn" onClick={handleCloseTranscriptView}>
-                ✕
+              <h2 className="mt-0 mb-0">{viewingTranscript.filename}</h2>
+              <button className="modal-close-btn" onClick={handleCloseTranscriptView} aria-label="Close transcript">
+                <X size={16} />
               </button>
             </div>
 
@@ -938,19 +949,19 @@ function Transcripts() {
               {/* Meeting Notes Section */}
               <div className="meeting-notes-section mb-xl">
                 <div className="flex justify-between items-center mb-md">
-                  <h3 className="mt-0 mb-0">📝 Meeting Recap</h3>
+                  <h3 className="mt-0 mb-0">Meeting Recap</h3>
                   <button 
                     className="btn-secondary btn-sm"
                     onClick={() => loadMeetingNotes(viewingTranscript.id, true)}
                     disabled={loadingNotes}
                   >
-                    {loadingNotes ? '⏳ Generating...' : '🔄 Regenerate'}
+                    {loadingNotes ? 'Generating...' : <><RefreshCw size={14} /> Regenerate</>}
                   </button>
                 </div>
 
                 {loadingNotes ? (
                   <div className="loading-notes">
-                    <div className="pulse-icon">💭</div>
+                    <div className="pulse-icon"><Loader2 className="spin" size={22} /></div>
                     <p className="text-muted">Generating meeting recap...</p>
                   </div>
                 ) : meetingNotes ? (

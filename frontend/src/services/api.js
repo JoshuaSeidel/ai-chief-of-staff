@@ -8,8 +8,10 @@ import axios from 'axios';
 // Note: In Docker microservices, VITE_API_URL should be set to http://aicos-backend:3001/api
 // However, since the browser can't resolve Docker container names, this typically needs to be
 // proxied through nginx or use the host's exposed port
+const isLocalDevHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (window.location.hostname === 'localhost' ? 'http://localhost:3001/api' : '/api')
+  (isLocalDevHost ? 'http://localhost:3001/api' : '/api');
+export const API_TOKEN_STORAGE_KEY = 'aicosApiToken';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -18,6 +20,24 @@ const api = axios.create({
   },
   timeout: 60000, // 60 seconds default timeout
 });
+
+api.interceptors.request.use((config) => {
+  const apiToken = import.meta.env.VITE_API_TOKEN || localStorage.getItem(API_TOKEN_STORAGE_KEY);
+  if (apiToken) {
+    config.headers.Authorization = `Bearer ${apiToken}`;
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('aicos:auth-required'));
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Brief API
 export const briefAPI = {
@@ -85,6 +105,30 @@ export const plannerAPI = {
   disconnectMicrosoft: () => api.post('/planner/microsoft/disconnect'),
   syncMicrosoft: () => api.post('/planner/microsoft/sync'),
   getMicrosoftLists: () => api.get('/planner/microsoft/lists'),
+};
+
+export const connectivityAPI = {
+  getStatus: (profileId = null) => api.get('/connectivity/status', profileId ? {
+    headers: { 'X-Profile-Id': profileId }
+  } : undefined),
+};
+
+export const intakeAPI = {
+  getEmailMessages: ({ limit = 25, unreadOnly = false, query = '' } = {}) => api.get('/intake/email/messages', {
+    params: { limit, unreadOnly, query }
+  }),
+  processEmailMessage: (id) => api.post(`/intake/email/messages/${encodeURIComponent(id)}/process`),
+  syncEmailMessages: ({ limit = 10, unreadOnly = false, query = '' } = {}) => api.post('/intake/email/sync', {
+    limit,
+    unreadOnly,
+    query
+  }),
+  getMeetings: ({ start = '', end = '', limit = 25, query = '' } = {}) => api.get('/intake/meetings', {
+    params: { start, end, limit, query }
+  }),
+  getMeetingAssets: (id) => api.get(`/intake/meetings/${encodeURIComponent(id)}/assets`),
+  processMeeting: (id) => api.post(`/intake/meetings/${encodeURIComponent(id)}/process`),
+  importMeetings: (ids = []) => api.post('/intake/meetings/import', { ids }),
 };
 
 // Integrations Proxy API (for microservice integrations)

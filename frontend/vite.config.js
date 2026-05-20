@@ -134,9 +134,20 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['@callstack/liquid-glass', 'react-markdown']
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (
+            id.includes('/react/')
+            || id.includes('/react-dom/')
+            || id.includes('/react-router/')
+            || id.includes('/react-router-dom/')
+          ) {
+            return 'react-vendor';
+          }
+          if (id.includes('/@callstack/liquid-glass/') || id.includes('/react-markdown/')) {
+            return 'ui-vendor';
+          }
+          return undefined;
         }
       }
     }

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
+import { AlertTriangle, CheckCircle2, HelpCircle, Info, X, XCircle } from 'lucide-react';
 
 const ToastContext = createContext(null);
 
@@ -90,17 +91,18 @@ function ToastContainer({ toasts, removeToast }) {
 
 function Toast({ toast, onClose }) {
   const icons = {
-    success: '✓',
-    error: '✕',
-    warning: '⚠',
-    info: 'ℹ',
-    confirm: '?'
+    success: CheckCircle2,
+    error: XCircle,
+    warning: AlertTriangle,
+    info: Info,
+    confirm: HelpCircle
   };
+  const Icon = icons[toast.type] || Info;
 
   if (toast.type === 'confirm') {
     return (
       <div className={`toast toast-confirm`}>
-        <div className="toast-icon">{icons.confirm}</div>
+        <div className="toast-icon"><Icon size={16} /></div>
         <div className="toast-content">
           <p className="toast-message">{toast.message}</p>
           <div className="toast-actions">
@@ -118,9 +120,9 @@ function Toast({ toast, onClose }) {
 
   return (
     <div className={`toast toast-${toast.type}`}>
-      <div className="toast-icon">{icons[toast.type]}</div>
+      <div className="toast-icon"><Icon size={16} /></div>
       <p className="toast-message">{toast.message}</p>
-      <button className="toast-close" onClick={onClose}>×</button>
+      <button className="toast-close" onClick={onClose} aria-label="Close notification"><X size={15} /></button>
     </div>
   );
 }

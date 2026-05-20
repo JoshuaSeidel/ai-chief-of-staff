@@ -1,4 +1,19 @@
 import React, { useState, useEffect, useCallback, type ReactNode } from 'react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Bot,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  GraduationCap,
+  Keyboard,
+  LayoutDashboard,
+  Settings,
+  Sparkles,
+  type LucideIcon
+} from 'lucide-react';
 import { Button } from './Button.tsx';
 
 // =============================================================================
@@ -17,7 +32,7 @@ interface TutorialStep {
   /** Position of tooltip relative to target */
   position?: 'top' | 'bottom' | 'left' | 'right';
   /** Icon or illustration for the step */
-  icon?: string;
+  icon?: LucideIcon;
 }
 
 interface OnboardingTutorialProps {
@@ -38,7 +53,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: 'welcome',
     title: 'Welcome to AI Chief of Staff',
     description: 'Your intelligent executive assistant for tracking tasks, commitments, and meeting insights. Let\'s take a quick tour to get you started.',
-    icon: '👋'
+    icon: Sparkles
   },
   {
     id: 'dashboard',
@@ -46,7 +61,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     description: 'The Dashboard gives you a complete view of your day at a glance. See your upcoming meetings, pending tasks, and AI-generated insights all in one place.',
     target: '[data-tab="dashboard"]',
     position: 'bottom',
-    icon: '📊'
+    icon: LayoutDashboard
   },
   {
     id: 'transcripts',
@@ -54,7 +69,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     description: 'Upload meeting transcripts or record audio directly. AI will automatically extract action items, commitments, and key decisions.',
     target: '[data-tab="transcripts"]',
     position: 'bottom',
-    icon: '📝'
+    icon: FileText
   },
   {
     id: 'tasks',
@@ -62,7 +77,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     description: 'View and manage all your commitments in one place. Tasks extracted from meetings appear here for confirmation. Sync with Microsoft Planner, Jira, Trello, and more.',
     target: '[data-tab="tasks"]',
     position: 'bottom',
-    icon: '📋'
+    icon: ClipboardList
   },
   {
     id: 'calendar',
@@ -70,7 +85,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     description: 'Connect your Google or Microsoft calendar to see upcoming events and automatically schedule tasks based on your availability.',
     target: '[data-tab="calendar"]',
     position: 'bottom',
-    icon: '📅'
+    icon: CalendarDays
   },
   {
     id: 'intelligence',
@@ -78,7 +93,7 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     description: 'Powerful AI tools to help you work smarter: estimate effort, classify energy levels, cluster related tasks, and parse natural language commands.',
     target: '[data-tab="intelligence"]',
     position: 'bottom',
-    icon: '🤖'
+    icon: Bot
   },
   {
     id: 'settings',
@@ -86,19 +101,19 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     description: 'Configure your AI provider, connect external services, customize prompts, and manage your profile preferences.',
     target: '[data-tab="config"]',
     position: 'bottom',
-    icon: '⚙️'
+    icon: Settings
   },
   {
     id: 'keyboard',
     title: 'Keyboard Shortcuts',
     description: 'Press "?" at any time to see available keyboard shortcuts. Use Tab to navigate between sections and Escape to close modals.',
-    icon: '⌨️'
+    icon: Keyboard
   },
   {
     id: 'complete',
     title: 'You\'re All Set!',
     description: 'You now know the basics. Start by uploading a meeting transcript or creating a quick task. We\'re here to help you stay on top of your commitments.',
-    icon: '🎉'
+    icon: CheckCircle2
   }
 ];
 
@@ -201,6 +216,7 @@ export function OnboardingTutorial({
 }: OnboardingTutorialProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const step = TUTORIAL_STEPS[currentStep];
+  const StepIcon = step.icon;
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === TUTORIAL_STEPS.length - 1;
 
@@ -269,9 +285,9 @@ export function OnboardingTutorial({
     <div className="onboarding-overlay" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
       <div className="onboarding-modal">
         <div className="onboarding-content">
-          {step.icon && (
+          {StepIcon && (
             <div className="onboarding-icon" aria-hidden="true">
-              {step.icon}
+              <StepIcon size={34} strokeWidth={1.9} />
             </div>
           )}
 
@@ -301,7 +317,7 @@ export function OnboardingTutorial({
               onClick={handlePrev}
               className="onboarding-btn-prev"
             >
-              ← Back
+              <ArrowLeft size={14} /> Back
             </Button>
           )}
 
@@ -322,7 +338,8 @@ export function OnboardingTutorial({
             onClick={handleNext}
             className="onboarding-btn-next"
           >
-            {isLastStep ? 'Get Started' : 'Next →'}
+            {isLastStep ? 'Get Started' : 'Next'}
+            {!isLastStep && <ArrowRight size={14} />}
           </Button>
         </div>
       </div>
@@ -344,7 +361,7 @@ export function RestartTutorialButton({
       className="restart-tutorial-link"
       type="button"
     >
-      🎓 Restart Tutorial
+      <GraduationCap size={15} /> Restart Tutorial
     </button>
   );
 }

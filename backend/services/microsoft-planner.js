@@ -1,6 +1,8 @@
 const { Client } = require('@microsoft/microsoft-graph-client');
 const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
+const { getMicrosoftScopeString } = require('./microsoft-scopes');
+const { createOAuthState } = require('./oauth-state');
 
 const logger = createModuleLogger('MICROSOFT-PLANNER');
 
@@ -63,18 +65,14 @@ async function getOAuthClient(profileId = 2) {
 
 /**
  * Generate OAuth URL for user to authorize
- * Includes both Calendar and Tasks scopes for unified Microsoft integration
+ * Includes Microsoft 365 scopes for unified Microsoft integration
  */
-async function getAuthUrl() {
-  const { clientId, redirectUri } = await getOAuthClient();
+async function getAuthUrl(profileId = 2) {
+  const { clientId, redirectUri } = await getOAuthClient(profileId);
   
   // Microsoft OAuth2 authorization endpoint - using /common for multi-tenant support
-  // Includes both Calendar and Tasks scopes for unified Microsoft integration
-  const scopes = [
-    'Calendars.ReadWrite',
-    'Tasks.ReadWrite',
-    'User.Read'
-  ].join(' ');
+  // Includes calendar, task, mail, and online meeting scopes for unified Microsoft 365 integration.
+  const scopes = getMicrosoftScopeString();
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -82,14 +80,14 @@ async function getAuthUrl() {
     redirect_uri: redirectUri,
     response_mode: 'query',
     scope: scopes,
-    state: 'microsoft-integration-auth',
+    state: await createOAuthState(profileId, 'microsoft'),
     prompt: 'select_account' // Allow user to choose which account to use
   });
   
   // Use /common for multi-tenant support (works with any org or personal accounts)
   const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
   
-  logger.info('Generated Microsoft OAuth URL (Calendar + Tasks)');
+  logger.info('Generated Microsoft OAuth URL (Microsoft 365)');
   return url;
 }
 
@@ -113,7 +111,7 @@ async function getTokenFromCode(code, profileId = 2) {
     code: code,
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
-    scope: 'Calendars.ReadWrite Tasks.ReadWrite User.Read'
+    scope: getMicrosoftScopeString()
   });
   
   const response = await fetch(tokenUrl, {
@@ -147,12 +145,12 @@ async function getTokenFromCode(code, profileId = 2) {
     [profileId, 'calendar', 'microsoft', JSON.stringify(tokens), true, JSON.stringify(tokens), true]
   );
   
-  logger.info(`Microsoft tokens stored successfully for profile ${profileId} (Calendar + Tasks)`);
+  logger.info(`Microsoft tokens stored successfully for profile ${profileId} (Microsoft 365)`);
   return tokens;
 }
 
 /**
- * Get Microsoft Graph client with stored tokens (shared token for Calendar and Planner)
+ * Get Microsoft Graph client with stored tokens (shared Microsoft 365 token)
  * @param {number} profileId - Profile ID to get tokens for
  */
 async function getGraphClient(profileId = 2) {
@@ -214,7 +212,7 @@ async function refreshToken(refreshTokenValue, profileId = 2) {
     client_secret: clientSecret,
     refresh_token: refreshTokenValue,
     grant_type: 'refresh_token',
-    scope: 'Calendars.ReadWrite Tasks.ReadWrite User.Read'
+    scope: getMicrosoftScopeString()
   });
   
   const response = await fetch(tokenUrl, {
@@ -238,19 +236,19 @@ async function refreshToken(refreshTokenValue, profileId = 2) {
     tokens.expires_at = Math.floor(Date.now() / 1000) + tokens.expires_in;
   }
   
-  // Store updated tokens in profile_integrations (shared token for Calendar and Planner)
+  // Store updated tokens in profile_integrations (shared Microsoft 365 token)
   const db = getDb();
   await db.run(
     `UPDATE profile_integrations \n     SET token_data = ?, updated_date = CURRENT_TIMESTAMP \n     WHERE profile_id = ? AND integration_type = ? AND integration_name = ?`,
     [JSON.stringify(tokens), profileId, 'calendar', 'microsoft']
   );
   
-  logger.info(`Microsoft tokens refreshed successfully for profile ${profileId} (Calendar + Tasks)`);
+  logger.info(`Microsoft tokens refreshed successfully for profile ${profileId} (Microsoft 365)`);
   return tokens;
 }
 
 /**
- * Check if user has connected Microsoft for a profile (shared token for Calendar and Planner)
+ * Check if user has connected Microsoft for a profile (shared Microsoft 365 token)
  * @param {number} profileId - Profile ID to check
  */
 async function isConnected(profileId = 2) {
@@ -263,7 +261,7 @@ async function isConnected(profileId = 2) {
 }
 
 /**
- * Disconnect Microsoft for a profile (removes shared token for Calendar and Planner)
+ * Disconnect Microsoft for a profile (removes shared Microsoft 365 token)
  * @param {number} profileId - Profile ID to disconnect
  */
 async function disconnect(profileId = 2) {
@@ -272,7 +270,7 @@ async function disconnect(profileId = 2) {
     'DELETE FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
     [profileId, 'calendar', 'microsoft']
   );
-  logger.info(`Microsoft disconnected for profile ${profileId} (Calendar + Planner)`);
+  logger.info(`Microsoft disconnected for profile ${profileId} (Microsoft 365)`);
 }
 
 /**
@@ -517,6 +515,7 @@ async function listTasks(limit = 50, profileId = 2) {
 module.exports = {
   getAuthUrl,
   getTokenFromCode,
+  getGraphClient,
   isConnected,
   disconnect,
   listTaskLists,
@@ -528,4 +527,3 @@ module.exports = {
   deleteTask,
   listTasks
 };
-

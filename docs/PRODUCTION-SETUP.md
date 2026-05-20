@@ -163,6 +163,12 @@ Then enable notifications in the Configuration UI.
 6. Copy Client ID and Client Secret to the Configuration UI
 7. Click "Connect Google Calendar"
 
+### 4. Microsoft 365 OAuth Setup
+
+Use the Microsoft 365 guide for email intake, meeting import, Planner/To Do sync, and optional Teams transcript/recording capture:
+
+- [Microsoft 365 Integration Setup](MICROSOFT-365-SETUP.md)
+
 ## Backup & Restore
 
 ### Backup
@@ -277,4 +283,3 @@ PostgreSQL Database (:5432)
 ```
 
 All services communicate over a private Docker network (`ai-chief-network`).
-

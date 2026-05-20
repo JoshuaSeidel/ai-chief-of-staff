@@ -2,6 +2,8 @@ const { Client } = require('@microsoft/microsoft-graph-client');
 const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
 const { generateEventDescription } = require('./claude');
+const { getMicrosoftScopeString } = require('./microsoft-scopes');
+const { createOAuthState } = require('./oauth-state');
 
 const logger = createModuleLogger('MICROSOFT-CALENDAR');
 
@@ -63,7 +65,7 @@ async function getOAuthClient(profileId = 2) {
 }
 
 /**
- * Generate OAuth URL for user to authorize (includes Calendar and Tasks scopes)
+ * Generate OAuth URL for user to authorize (includes Microsoft 365 scopes)
  */
 /**
  * Generate OAuth URL for user to authorize
@@ -73,12 +75,8 @@ async function getAuthUrl(profileId = 2) {
   const { clientId, redirectUri } = await getOAuthClient(profileId);
   
   // Microsoft OAuth2 authorization endpoint - using /common for multi-tenant support
-  // Includes both Calendar and Tasks scopes for unified Microsoft integration
-  const scopes = [
-    'Calendars.ReadWrite',
-    'Tasks.ReadWrite',
-    'User.Read'
-  ].join(' ');
+  // Includes calendar, task, mail, and online meeting scopes for unified Microsoft 365 integration.
+  const scopes = getMicrosoftScopeString();
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -86,14 +84,14 @@ async function getAuthUrl(profileId = 2) {
     redirect_uri: redirectUri,
     response_mode: 'query',
     scope: scopes,
-    state: profileId.toString(), // Include profileId in state for callback
+    state: await createOAuthState(profileId, 'microsoft'),
     prompt: 'select_account' // Allow user to choose which account to use
   });
   
   // Use /common for multi-tenant support (works with any org or personal accounts)
   const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
   
-  logger.info(`Generated Microsoft OAuth URL (Calendar + Tasks) for profile ${profileId}`);
+  logger.info(`Generated Microsoft OAuth URL (Microsoft 365) for profile ${profileId}`);
   return url;
 }
 
@@ -114,7 +112,7 @@ async function getTokenFromCode(code, profileId = 2) {
     code: code,
     redirect_uri: redirectUri,
     grant_type: 'authorization_code',
-    scope: 'Calendars.ReadWrite Tasks.ReadWrite User.Read'
+    scope: getMicrosoftScopeString()
   });
   
   const response = await fetch(tokenUrl, {
@@ -148,7 +146,7 @@ async function getTokenFromCode(code, profileId = 2) {
     [profileId, 'calendar', 'microsoft', JSON.stringify(tokens), true, JSON.stringify(tokens), true]
   );
   
-  logger.info(`Microsoft tokens stored successfully for profile ${profileId} (Calendar + Tasks)`);
+  logger.info(`Microsoft tokens stored successfully for profile ${profileId} (Microsoft 365)`);
   return tokens;
 }
 
@@ -169,7 +167,7 @@ async function getGraphClient(profileId = 2) {
   
   const tokens = JSON.parse(tokenRow.token_data);
   
-  const authProvider = new CustomAuthProvider(tokens, refreshToken);
+  const authProvider = new CustomAuthProvider(tokens, (refreshTokenValue) => refreshToken(refreshTokenValue, profileId));
   const client = Client.initWithMiddleware({ authProvider });
   
   return client;
@@ -191,7 +189,7 @@ async function refreshToken(refreshTokenValue, profileId = 2) {
     client_secret: clientSecret,
     refresh_token: refreshTokenValue,
     grant_type: 'refresh_token',
-    scope: 'Calendars.ReadWrite Tasks.ReadWrite User.Read'
+    scope: getMicrosoftScopeString()
   });
   
   const response = await fetch(tokenUrl, {
@@ -251,7 +249,7 @@ async function disconnect(profileId = 2) {
     'DELETE FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
     [profileId, 'calendar', 'microsoft']
   );
-  logger.info(`Microsoft disconnected for profile ${profileId} (Calendar + Planner)`);
+  logger.info(`Microsoft disconnected for profile ${profileId} (Microsoft 365)`);
 }
 
 /**
@@ -491,6 +489,7 @@ async function listCalendars(profileId = 2) {
 module.exports = {
   getAuthUrl,
   getTokenFromCode,
+  getGraphClient,
   isConnected,
   disconnect,
   createEvent,
@@ -499,4 +498,3 @@ module.exports = {
   deleteEvent,
   listCalendars
 };
-

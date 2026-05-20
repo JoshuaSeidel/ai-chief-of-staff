@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BrainCircuit, Database, FileText, Mic, RefreshCw, Search } from 'lucide-react';
 import { configAPI, profilesAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useProfile } from '../../contexts/ProfileContext';
@@ -270,7 +271,7 @@ export function AISettings() {
               size="sm"
               onClick={() => loadModelsForProvider(effectiveProvider)}
               disabled={isLoading}
-              icon="🔄"
+              icon={<RefreshCw size={15} />}
               title="Refresh models"
             />
           )}
@@ -434,7 +435,7 @@ export function AISettings() {
         <>
           {/* AI Intelligence Service */}
           <div className="glass-panel">
-            <h5 className="config-subsection-title">🧠 AI Intelligence Service</h5>
+            <h5 className="config-subsection-title"><BrainCircuit size={16} /> AI Intelligence Service</h5>
             <p className="form-hint">Task effort estimation, energy classification, and task clustering</p>
 
             <div className="grid-2-col">
@@ -466,7 +467,7 @@ export function AISettings() {
 
           {/* Voice Processor Service */}
           <div className="glass-panel">
-            <h5 className="config-subsection-title">🎤 Voice Processor Service</h5>
+            <h5 className="config-subsection-title"><Mic size={16} /> Voice Processor Service</h5>
             <p className="form-hint">Audio transcription and voice-to-text</p>
 
             <div className="grid-2-col">
@@ -495,7 +496,7 @@ export function AISettings() {
 
             {/* Storage Configuration */}
             <div className="section-divider">
-              <h6 className="config-subsection-subtitle">💾 Storage Configuration</h6>
+              <h6 className="config-subsection-subtitle"><Database size={15} /> Storage Configuration</h6>
               <p className="form-hint">Configure where transcribed audio files are stored</p>
 
               <div className="grid-2-col">
@@ -585,7 +586,7 @@ export function AISettings() {
 
           {/* Pattern Recognition Service */}
           <div className="glass-panel">
-            <h5 className="config-subsection-title">🔍 Pattern Recognition Service</h5>
+            <h5 className="config-subsection-title"><Search size={16} /> Pattern Recognition Service</h5>
             <p className="form-hint">Behavioral pattern detection and task clustering</p>
 
             <div className="grid-2-col">
@@ -617,7 +618,7 @@ export function AISettings() {
 
           {/* NL Parser Service */}
           <div className="glass-panel">
-            <h5 className="config-subsection-title">📝 NL Parser Service</h5>
+            <h5 className="config-subsection-title"><FileText size={16} /> NL Parser Service</h5>
             <p className="form-hint">Natural language task parsing and date extraction</p>
 
             <div className="grid-2-col">
