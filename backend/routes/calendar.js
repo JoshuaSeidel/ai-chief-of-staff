@@ -4,6 +4,7 @@ const { createModuleLogger } = require('../utils/logger');
 const { getConfig } = require('../config/manager');
 const googleCalendar = require('../services/google-calendar');
 const microsoftCalendar = require('../services/microsoft-calendar');
+const { verifyOAuthState } = require('../services/oauth-state');
 
 const logger = createModuleLogger('CALENDAR');
 
@@ -250,18 +251,11 @@ router.get('/google/callback', async (req, res) => {
   logger.info('Google OAuth callback received', {
     hasCode: !!code,
     hasError: !!error,
-    state,
     middlewareProfileId: req.profileId
   });
 
-  // IMPORTANT: Prioritize state parameter (from OAuth flow) over middleware's profileId
-  // The state parameter contains the profile ID that initiated the OAuth flow
-  const profileId = (state && parseInt(state)) || req.profileId || 2;
-
-  logger.info(`Using profile ID: ${profileId} (from state: ${state})`);
-
   if (error) {
-    logger.error('OAuth callback error', { error, state });
+    logger.error('OAuth callback error', { error });
     return res.redirect('/#config?error=oauth_failed');
   }
 
@@ -271,11 +265,13 @@ router.get('/google/callback', async (req, res) => {
   }
 
   try {
+    const statePayload = await verifyOAuthState(state, 'google');
+    const profileId = statePayload.profileId || req.profileId || 2;
     await googleCalendar.getTokenFromCode(code, profileId);
     logger.info(`Google Calendar connected successfully for profile ${profileId}`);
     res.redirect(`/#config?success=google_calendar_connected&profile=${profileId}`);
   } catch (err) {
-    logger.error('Error exchanging code for token', { error: err.message, profileId });
+    logger.error('Error exchanging code for token', { error: err.message });
     res.redirect('/#config?error=oauth_exchange_failed');
   }
 });
@@ -419,8 +415,6 @@ router.get('/microsoft/auth', async (req, res) => {
  */
 router.get('/microsoft/callback', async (req, res) => {
   const { code, error, state } = req.query;
-  // IMPORTANT: Prioritize state parameter (from OAuth flow) over middleware's profileId
-  const profileId = (state && parseInt(state)) || req.profileId || 2;
 
   if (error) {
     logger.error('OAuth callback error', error);
@@ -432,6 +426,8 @@ router.get('/microsoft/callback', async (req, res) => {
   }
 
   try {
+    const statePayload = await verifyOAuthState(state, 'microsoft');
+    const profileId = statePayload.profileId || req.profileId || 2;
     await microsoftCalendar.getTokenFromCode(code, profileId);
     logger.info(`Microsoft Calendar connected successfully for profile ${profileId}`);
     res.redirect(`/#config?success=microsoft_calendar_connected&profile=${profileId}`);
@@ -491,6 +487,11 @@ router.post('/microsoft/disconnect', async (req, res) => {
 function generateICS(title, startTime, endTime, description) {
   const start = new Date(startTime).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const end = new Date(endTime).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const escapeICS = (value = '') => String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
   
   return `BEGIN:VCALENDAR
 VERSION:2.0
@@ -500,8 +501,8 @@ UID:${Date.now()}@aichiefofstaff
 DTSTAMP:${start}
 DTSTART:${start}
 DTEND:${end}
-SUMMARY:${title}
-DESCRIPTION:${description || ''}
+SUMMARY:${escapeICS(title)}
+DESCRIPTION:${escapeICS(description || '')}
 END:VEVENT
 END:VCALENDAR`;
 }

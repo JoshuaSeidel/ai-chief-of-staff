@@ -216,7 +216,7 @@ function Intelligence() {
     <PullToRefresh onRefresh={handleRefresh}>
       <div className="intelligence">
         <div className="card">
-          <h2>🤖 AI Intelligence Services</h2>
+          <h2>AI Intelligence Services</h2>
           <p className="text-muted-mb-xl">
             Advanced AI-powered tools for task analysis, natural language processing, audio transcription, and productivity insights.
           </p>
@@ -224,12 +224,12 @@ function Intelligence() {
           {/* AI Intelligence Service */}
           <details className="mb-xl">
             <summary className="ai-section-summary">
-              🧠 AI Intelligence Service - Task Analysis
+              AI Intelligence Service - Task Analysis
             </summary>
             <div className="version-box">
               {/* Effort Estimation */}
               <div className="mb-xl">
-                <h3 className="mb-md">⏱️ Effort Estimation</h3>
+                <h3 className="mb-md">Effort Estimation</h3>
                 <p className="text-sm-muted-mb-md">
                   Estimate how long a task will take based on its description.
                 </p>
@@ -256,7 +256,7 @@ function Intelligence() {
                 {effortResult && (
                   <div className={`result-box ${effortResult.error ? 'result-box-error' : 'result-box-success'}`}>
                     {effortResult.error ? (
-                      <p className="text-error">❌ {effortResult.error}</p>
+                      <p className="text-error">{effortResult.error}</p>
                     ) : (
                       <div>
                         <p className="text-success-bold">
@@ -275,7 +275,7 @@ function Intelligence() {
                         )}
                         {effortResult.risks && effortResult.risks.length > 0 && (
                           <div className="mt-sm">
-                            <p className="text-warning-bold-sm">⚠️ Risks:</p>
+                            <p className="text-warning-bold-sm">Risks:</p>
                             <ul className="list-muted-xs-mt-xs">
                               {effortResult.risks.map((item, idx) => <li key={idx}>{item}</li>)}
                             </ul>
@@ -297,7 +297,7 @@ function Intelligence() {
               
               {/* Energy Classification */}
               <div className="mb-xl">
-                <h3 className="mb-md">⚡ Energy Classification</h3>
+                <h3 className="mb-md">Energy Classification</h3>
                 <p className="text-sm-muted-mb-md">
                   Classify tasks by cognitive load and energy requirements.
                 </p>
@@ -317,14 +317,11 @@ function Intelligence() {
                 {energyResult && (
                   <div className={`result-box ${energyResult.error ? 'result-box-error' : 'result-box-success'}`}>
                     {energyResult.error ? (
-                      <p className="text-error">❌ {energyResult.error}</p>
+                      <p className="text-error">{energyResult.error}</p>
                     ) : (
                       <div>
                         <p className="text-success-bold">
                           Energy Level: {energyResult.energy_level}
-                          {energyResult.energy_level === 'High' && ' 🔥'}
-                          {energyResult.energy_level === 'Medium' && ' ⚡'}
-                          {energyResult.energy_level === 'Low' && ' 💤'}
                         </p>
                         {energyResult.confidence && <p className="text-sm-muted">Confidence: {(energyResult.confidence * 100).toFixed(0)}%</p>}
                         {energyResult.reasoning && <p className="text-muted-mt-sm">{energyResult.reasoning}</p>}
@@ -355,7 +352,7 @@ function Intelligence() {
               
               {/* Task Clustering */}
               <div>
-                <h3 className="mb-md">🔗 Task Clustering</h3>
+                <h3 className="mb-md">Task Clustering</h3>
                 <p className="text-sm-muted-mb-md">
                   Group related tasks together semantically.
                 </p>
@@ -375,7 +372,7 @@ function Intelligence() {
                 {clusterResult && (
                   <div className={`result-box ${clusterResult.error ? 'result-box-error' : 'result-box-success'}`}>
                     {clusterResult.error ? (
-                      <p className="text-error">❌ {clusterResult.error}</p>
+                      <p className="text-error">{clusterResult.error}</p>
                     ) : (
                       <div>
                         {clusterResult.clusters && clusterResult.clusters.length > 0 ? (
@@ -399,7 +396,7 @@ function Intelligence() {
                         )}
                         {clusterResult.recommendations && (
                           <div className="cluster-metadata">
-                            <p className="text-light-bold">💡 Recommendations:</p>
+                            <p className="text-light-bold">Recommendations:</p>
                             <p className="text-muted-sm-mt-xs">{clusterResult.recommendations}</p>
                           </div>
                         )}
@@ -422,12 +419,12 @@ function Intelligence() {
           {/* NL Parser Service */}
           <details className="mb-xl">
             <summary className="ai-section-summary">
-              📝 Natural Language Parser - Task Parsing
+              Natural Language Parser - Task Parsing
             </summary>
             <div className="version-box">
               {/* Parse Task */}
               <div className="mb-xl">
-                <h3 className="mb-md">🔍 Parse Task</h3>
+                <h3 className="mb-md">Parse Task</h3>
                 <p className="text-sm-muted-mb-md">
                   Convert natural language into structured task data.
                 </p>
@@ -454,7 +451,7 @@ function Intelligence() {
                 {parseResult && (
                   <div className={`ai-result-box ${parseResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {parseResult.error ? (
-                      <p className="text-error">❌ {parseResult.error}</p>
+                      <p className="text-error">{parseResult.error}</p>
                     ) : (
                       <div>
                         {parseResult.title && <p className="text-success-bold">Title: {parseResult.title}</p>}
@@ -462,15 +459,15 @@ function Intelligence() {
                           <p className="ai-result-description">{parseResult.description}</p>
                         )}
                         {parseResult.deadline && parseResult.deadline !== 'none' && (
-                          <p className="text-muted">📅 Deadline: {parseResult.deadline}</p>
+                          <p className="text-muted">Deadline: {parseResult.deadline}</p>
                         )}
-                        {parseResult.priority && <p className="text-muted">🎯 Priority: {parseResult.priority}</p>}
+                        {parseResult.priority && <p className="text-muted">Priority: {parseResult.priority}</p>}
                         {parseResult.assignee && parseResult.assignee !== 'unassigned' && (
-                          <p className="text-muted">👤 Assignee: {parseResult.assignee}</p>
+                          <p className="text-muted">Assignee: {parseResult.assignee}</p>
                         )}
-                        {parseResult.estimated_hours && <p className="text-muted">⏱️ Estimated: {parseResult.estimated_hours} hours</p>}
+                        {parseResult.estimated_hours && <p className="text-muted">Estimated: {parseResult.estimated_hours} hours</p>}
                         {parseResult.tags && parseResult.tags.length > 0 && (
-                          <p className="text-muted">🏷️ Tags: {parseResult.tags.join(', ')}</p>
+                          <p className="text-muted">Tags: {parseResult.tags.join(', ')}</p>
                         )}
                         {parseResult.confidence && <p className="ai-result-confidence">Confidence: {(parseResult.confidence * 100).toFixed(0)}%</p>}
                         {parseResult.raw_response && (
@@ -489,7 +486,7 @@ function Intelligence() {
               
               {/* Quick Add */}
               <div className="mb-xl">
-                <h3 className="mb-md">⚡ Quick Add</h3>
+                <h3 className="mb-md">Quick Add</h3>
                 <p className="text-sm-muted-mb-md">
                   Ultra-fast parsing for minimal input.
                 </p>
@@ -510,7 +507,7 @@ function Intelligence() {
                 {quickAddResult && (
                   <div className={`ai-result-box ${quickAddResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {quickAddResult.error ? (
-                      <p className="text-error">❌ {quickAddResult.error}</p>
+                      <p className="text-error">{quickAddResult.error}</p>
                     ) : (
                       <div>
                         <p className="text-success-bold">Title: {quickAddResult.title}</p>
@@ -523,7 +520,7 @@ function Intelligence() {
               
               {/* Extract Commitments */}
               <div>
-                <h3 className="mb-md">📋 Extract Commitments</h3>
+                <h3 className="mb-md">Extract Commitments</h3>
                 <p className="text-sm-muted-mb-md">
                   Extract action items from meeting notes or emails.
                 </p>
@@ -543,7 +540,7 @@ function Intelligence() {
                 {extractResult && (
                   <div className={`ai-result-box ${extractResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {extractResult.error ? (
-                      <p className="text-error">❌ {extractResult.error}</p>
+                      <p className="text-error">{extractResult.error}</p>
                     ) : (
                       <div>
                         <p className="text-success-bold">Extracted Task</p>
@@ -560,7 +557,7 @@ function Intelligence() {
           {/* Voice Processor Service */}
           <details className="mb-xl">
             <summary className="ai-section-summary">
-              🎤 Voice Processor - Audio Transcription
+              Voice Processor - Audio Transcription
             </summary>
             <div className="version-box">
               <p className="text-sm-muted-mb-md">
@@ -589,7 +586,7 @@ function Intelligence() {
               {transcriptionResult && (
                 <div className={`ai-result-box ${transcriptionResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                   {transcriptionResult.error ? (
-                    <p className="text-error">❌ {transcriptionResult.error}</p>
+                    <p className="text-error">{transcriptionResult.error}</p>
                   ) : (
                     <div>
                       <p className="text-success-bold mb-sm">Transcription:</p>
@@ -606,12 +603,12 @@ function Intelligence() {
           {/* Context Service */}
           <details className="mb-xl">
             <summary className="ai-section-summary">
-              🗄️ Context Service - Context Retrieval
+              Context Service - Context Retrieval
             </summary>
             <div className="version-box">
               {/* Get Context */}
               <div className="mb-xl">
-                <h3 className="mb-md">📖 Get Context</h3>
+                <h3 className="mb-md">Get Context</h3>
                 <p className="text-sm-muted-mb-md">
                   Retrieve context entries with filtering options.
                 </p>
@@ -639,7 +636,7 @@ function Intelligence() {
                 {contextResult && (
                   <div className={`ai-result-box ${contextResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {contextResult.error ? (
-                      <p className="text-error">❌ {contextResult.error}</p>
+                      <p className="text-error">{contextResult.error}</p>
                     ) : (
                       <div>
                         <p className="text-success-bold">Found {contextResult.count || 0} context entries</p>
@@ -657,7 +654,7 @@ function Intelligence() {
               
               {/* Search Context */}
               <div>
-                <h3 className="mb-md">🔍 Search Context</h3>
+                <h3 className="mb-md">Search Context</h3>
                 <p className="text-sm-muted-mb-md">
                   Search context entries by text query.
                 </p>
@@ -678,7 +675,7 @@ function Intelligence() {
                 {searchResult && (
                   <div className={`ai-result-box ${searchResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                     {searchResult.error ? (
-                      <p className="text-error">❌ {searchResult.error}</p>
+                      <p className="text-error">{searchResult.error}</p>
                     ) : (
                       <div>
                         <p className="text-success-bold">Found {searchResult.count || 0} results</p>
@@ -699,7 +696,7 @@ function Intelligence() {
           {/* Pattern Recognition Service */}
           <details className="mb-xl">
             <summary className="ai-section-summary">
-              📊 Pattern Recognition - Productivity Insights
+              Pattern Recognition - Productivity Insights
             </summary>
             <div className="version-box">
               <p className="text-sm-muted-mb-md">
@@ -716,11 +713,11 @@ function Intelligence() {
                 <div className={`ai-result-box ${patternResult.error ? 'ai-result-box-error' : 'ai-result-box-success'}`}>
                   {patternResult.error ? (
                     <div>
-                      <p className="text-error-bold">❌ {patternResult.error}</p>
+                      <p className="text-error-bold">{patternResult.error}</p>
                       {patternResult.note && <p className="ai-result-description">{patternResult.note}</p>}
                       {patternResult.stats && (
                         <div className="ai-result-description mt-md">
-                          <p>📊 Current Stats:</p>
+                          <p>Current Stats:</p>
                           <ul className="mt-sm">
                             <li>Total tasks: {patternResult.stats.total_tasks}</li>
                             <li>Completed: {patternResult.stats.completed}</li>
@@ -732,11 +729,11 @@ function Intelligence() {
                     </div>
                   ) : patternResult.success ? (
                     <div>
-                      <h4 className="text-success mb-md" style={{ marginTop: 0 }}>✅ Pattern Analysis Complete</h4>
+                      <h4 className="text-success mb-md" style={{ marginTop: 0 }}>Pattern Analysis Complete</h4>
 
                       {patternResult.stats && (
                         <div className="ai-stats-box">
-                          <h5 className="ai-stats-title">📊 Statistics ({patternResult.time_range})</h5>
+                          <h5 className="ai-stats-title">Statistics ({patternResult.time_range})</h5>
                           <div className="ai-stats-grid">
                             <div>
                               <strong className="ai-stat-label">Total Tasks:</strong> {patternResult.stats.total_tasks}
@@ -797,4 +794,3 @@ function Intelligence() {
 }
 
 export default Intelligence;
-

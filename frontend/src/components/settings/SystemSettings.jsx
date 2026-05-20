@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertTriangle, CheckCircle2, Monitor, Moon, RefreshCw, Sun, XCircle } from 'lucide-react';
 import { microservicesAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme, THEMES } from '../../contexts/ThemeContext';
@@ -7,28 +8,32 @@ import { Button } from '../common/Button';
 import { CardSkeleton } from '../common/LoadingSkeleton';
 
 function ThemeSettings() {
-  const { theme, themePreference, setTheme, isDark } = useTheme();
+  const { themePreference, setTheme, isDark } = useTheme();
 
   const themeOptions = [
-    { value: THEMES.SYSTEM, label: 'System', icon: '💻', description: 'Follow system preference' },
-    { value: THEMES.LIGHT, label: 'Light', icon: '☀️', description: 'Light theme' },
-    { value: THEMES.DARK, label: 'Dark', icon: '🌙', description: 'Dark theme' }
+    { value: THEMES.SYSTEM, label: 'System', icon: Monitor, description: 'Follow system preference' },
+    { value: THEMES.LIGHT, label: 'Light', icon: Sun, description: 'Light theme' },
+    { value: THEMES.DARK, label: 'Dark', icon: Moon, description: 'Dark theme' }
   ];
 
   return (
     <div className="theme-settings">
       <div className="theme-options">
-        {themeOptions.map(option => (
-          <button
-            key={option.value}
-            className={`theme-option ${themePreference === option.value ? 'theme-option-active' : ''}`}
-            onClick={() => setTheme(option.value)}
-            aria-pressed={themePreference === option.value}
-          >
-            <span className="theme-option-icon">{option.icon}</span>
-            <span className="theme-option-label">{option.label}</span>
-          </button>
-        ))}
+        {themeOptions.map(option => {
+          const Icon = option.icon;
+
+          return (
+            <button
+              key={option.value}
+              className={`theme-option ${themePreference === option.value ? 'theme-option-active' : ''}`}
+              onClick={() => setTheme(option.value)}
+              aria-pressed={themePreference === option.value}
+            >
+              <span className="theme-option-icon" aria-hidden="true"><Icon size={17} /></span>
+              <span className="theme-option-label">{option.label}</span>
+            </button>
+          );
+        })}
       </div>
       <p className="theme-status">
         Current: <strong>{isDark ? 'Dark' : 'Light'}</strong>
@@ -80,9 +85,9 @@ function VersionInfo() {
 
 function ServiceHealthCard({ name, status, version, responseTime }) {
   const getStatusBadge = () => {
-    if (status === 'healthy') return <Badge variant="success" icon="✓">Healthy</Badge>;
-    if (status === 'degraded') return <Badge variant="warning" icon="⚠">Degraded</Badge>;
-    return <Badge variant="error" icon="✕">Unavailable</Badge>;
+    if (status === 'healthy') return <Badge variant="success" icon={CheckCircle2}>Healthy</Badge>;
+    if (status === 'degraded') return <Badge variant="warning" icon={AlertTriangle}>Degraded</Badge>;
+    return <Badge variant="error" icon={XCircle}>Unavailable</Badge>;
   };
 
   return (
@@ -162,7 +167,7 @@ export function SystemSettings() {
           size="sm"
           onClick={handleRefresh}
           loading={refreshing}
-          icon="🔄"
+          icon={<RefreshCw size={15} />}
         >
           Refresh
         </Button>
@@ -199,7 +204,7 @@ export function SystemSettings() {
 
       <div className="info-card">
         <p className="text-muted">
-          Storage configuration is managed in the <strong>AI Settings</strong> tab under "Storage Configuration".
+          Storage configuration is managed in the <strong>AI Settings</strong> tab under &quot;Storage Configuration&quot;.
           Choose between local filesystem or AWS S3 for storing voice recordings and transcripts.
         </p>
       </div>

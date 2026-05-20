@@ -1,4 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  ClipboardList,
+  Moon,
+  Newspaper,
+  RefreshCw,
+  Settings,
+  XCircle
+} from 'lucide-react';
 import { configAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../common/Button';
@@ -171,12 +182,12 @@ export function NotificationsSettings() {
 
   const getPermissionBadge = () => {
     if (notificationPermission === 'granted') {
-      return <Badge variant="success" icon="✓">Enabled</Badge>;
+      return <Badge variant="success" icon={CheckCircle2}>Enabled</Badge>;
     }
     if (notificationPermission === 'denied') {
-      return <Badge variant="error" icon="✕">Blocked</Badge>;
+      return <Badge variant="error" icon={XCircle}>Blocked</Badge>;
     }
-    return <Badge variant="warning" icon="?">Not Set</Badge>;
+    return <Badge variant="warning" icon={AlertTriangle}>Not Set</Badge>;
   };
 
   return (
@@ -229,7 +240,7 @@ export function NotificationsSettings() {
               onClick={handleTestNotification}
               loading={testingNotification}
             >
-              🔔 Send Test Notification
+              <Bell size={16} /> Send Test Notification
             </Button>
           </div>
 
@@ -243,7 +254,7 @@ export function NotificationsSettings() {
             <div className="notification-toggle-list">
               <label className="notification-toggle-item">
                 <div className="notification-toggle-info">
-                  <span className="notification-toggle-label">📋 Task Reminders</span>
+                  <span className="notification-toggle-label"><ClipboardList size={16} /> Task Reminders</span>
                   <span className="notification-toggle-desc">Get notified before tasks are due</span>
                 </div>
                 <input
@@ -256,7 +267,7 @@ export function NotificationsSettings() {
 
               <label className="notification-toggle-item">
                 <div className="notification-toggle-info">
-                  <span className="notification-toggle-label">⚠️ Overdue Alerts</span>
+                  <span className="notification-toggle-label"><AlertTriangle size={16} /> Overdue Alerts</span>
                   <span className="notification-toggle-desc">Get notified about overdue tasks</span>
                 </div>
                 <input
@@ -269,7 +280,7 @@ export function NotificationsSettings() {
 
               <label className="notification-toggle-item">
                 <div className="notification-toggle-info">
-                  <span className="notification-toggle-label">📰 Daily Digest</span>
+                  <span className="notification-toggle-label"><Newspaper size={16} /> Daily Digest</span>
                   <span className="notification-toggle-desc">Morning summary of today&apos;s tasks</span>
                 </div>
                 <input
@@ -328,7 +339,7 @@ export function NotificationsSettings() {
 
             <label className="notification-toggle-item mb-md">
               <div className="notification-toggle-info">
-                <span className="notification-toggle-label">🌙 Enable Quiet Hours</span>
+                <span className="notification-toggle-label"><Moon size={16} /> Enable Quiet Hours</span>
                 <span className="notification-toggle-desc">No notifications during these times</span>
               </div>
               <input
@@ -368,7 +379,7 @@ export function NotificationsSettings() {
           {/* Advanced Settings */}
           <details className="settings-advanced">
             <summary className="settings-advanced-toggle">
-              ⚙️ Advanced Settings
+              <Settings size={16} /> Advanced Settings
             </summary>
             <div className="settings-advanced-content">
               <div className="grid-2-col">
@@ -423,7 +434,7 @@ export function NotificationsSettings() {
                     onClick={handleRegenerateVapid}
                     loading={regeneratingVapid}
                   >
-                    🔄 Regenerate VAPID Keys
+                    <RefreshCw size={16} /> Regenerate VAPID Keys
                   </Button>
                 </div>
               </div>

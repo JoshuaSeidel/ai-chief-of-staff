@@ -3,6 +3,7 @@ const router = express.Router();
 const { createModuleLogger } = require('../utils/logger');
 const microsoftPlanner = require('../services/microsoft-planner');
 const jira = require('../services/jira');
+const { verifyOAuthState } = require('../services/oauth-state');
 
 const logger = createModuleLogger('PLANNER');
 
@@ -13,7 +14,7 @@ router.get('/microsoft/auth', async (req, res) => {
   try {
     // Use microsoft-calendar service for auth (includes both Calendar and Tasks scopes)
     const microsoftCalendar = require('../services/microsoft-calendar');
-    const authUrl = await microsoftCalendar.getAuthUrl();
+    const authUrl = await microsoftCalendar.getAuthUrl(req.profileId || 2);
     res.json({ authUrl });
   } catch (error) {
     logger.error('Error generating Microsoft auth URL', error);
@@ -36,8 +37,6 @@ router.get('/microsoft/auth', async (req, res) => {
  */
 router.get('/microsoft/callback', async (req, res) => {
   const { code, error, error_description, state } = req.query;
-  // IMPORTANT: Prioritize state parameter (from OAuth flow) over middleware's profileId
-  const profileId = (state && parseInt(state)) || req.profileId || 2;
 
   if (error) {
     logger.error('OAuth callback error', { error, error_description });
@@ -59,6 +58,8 @@ router.get('/microsoft/callback', async (req, res) => {
   }
 
   try {
+    const statePayload = await verifyOAuthState(state, 'microsoft');
+    const profileId = statePayload.profileId || req.profileId || 2;
     // Use microsoft-calendar service for token exchange (shared token for Calendar and Planner)
     const microsoftCalendar = require('../services/microsoft-calendar');
     await microsoftCalendar.getTokenFromCode(code, profileId);
@@ -542,4 +543,3 @@ router.get('/jira/issues', async (req, res) => {
 });
 
 module.exports = router;
-

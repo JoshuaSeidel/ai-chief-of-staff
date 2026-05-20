@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { ArrowRight, CalendarDays, UserRound, X, Zap } from 'lucide-react';
 import { intelligenceAPI, commitmentsAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -154,7 +155,7 @@ export function QuickAddBar({ onTaskCreated, placeholder = "Try: 'Call John tomo
     <div className="quick-add-container">
       <form onSubmit={handleSubmit} className="quick-add-form">
         <div className="quick-add-input-wrapper">
-          <span className="quick-add-icon">⚡</span>
+          <span className="quick-add-icon" aria-hidden="true"><Zap size={16} /></span>
           <input
             ref={inputRef}
             type="text"
@@ -177,7 +178,7 @@ export function QuickAddBar({ onTaskCreated, placeholder = "Try: 'Call John tomo
                 setShowPreview(false);
               }}
             >
-              ×
+              <X size={14} />
             </button>
           )}
           <button
@@ -185,7 +186,7 @@ export function QuickAddBar({ onTaskCreated, placeholder = "Try: 'Call John tomo
             className="quick-add-submit"
             disabled={!input.trim() || loading}
           >
-            {loading ? '...' : '→'}
+            {loading ? '...' : <ArrowRight size={16} />}
           </button>
         </div>
       </form>
@@ -228,13 +229,13 @@ export function QuickAddBar({ onTaskCreated, placeholder = "Try: 'Call John tomo
             {parsedTask.assignee && (
               <div className="preview-row">
                 <span className="preview-key">Assignee:</span>
-                <span className="preview-value">👤 {parsedTask.assignee}</span>
+                <span className="preview-value"><UserRound size={14} /> {parsedTask.assignee}</span>
               </div>
             )}
             {parsedTask.deadline && (
               <div className="preview-row">
                 <span className="preview-key">Deadline:</span>
-                <span className="preview-value">📅 {formatDeadline(parsedTask.deadline)}</span>
+                <span className="preview-value"><CalendarDays size={14} /> {formatDeadline(parsedTask.deadline)}</span>
               </div>
             )}
             {parsedTask.priority && (

@@ -66,7 +66,8 @@ Docker automatically pulls the correct architecture for your system. All images 
 - **[Architecture Flows](docs/ARCHITECTURE_FLOWS.md)** - System architecture diagrams and data flows
 
 ### Integration Guides  
-- **[Microsoft Planner Setup](docs/MICROSOFT-PLANNER-SETUP.md)** - Connect Microsoft To-Do/Planner with OAuth
+- **[Microsoft 365 Setup](docs/MICROSOFT-365-SETUP.md)** - Connect Microsoft email, meetings, Planner/To Do, and Teams artifacts
+- **[Microsoft Planner Setup](docs/MICROSOFT-PLANNER-SETUP.md)** - Legacy pointer to the shared Microsoft 365 setup
 - **[Implementation Status](docs/IMPLEMENTATION-STATUS.md)** - Current features and development roadmap
 
 ---

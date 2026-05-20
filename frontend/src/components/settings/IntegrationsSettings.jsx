@@ -1,4 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import {
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  ClipboardList,
+  FileText,
+  Loader2,
+  NotebookTabs,
+  Target
+} from 'lucide-react';
 import { calendarAPI, plannerAPI, integrationsAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useProfile } from '../../contexts/ProfileContext';
@@ -18,11 +29,15 @@ function IntegrationCard({
   expanded,
   onToggleExpand
 }) {
+  const renderedIcon = icon && !React.isValidElement(icon) && typeof icon !== 'string'
+    ? React.createElement(icon, { size: 20 })
+    : icon;
+
   return (
     <div className={`integration-card ${connected ? 'integration-connected' : ''}`}>
       <div className="integration-header" onClick={onToggleExpand}>
         <div className="integration-info">
-          <span className="integration-icon">{icon}</span>
+          <span className="integration-icon">{renderedIcon}</span>
           <div>
             <h4 className="integration-title">{title}</h4>
             <p className="integration-description">{description}</p>
@@ -30,13 +45,13 @@ function IntegrationCard({
         </div>
         <div className="integration-status">
           {checking ? (
-            <Badge variant="info" icon="⏳">Checking...</Badge>
+            <Badge variant="info" icon={Loader2}>Checking...</Badge>
           ) : connected ? (
-            <Badge variant="success" icon="✓">Connected</Badge>
+            <Badge variant="success" icon={CheckCircle2}>Connected</Badge>
           ) : (
             <Badge variant="default" icon="">Not Connected</Badge>
           )}
-          <span className={`integration-chevron ${expanded ? 'expanded' : ''}`}>▼</span>
+          <span className={`integration-chevron ${expanded ? 'expanded' : ''}`}><ChevronDown size={16} /></span>
         </div>
       </div>
 
@@ -504,7 +519,7 @@ export function IntegrationsSettings() {
       {/* Google Calendar */}
       <IntegrationCard
         title="Google Calendar"
-        icon="📅"
+        icon={CalendarDays}
         description="Sync events and create calendar blocks"
         connected={googleConnected}
         checking={checkingGoogle}
@@ -564,8 +579,8 @@ export function IntegrationsSettings() {
       {/* Microsoft */}
       <IntegrationCard
         title="Microsoft 365"
-        icon="📋"
-        description="Calendar, Planner, and To Do integration"
+        icon={ClipboardList}
+        description="Email, meetings, Planner, and To Do integration"
         connected={microsoftConnected}
         checking={checkingMicrosoft}
         onConnect={handleMicrosoftConnect}
@@ -574,7 +589,7 @@ export function IntegrationsSettings() {
         onToggleExpand={() => setExpandedCard(expandedCard === 'microsoft' ? null : 'microsoft')}
       >
         <p className="text-muted text-sm mb-3">
-          Configure your Microsoft Azure AD app credentials, then click Connect.
+          Configure your Microsoft Entra app credentials, then click Connect.
         </p>
         <div className="form-group">
           <label className="form-label">Client ID (Application ID)</label>
@@ -637,7 +652,7 @@ export function IntegrationsSettings() {
       {/* Jira */}
       <IntegrationCard
         title="Jira"
-        icon="🎯"
+        icon={Target}
         description="Sync tasks with Jira issues"
         connected={jiraConnected}
         checking={checkingJira}
@@ -699,7 +714,7 @@ export function IntegrationsSettings() {
       {/* Trello */}
       <IntegrationCard
         title="Trello"
-        icon="📝"
+        icon={FileText}
         description="Sync tasks with Trello cards"
         connected={trelloConnected}
         checking={checkingTrello}
@@ -754,7 +769,7 @@ export function IntegrationsSettings() {
       {/* Monday.com */}
       <IntegrationCard
         title="Monday.com"
-        icon="📊"
+        icon={BarChart3}
         description="Sync tasks with Monday.com boards"
         connected={mondayConnected}
         checking={checkingMonday}
@@ -796,7 +811,7 @@ export function IntegrationsSettings() {
       {/* Radicale/CalDAV */}
       <IntegrationCard
         title="CalDAV (Radicale/Nextcloud)"
-        icon="🗓️"
+        icon={NotebookTabs}
         description="Sync with self-hosted CalDAV servers"
         connected={radicaleConnected}
         checking={checkingRadicale}

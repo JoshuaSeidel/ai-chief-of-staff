@@ -1,17 +1,42 @@
 import React from 'react';
+import {
+  AlertTriangle,
+  BarChart3,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  FileText,
+  Link2,
+  Plus,
+  RefreshCw,
+  Rocket,
+  Search,
+  Sparkles,
+  Upload,
+  XCircle
+} from 'lucide-react';
 import { Button } from './Button';
 
 const ILLUSTRATIONS = {
-  tasks: '📋',
-  transcripts: '📝',
-  calendar: '📅',
-  insights: '📊',
-  search: '🔍',
-  error: '❌',
-  success: '✅',
-  welcome: '👋',
-  rocket: '🚀',
-  lightbulb: '💡'
+  tasks: ClipboardList,
+  transcripts: FileText,
+  calendar: CalendarDays,
+  insights: BarChart3,
+  search: Search,
+  error: XCircle,
+  success: CheckCircle2,
+  welcome: Sparkles,
+  rocket: Rocket,
+  lightbulb: Sparkles
+};
+
+const ACTION_ICONS = {
+  plus: <Plus size={16} />,
+  upload: <Upload size={16} />,
+  link: <Link2 size={16} />,
+  refresh: <RefreshCw size={16} />,
+  alert: <AlertTriangle size={16} />,
+  rocket: <Rocket size={16} />
 };
 
 export function EmptyState({
@@ -26,10 +51,13 @@ export function EmptyState({
   className = ''
 }) {
   const illustration = ILLUSTRATIONS[icon] || icon;
+  const Illustration = typeof illustration === 'function' ? illustration : null;
 
   return (
     <div className={`empty-state ${className}`}>
-      <div className="empty-state-icon">{illustration}</div>
+      <div className="empty-state-icon">
+        {Illustration ? <Illustration size={30} strokeWidth={1.9} /> : illustration}
+      </div>
       {title && <h3 className="empty-state-title">{title}</h3>}
       {description && <p className="empty-state-description">{description}</p>}
       {(action || secondaryAction) && (
@@ -58,7 +86,7 @@ export function NoTasksEmpty({ onCreateTask }) {
       description="Upload transcripts to automatically extract commitments, or create a task manually."
       action={onCreateTask}
       actionText="Create Task"
-      actionIcon="➕"
+      actionIcon={ACTION_ICONS.plus}
     />
   );
 }
@@ -71,7 +99,7 @@ export function NoTranscriptsEmpty({ onUpload }) {
       description="Upload meeting recordings or paste transcript text to get started."
       action={onUpload}
       actionText="Upload Transcript"
-      actionIcon="📤"
+      actionIcon={ACTION_ICONS.upload}
     />
   );
 }
@@ -84,7 +112,7 @@ export function NoCalendarEventsEmpty({ onConnect }) {
       description="Connect your calendar to see upcoming events and schedule tasks."
       action={onConnect}
       actionText="Connect Calendar"
-      actionIcon="🔗"
+      actionIcon={ACTION_ICONS.link}
     />
   );
 }
@@ -107,7 +135,7 @@ export function WelcomeEmpty({ onGetStarted }) {
       description="Your AI-powered productivity assistant. Let's get you set up."
       action={onGetStarted}
       actionText="Get Started"
-      actionIcon="🚀"
+      actionIcon={ACTION_ICONS.rocket}
     />
   );
 }
@@ -130,7 +158,7 @@ export function ErrorState({ message, onRetry }) {
       description={message || "We couldn't load this content. Please try again."}
       action={onRetry}
       actionText="Try Again"
-      actionIcon="🔄"
+      actionIcon={ACTION_ICONS.refresh}
     />
   );
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { AlertTriangle } from 'lucide-react';
 
 /**
  * Error Boundary Component
@@ -35,7 +36,7 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="error-boundary">
           <div className="error-boundary-content">
-            <div className="error-icon">⚠️</div>
+            <div className="error-icon"><AlertTriangle size={34} /></div>
             <h2>Something went wrong</h2>
             <p className="error-message">
               {this.state.error?.message || 'An unexpected error occurred'}

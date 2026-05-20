@@ -12,6 +12,15 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 });
 
+function isSensitiveConfigKey(key = '') {
+  return /(secret|password|token|api[_-]?key|private|credential|vapid|oauthstatesecret)/i.test(String(key));
+}
+
+function maskHistoryValue(key, value) {
+  if (!isSensitiveConfigKey(key)) return value;
+  return value ? '***REDACTED***' : value;
+}
+
 /**
  * GET /api/config
  * Get all non-sensitive configuration
@@ -342,7 +351,11 @@ router.get('/history/:key', async (req, res) => {
     res.json({
       success: true,
       key,
-      history: result.rows
+      history: result.rows.map(row => ({
+        ...row,
+        old_value: maskHistoryValue(key, row.old_value),
+        new_value: maskHistoryValue(key, row.new_value)
+      }))
     });
   } catch (error) {
     console.error('Error fetching config history:', error);

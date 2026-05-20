@@ -15,7 +15,7 @@ const logger = {
 const DEFAULT_CONFIG = {
   dbType: 'sqlite',
   sqlite: {
-    path: '/app/data/ai-chief-of-staff.db'
+    path: path.join(CONFIG_DIR, 'ai-chief-of-staff.db')
   },
   postgres: {
     host: 'localhost',
@@ -68,7 +68,12 @@ function saveConfig(config) {
   ensureConfigDir();
   
   try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), 'utf8');
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { encoding: 'utf8', mode: 0o600 });
+    try {
+      fs.chmodSync(CONFIG_FILE, 0o600);
+    } catch (chmodErr) {
+      logger.warn(`Could not enforce restricted config permissions: ${chmodErr.message}`);
+    }
     logger.info(`Saved configuration to ${CONFIG_FILE}`);
     return true;
   } catch (err) {

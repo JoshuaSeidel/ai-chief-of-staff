@@ -107,16 +107,16 @@ function initializeHttpsAgent() {
     });
     logger.info('✅ HTTPS agent initialized with CA certificate verification');
   } else {
-    // No CA cert and not allowing insecure - this is a config error in production
-    // Default to insecure for internal docker network with strong warning
+    // No custom CA cert: keep Node's default certificate verification enabled.
+    // Self-signed internal services must either mount the shared CA or explicitly
+    // set ALLOW_INSECURE_TLS=true for local development.
     cachedHttpsAgent = new https.Agent({
-      rejectUnauthorized: false,
+      rejectUnauthorized: true,
       keepAlive: true,
       maxSockets: 50
     });
-    logger.error('🚨 No CA certificate found and ALLOW_INSECURE_TLS not set');
-    logger.error('🚨 Defaulting to unverified HTTPS - THIS IS A SECURITY RISK');
-    logger.error('🚨 For production, set up proper certificates or set ALLOW_INSECURE_TLS=true for dev');
+    logger.warn('No custom CA certificate found; using Node default TLS verification');
+    logger.warn('Mount the shared service CA for self-signed internal services, or set ALLOW_INSECURE_TLS=true only for local development');
   }
 
   agentInitialized = true;

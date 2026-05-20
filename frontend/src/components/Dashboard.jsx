@@ -1,4 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import {
+  BarChart3,
+  CalendarDays,
+  FileText,
+  RefreshCw,
+  Settings,
+  CheckSquare
+} from 'lucide-react';
 import { briefAPI, intelligenceAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import { PullToRefresh } from './PullToRefresh';
@@ -11,8 +19,7 @@ function Dashboard({ setActiveTab }) {
   const [stats, setStats] = useState(null);
   const [productivityInsights, setProductivityInsights] = useState(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
-  // eslint-disable-next-line no-unused-vars
-  const [lastInsightsDate, setLastInsightsDate] = useState(null);
+  const [, setLastInsightsDate] = useState(null);
   const [lastCompletedCount, setLastCompletedCount] = useState(null);
 
   useEffect(() => {
@@ -229,7 +236,7 @@ function Dashboard({ setActiveTab }) {
             disabled={loading}
             className="glass-button-primary btn-generate"
           >
-            <span>{loading ? '⏳' : '🔄'}</span>
+            <RefreshCw size={16} className={loading ? 'icon-spin' : ''} aria-hidden="true" />
             {loading ? 'Generating...' : 'Generate Brief'}
           </button>
         </div>
@@ -244,7 +251,7 @@ function Dashboard({ setActiveTab }) {
         {productivityInsights && !productivityInsights.error && productivityInsights.success && (
           <div className="insights-widget">
             <h3 className="insights-title">
-              📊 Productivity Insights ({productivityInsights.time_range})
+              Productivity Insights ({productivityInsights.time_range})
             </h3>
             <div className="grid-auto">
               <div className="stat-card">
@@ -279,12 +286,12 @@ function Dashboard({ setActiveTab }) {
             {productivityInsights.insights && (
               <details open className="mt-sm">
                 <summary className="insights-summary">
-                  {productivityInsights.insights === 'Generating AI insights...' ? '🤖 Generating AI insights...' : 'View AI insights'}
+                      {productivityInsights.insights === 'Generating AI insights...' ? 'Generating AI insights...' : 'View AI insights'}
                 </summary>
                 <div className="insights-content markdown-content">
                   {productivityInsights.insights === 'Generating AI insights...' ? (
                     <div className="insights-item-success">
-                      <span>🔄</span>
+                      <RefreshCw size={15} className="icon-spin" aria-hidden="true" />
                       <span>Analyzing your patterns with AI...</span>
                     </div>
                   ) : (
@@ -309,7 +316,7 @@ function Dashboard({ setActiveTab }) {
             borderRadius: '8px',
             marginBottom: '1rem'
           }}>
-            <div>🔄 Loading productivity insights...</div>
+            <div>Loading productivity insights...</div>
           </div>
         )}
         {productivityInsights && productivityInsights.error && (
@@ -322,7 +329,7 @@ function Dashboard({ setActiveTab }) {
             borderRadius: '8px',
             marginBottom: '1rem'
           }}>
-            <div>⚠️ {productivityInsights.message}</div>
+            <div>{productivityInsights.message}</div>
           </div>
         )}
         {productivityInsights && !productivityInsights.success && !productivityInsights.error && (
@@ -336,7 +343,7 @@ function Dashboard({ setActiveTab }) {
             borderRadius: '8px',
             marginBottom: '1rem'
           }}>
-            <div className="icon-xl-mb-sm">📊</div>
+            <div className="icon-xl-mb-sm"><BarChart3 size={28} /></div>
             <div>{productivityInsights.note || productivityInsights.message || 'Complete some tasks to see pattern analysis'}</div>
           </div>
         )}
@@ -394,13 +401,8 @@ function Dashboard({ setActiveTab }) {
             padding: '3rem', 
             color: '#6e6e73' 
           }}>
-            <div style={{ 
-              fontSize: '2rem', 
-              marginBottom: '1rem',
-              animation: 'spin 2s linear infinite',
-              display: 'inline-block'
-            }}>
-              ⏳
+            <div className="loading-spinner">
+              <div className="spinner" />
             </div>
             <p>Generating your daily brief...</p>
             <p className="text-sm-gray-mt-sm">
@@ -621,7 +623,7 @@ function Dashboard({ setActiveTab }) {
             onClick={() => setActiveTab('tasks')}
             className="quick-action-button"
           >
-            <span className="stat-large-icon">📋</span>
+            <span className="stat-large-icon"><CheckSquare size={20} /></span>
             <div>
               <div className="quick-action-title">View All Tasks</div>
               <div className="quick-action-subtitle">Manage commitments & actions</div>
@@ -632,7 +634,7 @@ function Dashboard({ setActiveTab }) {
             onClick={() => setActiveTab('transcripts')}
             className="quick-action-button"
           >
-            <span className="stat-large-icon">📝</span>
+            <span className="stat-large-icon"><FileText size={20} /></span>
             <div>
               <div className="quick-action-title">Upload Transcript</div>
               <div className="quick-action-subtitle">Add meeting notes</div>
@@ -643,7 +645,7 @@ function Dashboard({ setActiveTab }) {
             onClick={() => setActiveTab('calendar')}
             className="quick-action-button"
           >
-            <span className="stat-large-icon">📅</span>
+            <span className="stat-large-icon"><CalendarDays size={20} /></span>
             <div>
               <div className="quick-action-title">View Calendar</div>
               <div className="quick-action-subtitle">See upcoming events</div>
@@ -654,7 +656,7 @@ function Dashboard({ setActiveTab }) {
             onClick={() => setActiveTab('config')}
             className="quick-action-button"
           >
-            <span className="stat-large-icon">⚙️</span>
+            <span className="stat-large-icon"><Settings size={20} /></span>
             <div>
               <div className="quick-action-title">Settings</div>
               <div className="quick-action-subtitle">Configure app</div>

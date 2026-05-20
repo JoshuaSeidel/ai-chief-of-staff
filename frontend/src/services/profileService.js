@@ -18,7 +18,8 @@ export const profileService = {
   setCurrentProfileId(profileId) {
     localStorage.setItem(CURRENT_PROFILE_KEY, profileId.toString());
     // Also set cookie for server-side middleware
-    document.cookie = `currentProfileId=${profileId}; path=/; max-age=31536000`; // 1 year
+    const secureFlag = window.location.protocol === 'https:' ? '; Secure' : '';
+    document.cookie = `currentProfileId=${profileId}; path=/; max-age=31536000; SameSite=Lax${secureFlag}`; // 1 year
   },
 
   // Get all profiles

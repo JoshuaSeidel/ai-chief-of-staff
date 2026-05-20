@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle2, Lightbulb, X } from 'lucide-react';
 
 /**
  * Modal for capturing completion notes when marking tasks complete
@@ -42,13 +43,13 @@ function CompletionModal({ task, onComplete, onCancel }) {
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3 className="modal-title">✅ Complete Task</h3>
+          <h3 className="modal-title"><CheckCircle2 size={18} /> Complete Task</h3>
           <button 
             className="modal-close-btn" 
             onClick={onCancel}
             disabled={submitting}
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
 
@@ -97,7 +98,7 @@ function CompletionModal({ task, onComplete, onCancel }) {
           </form>
 
           <p className="text-xs color-muted mt-sm">
-            💡 Tip: Press {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter to submit
+            <Lightbulb size={14} /> Tip: Press {navigator.platform.includes('Mac') ? 'Cmd' : 'Ctrl'}+Enter to submit
           </p>
         </div>
       </div>

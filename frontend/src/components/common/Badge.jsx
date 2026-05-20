@@ -1,17 +1,29 @@
 import React from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  FolderKanban,
+  Globe2,
+  Info,
+  RotateCcw,
+  UserRound,
+  XCircle,
+  Zap
+} from 'lucide-react';
 
 const BADGE_VARIANTS = {
-  commitment: { bg: '#3b82f620', color: '#3b82f6', icon: '📋' },
-  action: { bg: '#10b98120', color: '#10b981', icon: '⚡' },
-  'follow-up': { bg: '#f59e0b20', color: '#f59e0b', icon: '🔄' },
-  risk: { bg: '#ef444420', color: '#ef4444', icon: '⚠️' },
-  cluster: { bg: '#3b82f6', color: 'white', icon: '📁' },
-  profile: { bg: '#8b5cf620', color: '#8b5cf6', icon: '👤' },
-  global: { bg: '#6b728020', color: '#9ca3af', icon: '🌐' },
-  success: { bg: '#22c55e20', color: '#22c55e', icon: '✓' },
-  warning: { bg: '#f59e0b20', color: '#f59e0b', icon: '⚠' },
-  error: { bg: '#ef444420', color: '#ef4444', icon: '✕' },
-  info: { bg: '#3b82f620', color: '#3b82f6', icon: 'ℹ' },
+  commitment: { bg: '#2dd4bf20', color: '#2dd4bf', icon: ClipboardList },
+  action: { bg: '#7dd87d20', color: '#7dd87d', icon: Zap },
+  'follow-up': { bg: '#f4bd5020', color: '#f4bd50', icon: RotateCcw },
+  risk: { bg: '#fb718520', color: '#fb7185', icon: AlertTriangle },
+  cluster: { bg: '#a78bfa24', color: '#c4b5fd', icon: FolderKanban },
+  profile: { bg: '#a78bfa20', color: '#a78bfa', icon: UserRound },
+  global: { bg: '#9aa39a20', color: '#9aa39a', icon: Globe2 },
+  success: { bg: '#7dd87d20', color: '#7dd87d', icon: CheckCircle2 },
+  warning: { bg: '#f4bd5020', color: '#f4bd50', icon: AlertTriangle },
+  error: { bg: '#fb718520', color: '#fb7185', icon: XCircle },
+  info: { bg: '#8ab4ff20', color: '#8ab4ff', icon: Info },
   default: { bg: '#3f3f46', color: '#e5e5e7', icon: '' }
 };
 
@@ -33,25 +45,26 @@ export function Badge({
   const variantStyle = BADGE_VARIANTS[variant] || BADGE_VARIANTS.default;
   const sizeStyle = BADGE_SIZES[size] || BADGE_SIZES.md;
   const displayIcon = icon !== undefined ? icon : (showIcon ? variantStyle.icon : '');
+  const Icon = displayIcon && typeof displayIcon !== 'string' && !React.isValidElement(displayIcon)
+    ? displayIcon
+    : null;
 
   return (
     <span
       className={`badge badge-${variant} badge-${size} ${className}`}
       style={{
-        backgroundColor: variantStyle.bg,
-        color: variantStyle.color,
+        '--badge-bg': variantStyle.bg,
+        '--badge-color': variantStyle.color,
         padding: sizeStyle.padding,
         fontSize: sizeStyle.fontSize,
-        borderRadius: '6px',
-        fontWeight: '600',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.25rem',
-        whiteSpace: 'nowrap',
         ...style
       }}
     >
-      {displayIcon && <span className="badge-icon">{displayIcon}</span>}
+      {displayIcon && (
+        <span className="badge-icon" aria-hidden="true">
+          {Icon ? React.createElement(Icon, { size: 12, strokeWidth: 2.4 }) : displayIcon}
+        </span>
+      )}
       {children}
     </span>
   );
@@ -74,7 +87,7 @@ export function TaskTypeBadge({ type }) {
 
 export function ClusterBadge({ name }) {
   return (
-    <Badge variant="cluster" icon="📁">
+    <Badge variant="cluster" icon={FolderKanban}>
       {name}
     </Badge>
   );
@@ -100,10 +113,10 @@ export function ScopeBadge({ scope }) {
 
 export function StatusBadge({ status }) {
   const statusMap = {
-    pending: { variant: 'warning', label: 'Pending', icon: '⏳' },
-    completed: { variant: 'success', label: 'Completed', icon: '✓' },
-    overdue: { variant: 'error', label: 'Overdue', icon: '⚠️' },
-    'in-progress': { variant: 'info', label: 'In Progress', icon: '🔄' }
+    pending: { variant: 'warning', label: 'Pending', icon: AlertTriangle },
+    completed: { variant: 'success', label: 'Completed', icon: CheckCircle2 },
+    overdue: { variant: 'error', label: 'Overdue', icon: XCircle },
+    'in-progress': { variant: 'info', label: 'In Progress', icon: RotateCcw }
   };
 
   const config = statusMap[status] || statusMap.pending;

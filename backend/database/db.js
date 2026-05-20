@@ -76,6 +76,11 @@ function initSQLite() {
       fs.mkdirSync(dbDir, { recursive: true });
       dbLogger.info(`Created data directory: ${dbDir}`);
     }
+    try {
+      fs.chmodSync(dbDir, 0o700);
+    } catch (chmodErr) {
+      dbLogger.warn(`Could not enforce restricted data directory permissions: ${chmodErr.message}`);
+    }
 
     db = new sqlite3.Database(dbPath, async (err) => {
       if (err) {
@@ -83,6 +88,11 @@ function initSQLite() {
         reject(err);
       } else {
         dbLogger.info(`✓ Connected to SQLite database at ${dbPath}`);
+        try {
+          fs.chmodSync(dbPath, 0o600);
+        } catch (chmodErr) {
+          dbLogger.warn(`Could not enforce restricted SQLite permissions: ${chmodErr.message}`);
+        }
         try {
           await initDatabaseTables();
           resolve();
@@ -884,22 +894,25 @@ async function runMigrations() {
     // Run migration 002: Add profiles system
     const migration002 = require('./migrations/002_add_profiles');
     await migration002.runMigration(db, pool, dbType);
+
+    // Run migration 006 before integration migration because migration 003 expects
+    // the normalized profile_integrations schema.
+    const migration006 = require('./migrations/006_fix_profile_integrations_schema');
+    await migration006.runMigration(db, pool, dbType);
     
     // Run migration 003: Migrate existing integrations to profiles
+    // This migration uses async get/run/all helpers, so pass the unified wrapper.
     const migration003 = require('./migrations/003_migrate_integrations_to_profiles');
-    await migration003.runMigration(db, pool, dbType);
+    await migration003.runMigration(dbWrapper, pool, dbType);
     
     // Run migration 004: Add completion_note to commitments table
     const migration004 = require('./migrations/004_add_completion_note');
     await migration004.runMigration(db, pool, dbType);
     
-    // Run migration 006: Fix profile_integrations schema (add missing columns)
-    const migration006 = require('./migrations/006_fix_profile_integrations_schema');
-    await migration006.runMigration(db, pool, dbType);
-    
     // Run migration 007: Recover calendar tokens
+    // This migration uses async get/run/all helpers, so pass the unified wrapper.
     const migration007 = require('./migrations/007_recover_calendar_tokens');
-    await migration007.runMigration(db, pool, dbType);
+    await migration007.runMigration(dbWrapper, pool, dbType);
     
     // Run migration 005: Add AI provider preferences to profiles
     const migration005 = require('./migrations/005_profile_ai_preferences');

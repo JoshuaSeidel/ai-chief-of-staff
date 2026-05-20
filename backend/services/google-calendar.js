@@ -2,6 +2,7 @@ const { google } = require('googleapis');
 const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
 const { generateEventDescription } = require('./claude');
+const { createOAuthState } = require('./oauth-state');
 
 const logger = createModuleLogger('GOOGLE-CALENDAR');
 
@@ -17,17 +18,12 @@ async function getOAuthClient(profileId = 2, requestOrigin = null) {
   const clientIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientId']);
   const clientSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleClientSecret']);
   
-  // Get redirect URI from config or environment variable, or construct from request origin
+  // Get redirect URI from config or environment variable.
   let redirectUri = process.env.GOOGLE_REDIRECT_URI;
   if (!redirectUri) {
     const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['googleRedirectUri']);
     redirectUri = redirectUriRow?.value;
-    
-    // If no config and we have request origin, construct redirect URI
-    if (!redirectUri && requestOrigin) {
-      redirectUri = `${requestOrigin}/api/calendar/google/callback`;
-    }
-    
+
     // Fallback to localhost only if nothing else is available
     if (!redirectUri) {
       redirectUri = 'http://localhost:3001/api/calendar/google/callback';
@@ -80,7 +76,7 @@ async function getAuthUrl(profileId = 2, requestOrigin = null) {
     access_type: 'offline',
     scope: scopes,
     prompt: 'consent', // Force consent screen to get refresh token
-    state: profileId.toString() // Include profileId in state for callback
+    state: await createOAuthState(profileId, 'google')
   });
   
   return url;
@@ -418,4 +414,3 @@ module.exports = {
   deleteEvents,
   listCalendars
 };
-
