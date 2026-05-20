@@ -5,6 +5,7 @@ const fs = require('fs');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const path = require('path');
+const { rateLimit } = require('express-rate-limit');
 const logger = require('./utils/logger');
 const { createModuleLogger } = require('./utils/logger');
 const { runStartupChecks } = require('./startup-check');
@@ -26,6 +27,17 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const serverLogger = createModuleLogger('SERVER');
 app.disable('x-powered-by');
+
+const frontendFallbackLimiter = rateLimit({
+  windowMs: Number(process.env.PAGE_RATE_LIMIT_WINDOW_MS || 60 * 1000),
+  limit: Number(process.env.PAGE_RATE_LIMIT_MAX || 300),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: 'Too many requests',
+    message: 'Please wait before trying again.'
+  }
+});
 
 // Initialize database before loading routes
 const { initializeDatabase } = require('./database/db');
@@ -245,7 +257,7 @@ async function startServer() {
     });
 
     // Serve frontend for any non-API routes (for all-in-one container)
-    app.get('*', (req, res) => {
+    app.get('*', frontendFallbackLimiter, (req, res) => {
       res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
     

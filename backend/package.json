@@ -24,6 +24,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.5.2",
     "form-data": "^4.0.0",
     "googleapis": "^166.0.0",
     "multer": "^2.0.2",

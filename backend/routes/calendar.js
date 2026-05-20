@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { rateLimit } = require('express-rate-limit');
 const { createModuleLogger } = require('../utils/logger');
 const { getConfig } = require('../config/manager');
 const googleCalendar = require('../services/google-calendar');
@@ -7,6 +8,16 @@ const microsoftCalendar = require('../services/microsoft-calendar');
 const { verifyOAuthState } = require('../services/oauth-state');
 
 const logger = createModuleLogger('CALENDAR');
+const oauthCallbackLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: Number(process.env.OAUTH_CALLBACK_RATE_LIMIT_MAX || 30),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: 'Too many OAuth callback attempts',
+    message: 'Please wait before trying again.'
+  }
+});
 
 /**
  * Fetch calendar events from connected calendar (Google or Microsoft)
@@ -245,7 +256,7 @@ router.get('/google/auth', async (req, res) => {
 /**
  * Google OAuth - Callback
  */
-router.get('/google/callback', async (req, res) => {
+router.get('/google/callback', oauthCallbackLimiter, async (req, res) => {
   const { code, error, state } = req.query;
 
   logger.info('Google OAuth callback received', {
@@ -413,7 +424,7 @@ router.get('/microsoft/auth', async (req, res) => {
 /**
  * Microsoft OAuth - Callback
  */
-router.get('/microsoft/callback', async (req, res) => {
+router.get('/microsoft/callback', oauthCallbackLimiter, async (req, res) => {
   const { code, error, state } = req.query;
 
   if (error) {

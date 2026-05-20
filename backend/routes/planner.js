@@ -1,11 +1,22 @@
 const express = require('express');
 const router = express.Router();
+const { rateLimit } = require('express-rate-limit');
 const { createModuleLogger } = require('../utils/logger');
 const microsoftPlanner = require('../services/microsoft-planner');
 const jira = require('../services/jira');
 const { verifyOAuthState } = require('../services/oauth-state');
 
 const logger = createModuleLogger('PLANNER');
+const oauthCallbackLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: Number(process.env.OAUTH_CALLBACK_RATE_LIMIT_MAX || 30),
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: {
+    error: 'Too many OAuth callback attempts',
+    message: 'Please wait before trying again.'
+  }
+});
 
 /**
  * Microsoft OAuth - Get authorization URL (shared for Calendar and Planner)
@@ -35,7 +46,7 @@ router.get('/microsoft/auth', async (req, res) => {
 /**
  * Microsoft OAuth - Callback
  */
-router.get('/microsoft/callback', async (req, res) => {
+router.get('/microsoft/callback', oauthCallbackLimiter, async (req, res) => {
   const { code, error, error_description, state } = req.query;
 
   if (error) {
