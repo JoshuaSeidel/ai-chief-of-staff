@@ -10,10 +10,50 @@ const GRAPH_ROOT = 'https://graph.microsoft.com/v1.0';
 
 let cachedApplicationToken = null;
 
+function removeHtmlElementBlocks(value, tagName) {
+  let output = '';
+  let cursor = 0;
+  const source = String(value);
+  const lowerSource = source.toLowerCase();
+  const openPrefix = `<${tagName.toLowerCase()}`;
+  const closePrefix = `</${tagName.toLowerCase()}`;
+
+  while (cursor < source.length) {
+    const openStart = lowerSource.indexOf(openPrefix, cursor);
+    if (openStart === -1) {
+      output += source.slice(cursor);
+      break;
+    }
+
+    const boundary = lowerSource[openStart + openPrefix.length];
+    if (boundary && !/[\s>/]/.test(boundary)) {
+      output += source.slice(cursor, openStart + openPrefix.length);
+      cursor = openStart + openPrefix.length;
+      continue;
+    }
+
+    output += source.slice(cursor, openStart);
+    const openEnd = lowerSource.indexOf('>', openStart);
+    if (openEnd === -1) break;
+
+    const closeStart = lowerSource.indexOf(closePrefix, openEnd + 1);
+    if (closeStart === -1) {
+      cursor = openEnd + 1;
+      continue;
+    }
+
+    const closeEnd = lowerSource.indexOf('>', closeStart);
+    cursor = closeEnd === -1 ? source.length : closeEnd + 1;
+  }
+
+  return output;
+}
+
 function stripHtml(value = '') {
-  return String(value)
-    .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, ' ')
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, ' ')
+  const withoutScripts = removeHtmlElementBlocks(value, 'script');
+  const withoutStyles = removeHtmlElementBlocks(withoutScripts, 'style');
+
+  return withoutStyles
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p\s*>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
