@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle2, Monitor, Moon, RefreshCw, Sun, XCircle } from 'lucide-react';
-import { microservicesAPI } from '../../services/api';
+import React, { useCallback, useState, useEffect } from 'react';
+import { AlertTriangle, CheckCircle2, Database, Monitor, Moon, RefreshCw, ShieldAlert, Sun, Trash2, XCircle } from 'lucide-react';
+import { adminAPI, microservicesAPI } from '../../services/api';
 import { useToast } from '../../contexts/ToastContext';
 import { useTheme, THEMES } from '../../contexts/ThemeContext';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { CardSkeleton } from '../common/LoadingSkeleton';
+import { Modal } from '../common/Modal';
+
+const WIPE_CONFIRMATION = 'WIPE HISTORY';
 
 function ThemeSettings() {
   const { themePreference, setTheme, isDark } = useTheme();
@@ -107,10 +110,13 @@ export function SystemSettings() {
   const [servicesHealth, setServicesHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    loadServicesHealth();
-  }, []);
+  const [historyScope, setHistoryScope] = useState('all-profiles');
+  const [historySummary, setHistorySummary] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState('');
+  const [wipeModalOpen, setWipeModalOpen] = useState(false);
+  const [wipeConfirmation, setWipeConfirmation] = useState('');
+  const [wipingHistory, setWipingHistory] = useState(false);
 
   const loadServicesHealth = async () => {
     setLoading(true);
@@ -131,6 +137,53 @@ export function SystemSettings() {
     await loadServicesHealth();
     setRefreshing(false);
     toast.success('Health check refreshed');
+  };
+
+  const loadHistorySummary = useCallback(async (scope = historyScope) => {
+    setHistoryLoading(true);
+    setHistoryError('');
+    try {
+      const response = await adminAPI.getHistorySummary(scope);
+      setHistorySummary(response.data);
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || 'Failed to load history summary';
+      setHistorySummary(null);
+      setHistoryError(message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyScope]);
+
+  useEffect(() => {
+    loadServicesHealth();
+  }, []);
+
+  useEffect(() => {
+    loadHistorySummary(historyScope);
+  }, [historyScope, loadHistorySummary]);
+
+  const handleOpenWipeModal = () => {
+    setWipeConfirmation('');
+    setWipeModalOpen(true);
+  };
+
+  const handleWipeHistory = async () => {
+    setWipingHistory(true);
+    try {
+      const response = await adminAPI.wipeHistory({
+        scope: historyScope,
+        confirmation: wipeConfirmation
+      });
+      toast.success(`History wiped. Deleted ${response.data.totalDeleted || 0} records.`);
+      setWipeModalOpen(false);
+      setWipeConfirmation('');
+      await loadHistorySummary(historyScope);
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || 'Failed to wipe history';
+      toast.error(message);
+    } finally {
+      setWipingHistory(false);
+    }
   };
 
   const services = [
@@ -233,7 +286,133 @@ export function SystemSettings() {
             Clear Cache
           </Button>
         </div>
+
+        <div className="danger-divider" />
+
+        <div className="danger-item danger-item-stacked">
+          <div className="danger-copy">
+            <div className="danger-title-row">
+              <Trash2 size={17} aria-hidden="true" />
+              <h4>Wipe History</h4>
+              <Badge variant="error" size="sm" icon={ShieldAlert}>Destructive</Badge>
+            </div>
+            <p className="text-muted text-sm">
+              Permanently deletes stored transcripts, imported email and meeting records, tasks, briefs, context, insights, and notification history.
+              Integrations and provider configuration stay connected.
+            </p>
+          </div>
+
+          <div className="history-wipe-panel">
+            <label className="form-label" htmlFor="history-wipe-scope">Scope</label>
+            <select
+              id="history-wipe-scope"
+              className="form-select"
+              value={historyScope}
+              onChange={(event) => setHistoryScope(event.target.value)}
+              disabled={historyLoading || wipingHistory}
+            >
+              <option value="all-profiles">All profiles</option>
+              <option value="current-profile">Current profile only</option>
+            </select>
+
+            <div className="history-summary-card" aria-live="polite">
+              {historyLoading ? (
+                <CardSkeleton lines={3} />
+              ) : historyError ? (
+                <div className="history-summary-error">
+                  <ShieldAlert size={16} aria-hidden="true" />
+                  <span>{historyError}</span>
+                </div>
+              ) : (
+                <>
+                  <div className="history-summary-total">
+                    <Database size={16} aria-hidden="true" />
+                    <span>{historySummary?.totalRows || 0} records ready to wipe</span>
+                  </div>
+                  <div className="history-summary-meta">
+                    {(historySummary?.tables || [])
+                      .filter(item => item.scoped && item.count > 0)
+                      .slice(0, 4)
+                      .map(item => (
+                        <Badge key={item.table} variant="default" size="sm" showIcon={false}>
+                          {item.table}: {item.count}
+                        </Badge>
+                      ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="history-wipe-actions">
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<RefreshCw size={15} />}
+                onClick={() => loadHistorySummary(historyScope)}
+                loading={historyLoading}
+              >
+                Refresh
+              </Button>
+              <Button
+                variant="error"
+                size="sm"
+                icon={<Trash2 size={15} />}
+                onClick={handleOpenWipeModal}
+                disabled={historyLoading || Boolean(historyError) || !historySummary}
+              >
+                Wipe History
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <Modal
+        isOpen={wipeModalOpen}
+        onClose={wipingHistory ? undefined : () => setWipeModalOpen(false)}
+        title="Wipe History"
+        size="md"
+        closeOnOverlay={!wipingHistory}
+        closeOnEscape={!wipingHistory}
+        footer={
+          <div className="modal-actions">
+            <Button variant="secondary" size="sm" onClick={() => setWipeModalOpen(false)} disabled={wipingHistory}>
+              Cancel
+            </Button>
+            <Button
+              variant="error"
+              size="sm"
+              icon={<Trash2 size={15} />}
+              onClick={handleWipeHistory}
+              loading={wipingHistory}
+              disabled={wipeConfirmation !== WIPE_CONFIRMATION}
+            >
+              Wipe History
+            </Button>
+          </div>
+        }
+      >
+        <div className="history-confirm">
+          <div className="history-confirm-warning">
+            <ShieldAlert size={18} aria-hidden="true" />
+            <p>
+              This permanently deletes {historySummary?.totalRows || 0} stored records for {historyScope === 'all-profiles' ? 'all profiles' : 'the current profile'}.
+              Connected Microsoft 365, Jira, Planner, AI provider, and profile settings are preserved.
+            </p>
+          </div>
+          <label className="form-label" htmlFor="wipe-confirmation">
+            Type {WIPE_CONFIRMATION} to confirm
+          </label>
+          <input
+            id="wipe-confirmation"
+            className="form-input form-input-mono"
+            value={wipeConfirmation}
+            onChange={(event) => setWipeConfirmation(event.target.value)}
+            disabled={wipingHistory}
+            autoComplete="off"
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

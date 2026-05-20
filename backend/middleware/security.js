@@ -44,6 +44,30 @@ function getAllowedOrigins() {
   return [...new Set([...explicit, ...local])];
 }
 
+function getRequestOrigin(req) {
+  const host = req.get('host');
+  if (!host) return null;
+
+  const forwardedProto = req.get('x-forwarded-proto');
+  const proto = forwardedProto
+    ? forwardedProto.split(',')[0].trim()
+    : (req.protocol || (req.secure ? 'https' : 'http'));
+
+  return `${proto}://${host}`;
+}
+
+function isSameHostOrigin(req, origin) {
+  try {
+    const host = req.get('host');
+    const parsed = new URL(origin);
+    return Boolean(host)
+      && ['http:', 'https:'].includes(parsed.protocol)
+      && parsed.host === host;
+  } catch {
+    return false;
+  }
+}
+
 function buildCorsOptions() {
   return {
     origin(origin, callback) {
@@ -150,6 +174,8 @@ function originGuard(req, res, next) {
 
   const origin = req.get('origin');
   if (!origin) return next();
+
+  if (origin === getRequestOrigin(req) || isSameHostOrigin(req, origin)) return next();
 
   if (getAllowedOrigins().includes(origin)) return next();
 

@@ -225,6 +225,7 @@ async function startServer() {
     const connectivityRoutes = require('./routes/connectivity');
     const intakeRoutes = require('./routes/intake');
     
+    app.use('/api/admin', require('./routes/admin'));
     app.use('/api/profiles', require('./routes/profiles')); // Profile management
     app.use('/api/brief', briefRoutes);
     app.use('/api/transcripts', transcriptRoutes);

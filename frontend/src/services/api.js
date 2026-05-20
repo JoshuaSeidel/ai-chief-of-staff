@@ -113,6 +113,16 @@ export const connectivityAPI = {
   } : undefined),
 };
 
+export const adminAPI = {
+  getHistorySummary: (scope = 'current-profile') => api.get('/admin/history/summary', {
+    params: { scope }
+  }),
+  wipeHistory: ({ scope = 'current-profile', confirmation }) => api.post('/admin/history/wipe', {
+    scope,
+    confirmation
+  }),
+};
+
 export const intakeAPI = {
   getEmailMessages: ({ limit = 25, unreadOnly = false, query = '' } = {}) => api.get('/intake/email/messages', {
     params: { limit, unreadOnly, query }
