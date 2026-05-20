@@ -1,454 +1,391 @@
 # AI Chief of Staff
 
-**Modern AI-powered productivity assistant with microservices architecture** that automates personal productivity by processing meeting transcripts, generating daily briefs, tracking commitments with intelligent calendar integration, and providing behavioral insights.
+AI Chief of Staff is a self-hosted executive operating system for turning meetings,
+emails, recordings, and ad hoc notes into a reliable command center for daily work.
+It combines transcript intake, Microsoft 365 email and meeting capture, task
+extraction, calendar planning, daily briefs, and AI-assisted prioritization in one
+responsive web app.
 
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue)](https://github.com/JoshuaSeidel/ai-chief-of-staff)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![GitHub](https://img.shields.io/badge/GitHub-Repository-black)](https://github.com/JoshuaSeidel/ai-chief-of-staff)
+[![Docker Ready](https://img.shields.io/badge/Docker-ready-blue)](docker-compose.yml)
+[![PWA](https://img.shields.io/badge/PWA-enabled-success)](frontend/package.json)
+[![License](https://img.shields.io/badge/License-custom-lightgrey)](LICENSE)
+[![Repository](https://img.shields.io/badge/GitHub-ai--chief--of--staff-black)](https://github.com/JoshuaSeidel/ai-chief-of-staff)
 
-## ✨ Highlights
+## What It Does
 
-- 🎨 **Modern Glassmorphism UI** - Elegant design with backdrop-blur effects
-- 🤖 **AI-Powered Intelligence** - Claude/GPT/Ollama support with semantic task clustering
-- 📊 **Smart Insights** - Pattern recognition and productivity analytics
-- 📝 **Auto-Task Extraction** - Upload meeting notes, get structured tasks
-- 📅 **Calendar Integration** - Google Calendar, Microsoft, and self-hosted CalDAV
-- 🔔 **Push Notifications** - Auto-configured VAPID keys, task reminders
-- 📱 **Progressive Web App** - Install on any device, works offline
-- 🐳 **Microservices Architecture** - Scalable specialized AI services
+AI Chief of Staff is designed for people who spend their day across meetings,
+mail, calendars, and task systems. It helps answer:
 
----
+- What did I commit to?
+- What needs action from email or meetings?
+- What should I focus on today?
+- Which tasks belong together?
+- Where are my calendar, email, meeting, Jira, or Planner connections broken?
 
-## 🚀 Quick Start
+The platform is self-hosted and database-driven. Most application settings are
+managed in the UI instead of through environment files.
 
-### Production Deployment (Microservices)
+## Current Capabilities
 
-**Recommended for production** - Full feature set with specialized AI services:
+| Area | Capability |
+| --- | --- |
+| Workspace UI | Modern responsive shell, dark/light mode, animated navigation, profile switcher, connection badges |
+| Transcript intake | Upload text transcripts, meeting notes, and supported audio/video files for processing |
+| Email intake | Pull Microsoft 365 mailbox messages, preview them, and process selected messages into the same workflow as meeting notes |
+| Meeting intake | Pull Microsoft 365 calendar meetings, import meeting metadata, and capture Teams transcript/recording artifacts when tenant permissions are configured |
+| Task command center | Track commitments, follow-ups, risks, priorities, deadlines, assignees, and completion state |
+| Calendar planning | Google Calendar and Microsoft Calendar OAuth flows with profile-aware token storage |
+| External task systems | Microsoft Planner/To Do and Jira integration points |
+| AI intelligence | Brief generation, task extraction, task grouping, effort/energy analysis, and productivity patterns |
+| Notifications | Web Push support with VAPID key generation and task reminders |
+| Deployment | Docker Compose microservices stack with PostgreSQL, Redis, backend, frontend, and AI services |
+
+## Screens And Workflows
+
+The primary app surface is the redesigned command shell:
+
+- Sidebar navigation on desktop, drawer navigation on mobile
+- Header-level connectivity pills for configured services only
+- Email and meeting intake page for Microsoft 365 workstreams
+- Task, transcript, calendar, intelligence, and settings modules
+- Responsive layouts for desktop, tablet, and phone
+- API-token prompt when backend token protection is enabled
+
+Typical workflow:
+
+1. Open the dashboard and review the day.
+2. Import a meeting transcript, Teams meeting artifact, or email message.
+3. Let the system extract tasks, risks, deadlines, and follow-ups.
+4. Review work in the task command center.
+5. Group related tasks with AI assistance.
+6. Sync or plan work through Calendar, Planner, Jira, or Microsoft 365.
+
+## Architecture
+
+The stack is split into a React frontend, an Express backend, persistent data
+stores, and optional specialist AI services.
+
+```text
+Browser
+  |
+  v
+React PWA frontend                 Port 3000
+  |
+  v
+Node/Express backend API           Port 3001
+  |
+  +-- PostgreSQL                   Primary production database
+  +-- Redis                        Cache and service coordination
+  +-- AI Intelligence service      Task analysis and grouping
+  +-- Pattern Recognition service  Productivity insights
+  +-- NL Parser service            Task extraction
+  +-- Voice Processor service      Audio transcription
+  +-- Context Service              Fast context retrieval
+  +-- Integrations service         External workflow integrations
+```
+
+The backend can also run with SQLite for local development and review.
+PostgreSQL is recommended for production.
+
+## Repository Layout
+
+| Path | Purpose |
+| --- | --- |
+| [frontend/](frontend/) | React 19 PWA, responsive command shell, app screens, settings UI |
+| [backend/](backend/) | Express API, database migrations, OAuth flows, security middleware, integration routes |
+| [services/](services/) | Microservices for AI intelligence, parsing, context, voice, and integrations |
+| [docs/](docs/) | Production setup, Microsoft 365 setup, architecture, styling, and integration docs |
+| [unraid/](unraid/) | Unraid templates and deployment notes |
+| [docker-compose.yml](docker-compose.yml) | Main local/microservices Docker Compose stack |
+| [env.example](env.example) | Environment variable reference |
+
+## Quick Start With Docker Compose
+
+Prerequisites:
+
+- Docker and Docker Compose
+- Git
+- API keys or local AI provider credentials if you want AI features immediately
 
 ```bash
-# Clone repository
 git clone https://github.com/JoshuaSeidel/ai-chief-of-staff.git
 cd ai-chief-of-staff
 
-# Configure environment
 cp env.example .env
-# Edit .env: Set ANTHROPIC_API_KEY and OPENAI_API_KEY
-
-# Start all services
-docker-compose -f docker-compose.microservices.yml up -d
-
-# Access at http://localhost:3001
+docker compose up --build
 ```
 
-**Multi-Architecture Support:**
-- ✅ **AMD64** - Windows, Linux, Intel Macs, most servers
-- ✅ **ARM64** - Apple Silicon Macs (M1/M2/M3), Raspberry Pi 4/5, ARM servers
+Then open:
 
-Docker automatically pulls the correct architecture for your system. All images are built for both platforms.
-
-**Includes:**
-- Main Application (Backend + Frontend)
-- PostgreSQL Database
-- Redis Cache
-- AI Intelligence (task clustering, effort estimation)
-- Pattern Recognition (productivity insights)
-- NL Parser (natural language task extraction)
-- Voice Processor (audio transcription)
-- Context Service (high-performance Go service)
-
----
-
-## 📚 Documentation
-
-### Core Documentation
-- **[Microservices Integration Guide](docs/MICROSERVICES-INTEGRATION.md)** - How services work together, when they trigger, data flows
-- **[Production Setup](docs/PRODUCTION-SETUP.md)** - Deployment with SWAG/SSL, reverse proxy configuration
-- **[Architecture Flows](docs/ARCHITECTURE_FLOWS.md)** - System architecture diagrams and data flows
-
-### Integration Guides  
-- **[Microsoft 365 Setup](docs/MICROSOFT-365-SETUP.md)** - Connect Microsoft email, meetings, Planner/To Do, and Teams artifacts
-- **[Microsoft Planner Setup](docs/MICROSOFT-PLANNER-SETUP.md)** - Legacy pointer to the shared Microsoft 365 setup
-- **[Implementation Status](docs/IMPLEMENTATION-STATUS.md)** - Current features and development roadmap
-
----
-
-## 🎯 Key Features
-
-### Intelligent Task Management
-
-**Smart Grouping** - AI-powered semantic clustering organizes related tasks:
-- Click "🤖 Smart Grouping..." in Tasks tab
-- AI analyzes task descriptions, deadlines, and context
-- Groups saved to database with blue 📁 badges
-- Syncs groups to Jira labels and Planner categories
-- Pattern analysis uses groups for deeper insights
-
-**Auto-Task Extraction** - Upload meeting notes, get structured commitments:
-- Drag & drop transcripts or paste text directly
-- NL-Parser extracts tasks, deadlines, assignees automatically
-- Tasks appear in Tasks tab instantly with AI-suggested priorities
-- Supports 25+ languages via Whisper transcription
-
-**Pattern Recognition** - Behavioral insights on Dashboard:
-- Analyzes last 7 days of completed tasks
-- Shows completion rate, best productive day of week
-- AI-generated insights about working patterns
-- Updates automatically when tasks are grouped or completed
-
-### Calendar Integration
-
-**Supported Platforms:**
-- ✅ **Google Calendar** - Full OAuth2 flow, automatic event creation
-- ✅ **Microsoft Calendar** - Multi-tenant support (personal + work)
-- ✅ **Radicale CalDAV** - Self-hosted privacy-focused option
-
-**Features:**
-- Two-way sync (import events, create from tasks)
-- AI-generated rich event descriptions (3-5 paragraphs)
-- Automatic deadline-based event creation
-- Calendar block management with task context
-
-### Progressive Web App
-
-- 📱 **Install to Home Screen** - Works like native app on all platforms
-- 🌐 **Offline Mode** - Full functionality without internet
-- 🔄 **Background Sync** - Changes sync automatically when connection returns
-- 🔔 **Push Notifications** - Auto-generated VAPID keys (no manual setup required)
-- 📐 **Mobile Optimized** - Safe area support for notches and navigation bars
-
-### AI Provider Flexibility
-
-Configure per-service in UI (Settings → AI Models):
-- **Anthropic Claude** - Sonnet 4.5, 4, 3.5, 3 Opus
-- **OpenAI GPT** - GPT-4, GPT-4 Turbo, GPT-3.5
-- **Ollama** - Local models (Mistral, Llama 2, Code Llama)
-- **AWS Bedrock** - Enterprise Claude access with SLA
-
-**All configuration stored in database** - No environment variables needed for AI settings.
-
----
-
-## 🏗️ Architecture
-
-### Microservices Overview
-
-```mermaid
-graph TD
-    Frontend["Frontend<br/>(React PWA)<br/>Port 3000"] --> Backend["Backend<br/>(Node.js/Express)<br/>Port 3001"]
-    
-    Backend --> AIIntel["AI Intelligence<br/>(Python)<br/>Port 8001"]
-    Backend --> PatternRecog["Pattern Recognition<br/>(Python)<br/>Port 8002"]
-    Backend --> NLParser["NL Parser<br/>(Python)<br/>Port 8003"]
-    Backend --> VoiceProc["Voice Processor<br/>(Python)<br/>Port 8004"]
-    Backend --> ContextSvc["Context Service<br/>(Go)<br/>Port 8005"]
-    
-    AIIntel --> Database["PostgreSQL<br/>+ Redis<br/>Shared Database"]
-    PatternRecog --> Database
-    NLParser --> Database
-    VoiceProc --> Database
-    ContextSvc --> Database
-    Backend --> Database
+```text
+http://localhost:3000
 ```
 
-### Service Responsibilities
+The backend API listens on:
 
-| Service | Purpose | When Used | Port |
-|---------|---------|-----------|------|
-| **Backend** | API gateway, database, auth | Always | 3001 |
-| **AI Intelligence** | Task clustering, effort estimation | Smart Grouping button | 8001 |
-| **Pattern Recognition** | Productivity insights, trends | Dashboard load | 8002 |
-| **NL Parser** | Extract tasks from text | Transcript upload | 8003 |
-| **Voice Processor** | Audio → text transcription | Audio file upload | 8004 |
-| **Context Service** | High-speed context retrieval | Brief generation | 8005 |
-
-**See [Microservices Integration Guide](docs/MICROSERVICES-INTEGRATION.md) for detailed flows, troubleshooting, and integration examples.**
-
----
-
-## ⚙️ Configuration
-
-### First-Time Setup
-
-1. **Access the Application**
-   ```
-   http://localhost:3001
-   ```
-
-2. **Navigate to Settings Tab**
-   - Click ⚙️ Settings in the bottom navigation
-
-3. **Configure AI Provider**
-   - Settings → **AI Models & Providers**
-   - Choose provider (Anthropic/OpenAI/Ollama)
-   - Select model
-   - Enter API key (stored encrypted in database)
-   - Set max tokens (2048-8192)
-
-4. **Set Your Name**
-   - Settings → **Your Name**
-   - Enter name as it appears in transcripts
-   - Used for auto-assigning tasks to you
-
-5. **Optional: Calendar Integration**
-   - Settings → **Calendar Integration**
-   - Choose Google, Microsoft, or Radicale
-   - Follow OAuth flow or enter CalDAV credentials
-
-### Database-Driven Configuration
-
-**All settings stored in PostgreSQL** - No environment variables needed:
-- ✅ AI provider and model selection
-- ✅ API keys (encrypted at rest)
-- ✅ Calendar credentials and OAuth tokens
-- ✅ Jira/Planner integration settings
-- ✅ Push notification keys (auto-generated)
-- ✅ User preferences and dashboard settings
-
-**Required environment variables (infrastructure only):**
-```yaml
-# Database connection
-DATABASE_URL=postgresql://user:pass@postgres:5432/aicos
-DB_TYPE=postgres
-
-# Cache connection
-REDIS_URL=redis://redis:6379
-
-# Runtime environment
-NODE_ENV=production
-PORT=3001
-
-# Microservice discovery (auto-configured in Docker network)
-AI_INTELLIGENCE_URL=http://aicos-ai-intelligence:8001
-PATTERN_RECOGNITION_URL=http://aicos-pattern-recognition:8002
-NL_PARSER_URL=http://aicos-nl-parser:8003
-VOICE_PROCESSOR_URL=http://aicos-voice-processor:8004
-CONTEXT_SERVICE_URL=http://aicos-context-service:8005
-
-# External API keys (sensitive - must be env vars)
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
+```text
+http://localhost:3001
 ```
 
-**Everything else configurable via UI.**
+For production, review [docs/PRODUCTION-SETUP.md](docs/PRODUCTION-SETUP.md)
+before exposing the app outside a trusted network.
 
----
+## Local Development
 
-## 🐳 Docker Compose Files
-
-### Production: `docker-compose.microservices.yml`
-
-Full microservices stack with:
-- Frontend (React PWA)
-- Backend (Node.js API)
-- PostgreSQL 15 (persistent data)
-- Redis (caching and rate limiting)
-- All AI microservices
-
-**Multi-Architecture Images:**
-All services are built for both **AMD64** (x86_64) and **ARM64** (aarch64) platforms:
-- GitHub Actions automatically builds both architectures on push
-- Images tagged with `latest` or `dev` include both platforms
-- `docker-compose` pulls the correct architecture for your system
-- Pre-built images available on GitHub Container Registry: `ghcr.io/joshuaseidel/ai-chief-of-staff`
-
-**Persistent volumes:**
-- `backend-data` - Configuration (config.json) and logs
-- `postgres-data` - Database storage
-- `redis-data` - Cache persistence
-- `pattern-models` - ML model storage
-- `voice-recordings` - Audio file storage
-
-**Networks:**
-- `aicos-network` - Internal microservices communication
-- `swag` (optional) - Reverse proxy for HTTPS
-- `psql` (optional) - External PostgreSQL
-- `redis` (optional) - External Redis
-
-### Development: `docker-compose.yml`
-
-Minimal setup for local development with hot reload.
-
-### Legacy: `docker-compose.production.yml`
-
-Old production setup with SWAG reverse proxy (deprecated - use microservices).
-
----
-
-## 📋 Usage Examples
-
-### Daily Workflow
-
-1. **Morning:** View Dashboard for daily brief and productivity insights
-2. **Upload Transcript:** Drag meeting notes → Auto-extracts tasks with deadlines
-3. **Smart Grouping:** Click "🤖 Smart Grouping..." to organize related tasks
-4. **Review Tasks:** Check Tasks tab, mark completed, filter by type
-5. **Calendar Sync:** Auto-creates events for upcoming deadlines
-6. **Evening:** Check Productivity Insights for completion patterns
-
-### Smart Grouping Example
-
-**Before:**
-```
-❌ No groups
-- Fix login bug
-- Update user profile API
-- Write deployment docs
-- Add unit tests for auth
-- Configure CI/CD pipeline
-```
-
-**After Smart Grouping:**
-```
-📁 Authentication & Security
-  - Fix login bug
-  - Add unit tests for auth
-  
-📁 API Development
-  - Update user profile API
-  
-📁 DevOps & Deployment
-  - Write deployment docs
-  - Configure CI/CD pipeline
-```
-
-Groups automatically sync to:
-- **Jira** - Applied as labels on issues
-- **Microsoft Planner** - Organized in buckets
-- **Pattern Analysis** - Used for deeper behavioral insights
-
----
-
-## 🔧 Advanced Configuration
-
-### Microservice URLs (Optional Override)
-
-If deploying services separately, configure in backend environment:
-
-```yaml
-environment:
-  - AI_INTELLIGENCE_URL=http://custom-host:8001
-  - PATTERN_RECOGNITION_URL=http://custom-host:8002
-  - NL_PARSER_URL=http://custom-host:8003
-```
-
-**Default:** Auto-discovered via Docker network (`aicos-network`)
-
-### Custom Database Configuration
-
-PostgreSQL recommended for production:
-
-```yaml
-environment:
-  - DATABASE_URL=postgresql://user:pass@host:5432/dbname
-  - DB_TYPE=postgres
-```
-
-**Supported:** PostgreSQL (recommended), SQLite (local dev only)
-
-### Resource Limits
-
-Adjust in `docker-compose.microservices.yml`:
-
-```yaml
-deploy:
-  resources:
-    limits:
-      cpus: '2.0'
-      memory: 4G
-    reservations:
-      cpus: '0.5'
-      memory: 1G
-```
-
-### AI Model Optimization
-
-Configure per microservice in Settings UI:
-- **max_tokens**: 1024-8192 (lower = faster, higher = more detailed)
-- **temperature**: 0.0-1.0 (lower = deterministic, higher = creative)
-- **Brief generation**: 4096 tokens recommended
-- **Smart grouping**: 2048 tokens recommended
-- **Pattern insights**: 1024 tokens recommended
-
----
-
-## 🔒 Security & Privacy
-
-- ✅ **API Keys** - Encrypted at rest in PostgreSQL using AES-256
-- ✅ **OAuth Tokens** - Stored encrypted with PKCE flow
-- ✅ **Local AI Option** - Use Ollama for on-premise processing (no data leaves server)
-- ✅ **No Tracking** - No telemetry or analytics sent anywhere
-- ✅ **Self-Hosted** - Full control of your data and infrastructure
-- ✅ **HTTPS Ready** - TLS termination via SWAG/nginx reverse proxy
-
----
-
-## 🚢 Production Deployment
-
-### With SWAG Reverse Proxy
-
-See **[Production Setup Guide](docs/PRODUCTION-SETUP.md)** for:
-- SWAG/nginx reverse proxy configuration
-- SSL certificate setup (Let's Encrypt)
-- Domain configuration and DNS
-- Production environment variables
-- Network configuration for multi-container setups
-
-### Unraid Deployment
-
-See **[unraid/README.md](unraid/README.md)** for Community Apps template and installation guide.
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Setup
+Run the backend:
 
 ```bash
-# Clone and install
-git clone https://github.com/JoshuaSeidel/ai-chief-of-staff.git
-cd ai-chief-of-staff
-
-# Start development stack
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Access application
-open http://localhost:3001
+cd backend
+npm install
+CONFIG_DIR=./data PORT=3001 npm start
 ```
 
----
+Run the frontend in another terminal:
 
-## 📄 License
+```bash
+cd frontend
+npm install
+npm run dev -- --host 0.0.0.0 --port 3000
+```
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
+Useful checks:
 
----
+```bash
+cd frontend
+npm run lint
+npm run build
 
-## 🙏 Acknowledgments
+cd ../backend
+npm audit --audit-level=low
+node -c server.js
+```
 
-- **Anthropic Claude** - Primary AI provider for intelligent task processing
-- **OpenAI** - GPT models and Whisper transcription
-- **Plaud Note** - Inspiration for transcript processing workflow
-- **SWAG** - Secure web application gateway for production deployments
+## First-Time App Setup
 
----
+1. Open the app.
+2. Go to Settings.
+3. Create or select a profile.
+4. Configure an AI provider.
+5. Configure integrations you need.
+6. Connect Microsoft 365, Google Calendar, Jira, or Planner as needed.
+7. Confirm the header shows only the connection pills that are configured for the profile.
 
-## 📞 Support
+Important production settings:
 
-- **Issues:** [GitHub Issues](https://github.com/JoshuaSeidel/ai-chief-of-staff/issues)
-- **Documentation:** [docs/](docs/)
-- **Discussions:** [GitHub Discussions](https://github.com/JoshuaSeidel/ai-chief-of-staff/discussions)
+```env
+FRONTEND_URL=https://aicos.yourdomain.com
+ALLOWED_ORIGINS=https://aicos.yourdomain.com
+AICOS_AUTH_TOKEN=generate-a-long-random-token
+OAUTH_STATE_SECRET=generate-a-long-random-secret
+TRUST_PROXY=true
+```
 
----
+If `AICOS_AUTH_TOKEN` is set, API requests must include:
 
-**Built with ❤️ for productivity enthusiasts who want AI-powered task management without sacrificing privacy**
+```text
+Authorization: Bearer <token>
+```
+
+The frontend shows a secure API-token prompt when the backend returns `401`.
+For public deployments, leave `VITE_API_TOKEN` blank and let authorized users
+enter the token in the app.
+
+## Microsoft 365 Integration
+
+Microsoft 365 is the primary integration path for email, meeting, Planner/To Do,
+and Teams meeting artifacts.
+
+The system supports:
+
+- Delegated mailbox access for email intake
+- Delegated calendar access for meeting lists and meeting metadata
+- Delegated Planner/To Do access for task workflows
+- App-only Teams transcript and recording artifact capture when tenant permissions allow it
+
+You need a real Microsoft Entra app registration for production. The complete
+setup guide is in [docs/MICROSOFT-365-SETUP.md](docs/MICROSOFT-365-SETUP.md).
+
+At a high level:
+
+1. Register a single-tenant Microsoft Entra app.
+2. Add delegated Microsoft Graph permissions for mail, calendar, tasks, and online meetings.
+3. Add app-only permissions for Teams transcript and recording capture if needed.
+4. Grant admin consent.
+5. Grant a Teams application access policy for meeting artifact APIs.
+6. Save the Client ID, Client Secret, Tenant ID, and Redirect URI in Settings.
+7. Connect Microsoft from the app.
+
+## AI Providers
+
+Supported providers include:
+
+- Anthropic Claude
+- OpenAI
+- Ollama
+- AWS Bedrock
+
+AI provider and model selection are managed in Settings. Environment variables
+can still provide fallback API keys for deployment automation.
+
+Recommended usage:
+
+- Use Anthropic or OpenAI for highest quality brief and extraction workflows.
+- Use Ollama when local processing and data locality are more important than model quality.
+- Use separate provider/model settings per profile or service when needed.
+
+## Integrations
+
+| Integration | Status | Notes |
+| --- | --- | --- |
+| Microsoft 365 | Supported | Email, calendar, meetings, Planner/To Do, Teams artifacts with tenant setup |
+| Google Calendar | Supported | OAuth flow, profile-aware token storage |
+| Microsoft Planner | Supported | Shares Microsoft 365 OAuth configuration |
+| Jira | Supported | Used for task synchronization workflows |
+| Radicale CalDAV | Legacy/supporting | Self-hosted calendar option |
+
+Connectivity pills in the app header are shown only when the corresponding
+integration is configured for the active profile. This prevents users from seeing
+irrelevant unavailable services.
+
+## Security Model
+
+The backend includes the following controls:
+
+- API token authentication with `AICOS_AUTH_TOKEN` or `API_TOKEN`
+- CORS allowlist through `FRONTEND_URL` and `ALLOWED_ORIGINS`
+- Origin guard for browser write requests
+- Rate limiting for API traffic, OAuth callbacks, and frontend fallback routes
+- Security headers, including CSP in production mode
+- Request IDs for traceability
+- Sensitive config masking in API responses
+- OAuth state signing
+- Restricted SQLite and config-file permissions where the filesystem allows it
+- Upload type allowlisting for transcript and supported media intake
+- TLS verification enabled by default for internal service calls
+
+Operational notes:
+
+- Use HTTPS in production.
+- Set `TRUST_PROXY=true` behind a trusted reverse proxy.
+- Do not commit `.env`, Microsoft client secrets, OAuth tokens, API keys, or database files.
+- Treat Microsoft Graph app-only permissions as high-impact tenant access.
+- Use Teams application access policies to scope Teams artifact capture.
+
+## Configuration Philosophy
+
+Infrastructure belongs in environment variables:
+
+- Database connection
+- Redis URL
+- Service discovery URLs
+- Runtime mode
+- CORS origins
+- API token settings
+- OAuth state secret
+
+Product behavior belongs in the app database and Settings UI:
+
+- AI provider and model preferences
+- Calendar and integration settings
+- Profile preferences
+- Prompt customization
+- Notification settings
+- User-facing workflow preferences
+
+This keeps production deployments stable while allowing operational changes
+without rebuilding containers.
+
+## Production Deployment
+
+Read [docs/PRODUCTION-SETUP.md](docs/PRODUCTION-SETUP.md) before production use.
+
+Minimum production checklist:
+
+- Use PostgreSQL instead of SQLite.
+- Set a strong `AICOS_AUTH_TOKEN`.
+- Set `FRONTEND_URL` and `ALLOWED_ORIGINS`.
+- Put the app behind HTTPS.
+- Keep TLS verification enabled for internal service calls.
+- Use secure persistent volumes for backend data and database files.
+- Back up the database and configuration directory.
+- Configure Microsoft 365 in a real tenant if email or meeting capture is required.
+
+Unraid-specific deployment notes are in [unraid/README.md](unraid/README.md).
+
+## Documentation
+
+| Document | Purpose |
+| --- | --- |
+| [docs/MICROSOFT-365-SETUP.md](docs/MICROSOFT-365-SETUP.md) | Microsoft Entra app, Graph permissions, Teams policy, and verification |
+| [docs/PRODUCTION-SETUP.md](docs/PRODUCTION-SETUP.md) | Production deployment and reverse proxy guidance |
+| [docs/MICROSERVICES-INTEGRATION.md](docs/MICROSERVICES-INTEGRATION.md) | How backend and AI services work together |
+| [docs/ARCHITECTURE_FLOWS.md](docs/ARCHITECTURE_FLOWS.md) | Architecture and data-flow diagrams |
+| [docs/STYLING-GUIDE.md](docs/STYLING-GUIDE.md) | Frontend styling and design guidance |
+| [docs/MICROSOFT-PLANNER-SETUP.md](docs/MICROSOFT-PLANNER-SETUP.md) | Legacy pointer to the shared Microsoft 365 setup |
+
+## Troubleshooting
+
+### The frontend cannot reach the backend
+
+- Confirm the backend is running on port `3001`.
+- Confirm `VITE_API_URL` or the default local API URL points to the backend.
+- Check `FRONTEND_URL` and `ALLOWED_ORIGINS` if running production mode locally.
+
+### The app asks for an API token
+
+The backend is protected by `AICOS_AUTH_TOKEN` or `API_TOKEN`. Enter the matching
+token in the prompt, or remove the token setting for local-only development.
+
+### Microsoft email or meetings do not load
+
+- Confirm Microsoft Client ID, Client Secret, Tenant ID, and Redirect URI are saved.
+- Confirm the redirect URI matches the Entra app registration exactly.
+- Reconnect Microsoft after changing Graph scopes.
+- Check [docs/MICROSOFT-365-SETUP.md](docs/MICROSOFT-365-SETUP.md).
+
+### Teams transcripts or recordings are unavailable
+
+- Confirm app-only Graph permissions have admin consent.
+- Confirm a Teams application access policy is granted to the organizer or tenant.
+- Wait for Microsoft policy propagation.
+- Verify the meeting includes a Teams join URL.
+
+### Audio transcription fails with TLS errors
+
+- Mount the internal CA certificate for service-to-service TLS.
+- Use `ALLOW_INSECURE_TLS=true` only for local development.
+- Keep TLS verification enabled in production.
+
+## Contributing
+
+1. Create a branch.
+2. Keep changes scoped.
+3. Run relevant local checks.
+4. Open a pull request.
+
+Recommended frontend checks:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+```
+
+Recommended backend checks:
+
+```bash
+cd backend
+npm audit --audit-level=low
+node -c server.js
+```
+
+## License
+
+This project is distributed under the custom AI Chief of Staff Software License.
+See [LICENSE](LICENSE) for the full terms.
+
+## Support
+
+- Issues: [GitHub Issues](https://github.com/JoshuaSeidel/ai-chief-of-staff/issues)
+- Discussions: [GitHub Discussions](https://github.com/JoshuaSeidel/ai-chief-of-staff/discussions)
+- Documentation: [docs/](docs/)
