@@ -160,7 +160,9 @@ jobs:
             ```bash
             git clone https://github.com/${{ github.repository }}.git
             cd ai-chief-of-staff
-            docker-compose up -d
+            cp env.example .env
+            # Edit .env and set AICOS_AUTH_TOKEN plus POSTGRES_PASSWORD first.
+            docker compose up --build -d
             ```
 
             ### Recent Changes

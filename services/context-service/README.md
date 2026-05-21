@@ -253,14 +253,13 @@ docker logs context-service
 
 ## Scaling
 
-The Go service is designed for horizontal scaling:
+The Go service is designed for horizontal scaling, but the repository Compose
+file pins `container_name` values for predictable local networking. Remove the
+fixed container name and put a load balancer in front of the service before
+running multiple replicas.
 
 ```bash
-# Run multiple instances
-docker-compose up -d --scale context-service=5
-
-# Each instance handles ~1000 req/s
-# 5 instances = ~5000 req/s capacity
+docker compose up -d --scale aicos-context-service=5
 ```
 
 ## Why Go?

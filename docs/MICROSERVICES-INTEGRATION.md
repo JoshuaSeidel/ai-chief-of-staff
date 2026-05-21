@@ -189,7 +189,7 @@ GROUP BY cluster_group;
 - Verify Pattern-Recognition service is running: `docker logs aicos-pattern-recognition`
 
 **Smart grouping not saving:**
-- Check cluster_group column exists: `docker-compose down && docker-compose up -d`
+- Check cluster_group column exists: `docker compose down && docker compose up -d`
 - Migration runs automatically on startup
 - Verify backend logs show no errors
 
@@ -213,4 +213,4 @@ pattern-recognition: 2 CPU / 4GB RAM
 nl-parser: 1 CPU / 2GB RAM
 ```
 
-Adjust in `docker-compose.microservices.yml` under `deploy.resources`.
+Adjust in `docker-compose.yml` under each service's `deploy.resources` block.

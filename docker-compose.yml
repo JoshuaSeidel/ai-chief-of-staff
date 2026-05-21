@@ -10,6 +10,8 @@
 # WHAT'S IN ENVIRONMENT VARIABLES:
 # ✓ Infrastructure URLs (DATABASE_URL, REDIS_URL, service discovery)
 # ✓ Runtime settings (NODE_ENV, LOG_LEVEL)
+# ✓ Security controls (AICOS_AUTH_TOKEN/API_TOKEN, CORS origins, proxy trust)
+# ✓ OAuth redirect URI fallbacks and Microsoft app-only capture credentials
 #
 # WHAT'S IN DATABASE (configured via Settings UI):
 # ✓ External API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY)
@@ -42,17 +44,18 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_API_TOKEN: ${VITE_API_TOKEN:-}
+        VERSION: ${VERSION:-2.3.0}
+        COMMIT_HASH: ${COMMIT_HASH:-unknown}
+        BUILD_DATE: ${BUILD_DATE:-}
     ports:
-      - "3000:3000"
-    environment:
-      # Frontend uses relative /api path which nginx proxies to backend
-      - VITE_API_URL=/api
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - aicos-backend
     networks:
       - aicos-network
-    volumes:
-      - ./frontend/src:/app/src
     restart: unless-stopped
 
   # ============================================================================
@@ -64,15 +67,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "3001:3001"
+      - "${BACKEND_PORT:-3001}:3001"
     environment:
       # ============================================
       # INFRASTRUCTURE (Required - cannot be in DB)
       # ============================================
       
       # Database connection string
-      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
-      - DB_TYPE=postgres
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aicos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@aicos-postgres:5432/${POSTGRES_DB:-aicos}
+      - DB_TYPE=${DB_TYPE:-postgres}
       
       # Cache/queue connection
       - REDIS_URL=redis://aicos-redis:6379
@@ -91,15 +94,37 @@ services:
       # ============================================
       
       # Runtime environment (development/production)
-      - NODE_ENV=development
+      - NODE_ENV=${NODE_ENV:-production}
       
       # Log verbosity (debug/info/warn/error)
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+
+      # API token auth is required for destructive admin tools, including
+      # Settings > System > Danger Zone > Wipe History.
+      - AICOS_AUTH_TOKEN=${AICOS_AUTH_TOKEN:-${API_TOKEN:?Set AICOS_AUTH_TOKEN or API_TOKEN before using destructive admin tools}}
+      - API_TOKEN=${API_TOKEN:-}
+
+      # Browser security and reverse-proxy controls.
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      - OAUTH_STATE_SECRET=${OAUTH_STATE_SECRET:-}
+      - JSON_BODY_LIMIT=${JSON_BODY_LIMIT:-10mb}
+      - FORM_BODY_LIMIT=${FORM_BODY_LIMIT:-1mb}
+      - API_RATE_LIMIT_MAX=${API_RATE_LIMIT_MAX:-600}
+      - OAUTH_RATE_LIMIT_MAX=${OAUTH_RATE_LIMIT_MAX:-40}
 
       # TLS/Security (for inter-service HTTPS)
       # Set to 'true' in development if TLS certificates are not properly configured
       # Should be 'false' or unset in production with proper certificates
-      - ALLOW_INSECURE_TLS=true
+      - ALLOW_INSECURE_TLS=${ALLOW_INSECURE_TLS:-true}
+
+      # OAuth redirect fallbacks. Credentials can also be saved in Settings.
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
+      - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID:-}
+      - MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET:-}
+      - MICROSOFT_TENANT_ID=${MICROSOFT_TENANT_ID:-}
+      - MICROSOFT_REDIRECT_URI=${MICROSOFT_REDIRECT_URI:-}
 
       # ============================================
       # ALL OTHER CONFIG IN DATABASE (via Settings UI)
@@ -117,9 +142,8 @@ services:
     networks:
       - aicos-network
     volumes:
-      - ./backend:/app
-      - /app/node_modules
       - backend-data:/app/data
+      - uploads-data:/app/uploads
       # Shared certificate volume for TLS
       - tls-certs:/app/certs
     restart: unless-stopped
@@ -141,14 +165,14 @@ services:
       context: ./services
       dockerfile: ai-intelligence/Dockerfile
     ports:
-      - "8001:8001"
+      - "${AI_INTELLIGENCE_PORT:-8001}:8001"
     environment:
       # Infrastructure
-      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aicos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@aicos-postgres:5432/${POSTGRES_DB:-aicos}
       - REDIS_URL=redis://aicos-redis:6379
       
       # Runtime
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       
       # All configuration from database via Settings UI:
       # - API keys (anthropicApiKey, openaiApiKey)
@@ -185,14 +209,14 @@ services:
       context: ./services
       dockerfile: pattern-recognition/Dockerfile
     ports:
-      - "8002:8002"
+      - "${PATTERN_RECOGNITION_PORT:-8002}:8002"
     environment:
       # Infrastructure
-      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aicos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@aicos-postgres:5432/${POSTGRES_DB:-aicos}
       - REDIS_URL=redis://aicos-redis:6379
       
       # Runtime
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       
       # All configuration from database via Settings UI:
       # - API keys (anthropicApiKey, openaiApiKey)
@@ -232,14 +256,14 @@ services:
       context: ./services
       dockerfile: nl-parser/Dockerfile
     ports:
-      - "8003:8003"
+      - "${NL_PARSER_PORT:-8003}:8003"
     environment:
       # Infrastructure
-      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aicos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@aicos-postgres:5432/${POSTGRES_DB:-aicos}
       - REDIS_URL=redis://aicos-redis:6379
       
       # Runtime
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       
       # All configuration from database via Settings UI:
       # - API keys (anthropicApiKey, openaiApiKey)
@@ -276,14 +300,14 @@ services:
       context: ./services
       dockerfile: voice-processor/Dockerfile
     ports:
-      - "8004:8004"
+      - "${VOICE_PROCESSOR_PORT:-8004}:8004"
     environment:
       # Infrastructure
-      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aicos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@aicos-postgres:5432/${POSTGRES_DB:-aicos}
       - REDIS_URL=redis://aicos-redis:6379
       
       # Runtime
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}
       
       # All configuration from database via Settings UI:
       # - API keys (openaiApiKey)
@@ -326,16 +350,16 @@ services:
       context: ./services/context-service
       dockerfile: Dockerfile
     ports:
-      - "8005:8005"
+      - "${CONTEXT_SERVICE_PORT:-8005}:8005"
     environment:
       # Database connection (Go service parses this directly)
-      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos?sslmode=disable
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aicos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@aicos-postgres:5432/${POSTGRES_DB:-aicos}?sslmode=disable
       
       # Redis for caching
       - REDIS_URL=redis://aicos-redis:6379
       
       # Log verbosity
-      - LOG_LEVEL=info
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
       - aicos-postgres
       - aicos-redis
@@ -367,14 +391,19 @@ services:
       context: ./services/integrations
       dockerfile: Dockerfile
     ports:
-      - "8006:8006"
+      - "${INTEGRATIONS_PORT:-8006}:8006"
     environment:
       # Database connection
-      - DATABASE_URL=postgresql://postgres:postgres@aicos-postgres:5432/aicos
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-aicos}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@aicos-postgres:5432/${POSTGRES_DB:-aicos}
       
       # Runtime
-      - NODE_ENV=production
-      - LOG_LEVEL=info
+      - NODE_ENV=${NODE_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}
+      - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID:-}
+      - MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET:-}
+      - MICROSOFT_TENANT_ID=${MICROSOFT_TENANT_ID:-}
+      - MICROSOFT_REDIRECT_URI=${MICROSOFT_REDIRECT_URI:-}
       
       # All integration credentials stored in database via Settings UI:
       # - Google Calendar OAuth (client ID, secret, tokens)
@@ -465,11 +494,11 @@ services:
     container_name: aicos-postgres
     image: postgres:15-alpine
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=aicos
+      - POSTGRES_USER=${POSTGRES_USER:-aicos}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      - POSTGRES_DB=${POSTGRES_DB:-aicos}
       - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=en_US.UTF-8
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -478,7 +507,7 @@ services:
       - aicos-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aicos} -d ${POSTGRES_DB:-aicos}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -488,7 +517,7 @@ services:
     container_name: aicos-redis
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis-data:/data
@@ -538,6 +567,8 @@ networks:
 volumes:
   backend-data:
     driver: local
+  uploads-data:
+    driver: local
   postgres-data:
     driver: local
   redis-data:
@@ -557,11 +588,5 @@ volumes:
   # grafana-data:
   #   driver: local
   
-  # Shared TLS certificates volume
-  # This is a bind mount to ./certs directory where generate-certs.sh creates certificates
   tls-certs:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/certs

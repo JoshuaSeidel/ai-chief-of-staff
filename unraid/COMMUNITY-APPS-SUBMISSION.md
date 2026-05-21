@@ -1,154 +1,106 @@
-# Unraid Community Apps Submission Guide
+# Unraid Community Apps Submission
 
-This document explains how to submit AI Chief of Staff to Unraid Community Apps.
+This note tracks the files and checks needed to submit AI Chief of Staff to
+Unraid Community Apps.
 
-## Prerequisites
+## Submission Files
 
-1. GitHub repository must be public
-2. Template XML file must be accessible via raw GitHub URL
-3. Icon PNG file must be accessible via raw GitHub URL
-4. Application must be thoroughly tested on Unraid
+All Unraid assets live in `unraid/`:
 
-## Files for Submission
+- `ai-chief-of-staff.xml`: primary all-in-one template
+- `ai-chief-of-staff-microservices.xml`: template for a main app container that
+  points at separately deployed microservices
+- `icon.png`: application icon
+- `README.md`: user-facing Unraid setup guide
 
-All files are in the `unraid/` directory:
+## Current URLs
 
-- `ai-chief-of-staff.xml` - Unraid template
-- `icon.png` - Application icon (512x512)
-- `README.md` - User documentation
-
-## Submission Process
-
-### Step 1: Fork the Repository
-
-Fork the official Community Applications repository:
-```
-https://github.com/Squidly271/Community-Applications-Moderators
+```text
+Repository: https://github.com/JoshuaSeidel/ai-chief-of-staff
+Template:   https://raw.githubusercontent.com/JoshuaSeidel/ai-chief-of-staff/main/unraid/ai-chief-of-staff.xml
+Icon:       https://raw.githubusercontent.com/JoshuaSeidel/ai-chief-of-staff/main/unraid/icon.png
+Support:    https://github.com/JoshuaSeidel/ai-chief-of-staff/issues
+Image:      ghcr.io/joshuaseidel/ai-chief-of-staff/aicos-monolith:latest
 ```
 
-### Step 2: Add Template to Your Fork
+## Required User Configuration
 
-1. Clone your fork
-2. Create a new branch: `git checkout -b add-ai-chief-of-staff`
-3. Add the template XML to the appropriate category directory
-4. Commit: `git commit -m "Add AI Chief of Staff template"`
-5. Push: `git push origin add-ai-chief-of-staff`
+The template must make these settings clear before submission:
 
-### Step 3: Create Pull Request
+- `AICOS_AUTH_TOKEN` is preferred. `API_TOKEN` remains as a legacy alias.
+- At least one backend API token must be configured before destructive admin
+  tools can run.
+- Destructive admin tools, including history wipe, are disabled until
+  `AICOS_AUTH_TOKEN` or `API_TOKEN` is configured.
+- `FRONTEND_URL`, `ALLOWED_ORIGINS`, and `TRUST_PROXY` should be configured for
+  SWAG or any other HTTPS reverse proxy.
+- PostgreSQL is recommended, and first-run config is generated from `DB_TYPE`,
+  `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and
+  `POSTGRES_PASSWORD`.
 
-1. Go to your forked repository on GitHub
-2. Click "Pull Request"
-3. Title: "Add AI Chief of Staff - AI-Powered Executive Assistant"
-4. Description:
-   ```
-   Adding AI Chief of Staff to Community Apps.
-   
-   Application: AI-powered executive assistant
-   Category: Productivity / Tools
-   Repository: https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff
-   Template URL: https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/ai-chief-of-staff.xml
-   Icon URL: https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/icon.png
-   
-   Features:
-   - Automatic meeting transcript processing
-   - AI-powered task extraction
-   - Google Calendar integration
-   - Weekly executive briefs
-   - Push notifications
-   - PWA support
-   
-   Requirements:
-   - Anthropic API key
-   - PostgreSQL database (recommended) or SQLite
-   
-   Tested on: Unraid 6.12+
-   ```
+## Pull Request Text
 
-### Step 4: Wait for Review
+```text
+Title: Add AI Chief of Staff - AI-powered executive operations workspace
 
-Moderators will review your submission. They may request changes.
+Application: AI Chief of Staff
+Category: Productivity / Tools
+Repository: https://github.com/JoshuaSeidel/ai-chief-of-staff
+Template URL: https://raw.githubusercontent.com/JoshuaSeidel/ai-chief-of-staff/main/unraid/ai-chief-of-staff.xml
+Icon URL: https://raw.githubusercontent.com/JoshuaSeidel/ai-chief-of-staff/main/unraid/icon.png
 
-## Alternative: Manual Installation URL
+Features:
+- Meeting transcript processing and task extraction
+- Executive briefs, follow-up tracking, and productivity insights
+- Microsoft 365 and Google Calendar connectivity
+- Jira or Microsoft Planner connectivity status
+- Admin history wipe with token-protected destructive action
+- Mobile-responsive PWA with push notifications
+- PostgreSQL or SQLite database support
 
-Until accepted into Community Apps, users can install manually:
+Requirements:
+- AICOS_AUTH_TOKEN or API_TOKEN for API auth and destructive admin tools
+- PostgreSQL database recommended; SQLite supported for smaller deployments
+- Optional AI provider API keys configured in Settings
 
-```
-Template URL: https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/ai-chief-of-staff.xml
+Tested on: Unraid 6.12+
 ```
 
-Users add this in: **Docker → Add Container → Template repositories**
+## Manual Installation URL
 
-## Template Validation Checklist
+Until accepted into Community Apps, users can add this template URL manually in
+Docker -> Add Container -> Template repositories:
 
-Before submitting, verify:
-
-- [x] XML is well-formed and valid
-- [x] All URLs are accessible (template, icon, support, project)
-- [x] Icon is PNG format, 512x512 or larger
-- [x] Overview describes the application clearly
-- [x] Category is appropriate (Productivity/Tools)
-- [x] All required configs have sensible defaults
-- [x] Support and Project URLs point to GitHub
-- [x] Template tested on actual Unraid installation
-- [x] Documentation is complete (README.md)
-
-## Template URL Structure
-
-```
-https://raw.githubusercontent.com/[USERNAME]/[REPO]/[BRANCH]/unraid/ai-chief-of-staff.xml
+```text
+https://raw.githubusercontent.com/JoshuaSeidel/ai-chief-of-staff/main/unraid/ai-chief-of-staff.xml
 ```
 
-For this project:
-```
-https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/ai-chief-of-staff.xml
-```
+## Validation Checklist
 
-## Icon Requirements
+- [ ] XML is well-formed.
+- [ ] Template, icon, support, and project URLs resolve.
+- [ ] Icon is PNG and at least 512x512.
+- [ ] `AICOS_AUTH_TOKEN` is visible and documented as the preferred token.
+- [ ] `API_TOKEN` is present only as an advanced legacy alias.
+- [ ] PostgreSQL first-run env values are documented.
+- [ ] SWAG values are documented: `FRONTEND_URL`, `ALLOWED_ORIGINS`,
+      `TRUST_PROXY`, and OAuth redirect URIs.
+- [ ] Container starts successfully.
+- [ ] Web UI is accessible.
+- [ ] SQLite mode works.
+- [ ] PostgreSQL mode works on a fresh appdata directory.
+- [ ] Admin history wipe is blocked when no token is configured.
+- [ ] Admin history wipe works after entering the configured token.
+- [ ] Configuration persists across restarts.
+- [ ] Updates work correctly.
 
-- Format: PNG
-- Size: 512x512 pixels (minimum)
-- Transparency: Supported
-- File size: < 1MB
-- URL must be direct raw GitHub link
+## Community Apps Process
 
-Current icon URL:
-```
-https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/icon.png
-```
+1. Fork `https://github.com/Squidly271/Community-Applications-Moderators`.
+2. Create a branch such as `add-ai-chief-of-staff`.
+3. Add the XML template to the appropriate category directory.
+4. Commit and push the branch.
+5. Open a pull request using the text above.
 
-## Testing Checklist
-
-Before submitting, test the template:
-
-- [ ] Container starts successfully
-- [ ] WebUI is accessible
-- [ ] SQLite mode works
-- [ ] PostgreSQL connection works
-- [ ] Configuration persists across restarts
-- [ ] Updates work correctly
-- [ ] Logs are accessible
-- [ ] All environment variables work
-- [ ] SWAG integration works
-- [ ] Documentation is accurate
-
-## Support After Submission
-
-After acceptance:
-
-1. Monitor GitHub issues for Unraid-specific problems
-2. Update template if breaking changes occur
-3. Maintain documentation
-4. Respond to user questions on Unraid forums
-
-## Resources
-
-- **Community Apps Repo**: https://github.com/Squidly271/Community-Applications-Moderators
-- **Template Guidelines**: https://forums.unraid.net/topic/38619-docker-faq/
-- **Unraid Docker Guide**: https://wiki.unraid.net/Docker_Management
-
-## Questions?
-
-Post questions about Community Apps submission in:
-- Unraid Forums: https://forums.unraid.net/forum/55-docker-containers/
-- Community Apps Moderators: https://github.com/Squidly271/Community-Applications-Moderators/issues
-
+After acceptance, keep the template in sync with any breaking environment
+variable, image, port, or storage changes.

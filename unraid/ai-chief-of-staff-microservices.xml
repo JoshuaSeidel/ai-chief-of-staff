@@ -1,95 +1,73 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>AI-Chief-of-Staff</Name>
-  <Repository>ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest</Repository>
-  <Registry>https://ghcr.io/joshuaseidel/plaud-ai-chief-of-staff</Registry>
+  <Repository>ghcr.io/joshuaseidel/ai-chief-of-staff/aicos-monolith:latest</Repository>
+  <Registry>https://ghcr.io/joshuaseidel/ai-chief-of-staff/aicos-monolith</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff/issues</Support>
-  <Project>https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff</Project>
-  <Overview>AI Chief of Staff - Your intelligent executive assistant powered by Claude AI. Automatically extracts commitments, action items, follow-ups, and risks from meeting transcripts. Integrates with Google Calendar, generates weekly reports, and provides mobile PWA with push notifications.&#xD;
+  <Support>https://github.com/JoshuaSeidel/ai-chief-of-staff/issues</Support>
+  <Project>https://github.com/JoshuaSeidel/ai-chief-of-staff</Project>
+  <Overview>AI Chief of Staff with optional external microservice endpoints. Use this template when the main app runs on Unraid and AI intelligence, pattern recognition, parsing, voice, context, or integrations services are deployed separately.&#xD;
 &#xD;
-🆕 MICROSERVICES ARCHITECTURE:&#xD;
-This version supports optional microservices for enhanced AI features:&#xD;
-- AI Intelligence Service (Python/FastAPI) - Advanced task analysis&#xD;
-- Pattern Recognition Service - Behavioral insights&#xD;
-- NL Parser - Natural language processing&#xD;
-- Voice Processor - Audio transcription&#xD;
-- Context Service (Go) - High-performance context retrieval&#xD;
+Security requirement: set AICOS_AUTH_TOKEN or API_TOKEN before exposing the app or using destructive admin tools. Admin history wipe is disabled until a token is configured.&#xD;
 &#xD;
-DEPLOYMENT OPTIONS:&#xD;
-1. Standalone Mode: Run as single container (default, simpler)&#xD;
-2. Microservices Mode: Use docker-compose for full architecture&#xD;
-&#xD;
-Core Features:&#xD;
-- Automatic transcript processing and task extraction&#xD;
-- Intelligent deadline assignment based on urgency&#xD;
-- Google Calendar integration with detailed event descriptions&#xD;
-- Weekly executive briefs and pattern detection&#xD;
-- Mobile-responsive PWA with offline support&#xD;
-- Push notifications for overdue tasks&#xD;
-- Customizable AI prompts&#xD;
-- PostgreSQL or SQLite database support&#xD;
-&#xD;
-Requirements:&#xD;
-- Anthropic API key (for AI features)&#xD;
-- PostgreSQL database (recommended) or SQLite&#xD;
-- Redis (optional, for microservices caching)&#xD;
-- Optional: Google Calendar OAuth for calendar integration&#xD;
-- Optional: VAPID keys for push notifications&#xD;
-&#xD;
-For microservices setup, see: https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff/blob/main/unraid/MICROSERVICES-SETUP.md</Overview>
+For the full Docker Compose microservices stack, use the repository docker-compose.yml file. Setup notes: https://github.com/JoshuaSeidel/ai-chief-of-staff/blob/main/unraid/MICROSERVICES-SETUP.md</Overview>
   <Category>Productivity: Tools: Status:Stable</Category>
   <WebUI>http://[IP]:[PORT:3001]</WebUI>
-  <TemplateURL>https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/ai-chief-of-staff-microservices.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/JoshuaSeidel/plaud-ai-chief-of-staff/main/unraid/icon.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/JoshuaSeidel/ai-chief-of-staff/main/unraid/ai-chief-of-staff-microservices.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/JoshuaSeidel/ai-chief-of-staff/main/unraid/icon.png</Icon>
   <ExtraParams/>
   <PostArgs/>
   <CPUset/>
   <DateInstalled/>
   <DonateText/>
   <DonateLink/>
-  <Requires>PostgreSQL database (use separate PostgreSQL container or external server). Optional: Redis for microservices caching.</Requires>
-  
-  <!-- Network Ports -->
-  <Config Name="WebUI Port" Target="3001" Default="3001" Mode="tcp" Description="Web interface port" Type="Port" Display="always" Required="true" Mask="false">3001</Config>
-  
-  <!-- Storage Paths -->
-  <Config Name="App Data" Target="/app/data" Default="/mnt/user/appdata/ai-chief-of-staff" Mode="rw" Description="Configuration files, logs, and SQLite database (if used)" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ai-chief-of-staff</Config>
-  <Config Name="Uploads" Target="/app/uploads" Default="/mnt/user/appdata/ai-chief-of-staff/uploads" Mode="rw" Description="Uploaded transcript files" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ai-chief-of-staff/uploads</Config>
-  
-  <!-- Database Configuration -->
-  <Config Name="Database Type" Target="DB_TYPE" Default="postgres" Mode="" Description="Database type: 'postgres' (recommended) or 'sqlite'" Type="Variable" Display="always" Required="true" Mask="false">postgres</Config>
-  <Config Name="PostgreSQL Host" Target="POSTGRES_HOST" Default="" Mode="" Description="PostgreSQL hostname or IP (e.g., 192.168.1.10 or postgres)" Type="Variable" Display="always" Required="false" Mask="false"></Config>
-  <Config Name="PostgreSQL Port" Target="POSTGRES_PORT" Default="5432" Mode="" Description="PostgreSQL port" Type="Variable" Display="always" Required="false" Mask="false">5432</Config>
-  <Config Name="PostgreSQL Database" Target="POSTGRES_DB" Default="ai_chief_of_staff" Mode="" Description="PostgreSQL database name" Type="Variable" Display="always" Required="false" Mask="false">ai_chief_of_staff</Config>
-  <Config Name="PostgreSQL User" Target="POSTGRES_USER" Default="aicos" Mode="" Description="PostgreSQL username" Type="Variable" Display="always" Required="false" Mask="false">aicos</Config>
-  <Config Name="PostgreSQL Password" Target="POSTGRES_PASSWORD" Default="" Mode="" Description="PostgreSQL password" Type="Variable" Display="always" Required="false" Mask="true"></Config>
-  
-  <!-- Microservices Configuration (Optional) -->
-  <Config Name="AI Intelligence URL" Target="AI_INTELLIGENCE_URL" Default="" Mode="" Description="AI Intelligence service URL (optional, e.g., http://192.168.1.10:8001). Leave blank for standalone mode." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  <Config Name="Pattern Recognition URL" Target="PATTERN_RECOGNITION_URL" Default="" Mode="" Description="Pattern Recognition service URL (optional, e.g., http://192.168.1.10:8002)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  <Config Name="NL Parser URL" Target="NL_PARSER_URL" Default="" Mode="" Description="Natural Language Parser service URL (optional, e.g., http://192.168.1.10:8003)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  <Config Name="Voice Processor URL" Target="VOICE_PROCESSOR_URL" Default="" Mode="" Description="Voice Processor service URL (optional, e.g., http://192.168.1.10:8004)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  <Config Name="Context Service URL" Target="CONTEXT_SERVICE_URL" Default="" Mode="" Description="Context Service URL (optional, e.g., http://192.168.1.10:8005)" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  <Config Name="Redis URL" Target="REDIS_URL" Default="" Mode="" Description="Redis URL for caching (optional, e.g., redis://192.168.1.10:6379). Required if using microservices." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  
-  <!-- API Keys -->
-  <Config Name="Anthropic API Key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="Anthropic Claude API key (required for AI features). Get from: https://console.anthropic.com" Type="Variable" Display="always" Required="false" Mask="true"></Config>
-  <Config Name="OpenAI API Key" Target="OPENAI_API_KEY" Default="" Mode="" Description="OpenAI API key (optional, for voice transcription with Whisper)" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
-  
-  <!-- OAuth Configuration -->
-  <Config Name="Google Redirect URI" Target="GOOGLE_REDIRECT_URI" Default="" Mode="" Description="Google OAuth redirect URI (e.g., https://aicos.yourdomain.com/api/calendar/google/callback). Leave blank if not using SWAG." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  
-  <!-- Push Notifications -->
-  <Config Name="VAPID Public Key" Target="VAPID_PUBLIC_KEY" Default="" Mode="" Description="VAPID public key for push notifications. Generate with: npx web-push generate-vapid-keys" Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
-  <Config Name="VAPID Private Key" Target="VAPID_PRIVATE_KEY" Default="" Mode="" Description="VAPID private key for push notifications" Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
-  <Config Name="VAPID Subject" Target="VAPID_SUBJECT" Default="mailto:admin@example.com" Mode="" Description="VAPID subject (email address)" Type="Variable" Display="advanced" Required="false" Mask="false">mailto:admin@example.com</Config>
-  
-  <!-- System Configuration -->
-  <Config Name="Node Environment" Target="NODE_ENV" Default="production" Mode="" Description="Node.js environment (production recommended)" Type="Variable" Display="advanced" Required="false" Mask="false">production</Config>
-  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID for file permissions" Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
-  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID for file permissions" Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+  <Requires>PostgreSQL database recommended. Redis is required when external microservices use Redis-backed queues or caching.</Requires>
+
+  <Config Name="WebUI Port" Target="3001" Default="3001" Mode="tcp" Description="Web interface and API port." Type="Port" Display="always" Required="true" Mask="false">3001</Config>
+  <Config Name="App Data" Target="/app/data" Default="/mnt/user/appdata/ai-chief-of-staff" Mode="rw" Description="Persistent config, logs, and SQLite database when SQLite is used." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ai-chief-of-staff</Config>
+  <Config Name="Uploads" Target="/app/uploads" Default="/mnt/user/appdata/ai-chief-of-staff/uploads" Mode="rw" Description="Uploaded transcript and recording files." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/ai-chief-of-staff/uploads</Config>
+
+  <Config Name="API Auth Token" Target="AICOS_AUTH_TOKEN" Default="" Mode="" Description="Preferred backend API token. Destructive admin tools, including Wipe History, require AICOS_AUTH_TOKEN or API_TOKEN." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Legacy API Token Alias" Target="API_TOKEN" Default="" Mode="" Description="Optional backward-compatible token alias. Prefer AICOS_AUTH_TOKEN for new installs." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="OAuth State Secret" Target="OAUTH_STATE_SECRET" Default="" Mode="" Description="Long random secret used to sign OAuth state values." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Frontend URL" Target="FRONTEND_URL" Default="http://localhost:3001" Mode="" Description="Public browser URL for the app. Use your HTTPS URL when behind SWAG or another reverse proxy." Type="Variable" Display="always" Required="false" Mask="false">http://localhost:3001</Config>
+  <Config Name="Allowed Origins" Target="ALLOWED_ORIGINS" Default="http://localhost:3001" Mode="" Description="Comma-separated browser origins allowed to call the API. Add your HTTPS reverse-proxy URL in production." Type="Variable" Display="always" Required="false" Mask="false">http://localhost:3001</Config>
+  <Config Name="Trust Proxy" Target="TRUST_PROXY" Default="false" Mode="" Description="Set to true when the app is behind SWAG or another trusted reverse proxy." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+
+  <Config Name="Database Type" Target="DB_TYPE" Default="postgres" Mode="" Description="Database type: postgres recommended, sqlite supported. First-run config is generated from these env values." Type="Variable" Display="always" Required="true" Mask="false">postgres</Config>
+  <Config Name="PostgreSQL Host" Target="POSTGRES_HOST" Default="" Mode="" Description="PostgreSQL hostname or IP address. Leave blank only when DB_TYPE is sqlite." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="PostgreSQL Port" Target="POSTGRES_PORT" Default="5432" Mode="" Description="PostgreSQL port." Type="Variable" Display="always" Required="false" Mask="false">5432</Config>
+  <Config Name="PostgreSQL Database" Target="POSTGRES_DB" Default="ai_chief_of_staff" Mode="" Description="PostgreSQL database name." Type="Variable" Display="always" Required="false" Mask="false">ai_chief_of_staff</Config>
+  <Config Name="PostgreSQL User" Target="POSTGRES_USER" Default="aicos" Mode="" Description="PostgreSQL username." Type="Variable" Display="always" Required="false" Mask="false">aicos</Config>
+  <Config Name="PostgreSQL Password" Target="POSTGRES_PASSWORD" Default="" Mode="" Description="PostgreSQL password." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+
+  <Config Name="AI Intelligence URL" Target="AI_INTELLIGENCE_URL" Default="" Mode="" Description="External AI Intelligence service URL, for example https://192.168.1.10:8001." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Pattern Recognition URL" Target="PATTERN_RECOGNITION_URL" Default="" Mode="" Description="External Pattern Recognition service URL, for example https://192.168.1.10:8002." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="NL Parser URL" Target="NL_PARSER_URL" Default="" Mode="" Description="External Natural Language Parser service URL, for example https://192.168.1.10:8003." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Voice Processor URL" Target="VOICE_PROCESSOR_URL" Default="" Mode="" Description="External Voice Processor service URL, for example https://192.168.1.10:8004." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Context Service URL" Target="CONTEXT_SERVICE_URL" Default="" Mode="" Description="External Context Service URL, for example https://192.168.1.10:8005." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Integrations URL" Target="INTEGRATIONS_URL" Default="" Mode="" Description="External Integrations service URL, for example https://192.168.1.10:8006." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Redis URL" Target="REDIS_URL" Default="" Mode="" Description="Redis URL for external microservices, for example redis://192.168.1.10:6379." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+  <Config Name="Anthropic API Key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="Optional fallback Anthropic API key. Preferred location is Settings inside the app." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="OpenAI API Key" Target="OPENAI_API_KEY" Default="" Mode="" Description="Optional fallback OpenAI API key. Preferred location is Settings inside the app." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+
+  <Config Name="Google Redirect URI" Target="GOOGLE_REDIRECT_URI" Default="" Mode="" Description="Google OAuth redirect URI, for example https://aicos.yourdomain.com/api/calendar/google/callback." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Microsoft Client ID" Target="MICROSOFT_CLIENT_ID" Default="" Mode="" Description="Microsoft Entra application client ID for Microsoft 365 intake, calendar, email, and Planner." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Microsoft Client Secret" Target="MICROSOFT_CLIENT_SECRET" Default="" Mode="" Description="Microsoft Entra client secret value." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Microsoft Tenant ID" Target="MICROSOFT_TENANT_ID" Default="" Mode="" Description="Microsoft Entra directory tenant ID. Use the tenant GUID for app-only access." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Microsoft Redirect URI" Target="MICROSOFT_REDIRECT_URI" Default="" Mode="" Description="Microsoft OAuth redirect URI, for example https://aicos.yourdomain.com/api/calendar/microsoft/callback." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+  <Config Name="VAPID Public Key" Target="VAPID_PUBLIC_KEY" Default="" Mode="" Description="VAPID public key for push notifications." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="VAPID Private Key" Target="VAPID_PRIVATE_KEY" Default="" Mode="" Description="VAPID private key for push notifications." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="VAPID Subject" Target="VAPID_SUBJECT" Default="mailto:admin@example.com" Mode="" Description="VAPID subject email address." Type="Variable" Display="advanced" Required="false" Mask="false">mailto:admin@example.com</Config>
+
+  <Config Name="Node Environment" Target="NODE_ENV" Default="production" Mode="" Description="Node.js environment." Type="Variable" Display="advanced" Required="false" Mask="false">production</Config>
+  <Config Name="Log Level" Target="LOG_LEVEL" Default="info" Mode="" Description="Log verbosity: debug, info, warn, or error." Type="Variable" Display="advanced" Required="false" Mask="false">info</Config>
+  <Config Name="Allow Insecure TLS" Target="ALLOW_INSECURE_TLS" Default="true" Mode="" Description="Allow self-signed certificates for internal microservice HTTPS. Set false when all upstream services use trusted certificates." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID for file permissions." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID for file permissions." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
 </Container>

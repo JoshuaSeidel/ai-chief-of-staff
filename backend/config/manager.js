@@ -11,20 +11,53 @@ const logger = {
   warn: (msg) => console.warn(`[CONFIG-MANAGER WARNING] ${msg}`)
 };
 
-// Default configuration
-const DEFAULT_CONFIG = {
-  dbType: 'sqlite',
-  sqlite: {
-    path: path.join(CONFIG_DIR, 'ai-chief-of-staff.db')
-  },
-  postgres: {
-    host: 'localhost',
-    port: 5432,
-    database: 'ai_chief_of_staff',
-    user: 'postgres',
-    password: ''
+function parsePostgresUrl(connectionString) {
+  if (!connectionString) return null;
+
+  try {
+    const url = new URL(connectionString);
+    if (!['postgres:', 'postgresql:'].includes(url.protocol)) return null;
+
+    return {
+      host: url.hostname || 'localhost',
+      port: Number(url.port || 5432),
+      database: decodeURIComponent((url.pathname || '').replace(/^\//, '')) || 'ai_chief_of_staff',
+      user: decodeURIComponent(url.username || 'postgres'),
+      password: decodeURIComponent(url.password || '')
+    };
+  } catch (err) {
+    logger.warn(`Could not parse DATABASE_URL for first-run config: ${err.message}`);
+    return null;
   }
-};
+}
+
+function buildDefaultConfig() {
+  const dbType = (process.env.DB_TYPE || '').toLowerCase();
+  const postgresFromUrl = parsePostgresUrl(process.env.DATABASE_URL);
+  const hasPostgresEnv = postgresFromUrl
+    || process.env.POSTGRES_HOST
+    || process.env.POSTGRES_DB
+    || process.env.POSTGRES_USER
+    || process.env.POSTGRES_PASSWORD;
+
+  return {
+    dbType: dbType || (hasPostgresEnv ? 'postgres' : 'sqlite'),
+    sqlite: {
+      path: process.env.SQLITE_PATH || path.join(CONFIG_DIR, 'ai-chief-of-staff.db')
+    },
+    postgres: postgresFromUrl || {
+      host: process.env.POSTGRES_HOST || 'localhost',
+      port: Number(process.env.POSTGRES_PORT || 5432),
+      database: process.env.POSTGRES_DB || 'ai_chief_of_staff',
+      user: process.env.POSTGRES_USER || 'postgres',
+      password: process.env.POSTGRES_PASSWORD || ''
+    }
+  };
+}
+
+// Default configuration is env-aware so fresh Docker/Unraid installs honor the
+// database settings passed into the container before config.json exists.
+const DEFAULT_CONFIG = buildDefaultConfig();
 
 /**
  * Ensure config directory exists
@@ -51,8 +84,9 @@ function loadConfig() {
       return config;
     } else {
       logger.info('No config file found, using defaults');
-      saveConfig(DEFAULT_CONFIG);
-      return DEFAULT_CONFIG;
+      const defaultConfig = buildDefaultConfig();
+      saveConfig(defaultConfig);
+      return defaultConfig;
     }
   } catch (err) {
     logger.error('Error loading config:', err);

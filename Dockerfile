@@ -16,9 +16,13 @@ COPY frontend/ ./
 ARG VERSION=1.0.0
 ARG COMMIT_HASH=unknown
 ARG BUILD_DATE
+ARG VITE_API_URL=/api
+ARG VITE_API_TOKEN=
 ENV VERSION=$VERSION
 ENV COMMIT_HASH=$COMMIT_HASH
 ENV BUILD_DATE=$BUILD_DATE
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_API_TOKEN=$VITE_API_TOKEN
 
 # Note: Icons should be generated manually using create-icons.html in browser
 # or by running generate-icons.js locally with canvas installed

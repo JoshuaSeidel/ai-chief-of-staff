@@ -19,12 +19,15 @@ COPY . .
 ARG VERSION=1.0.0
 ARG COMMIT_HASH=unknown
 ARG BUILD_DATE
+ARG VITE_API_URL=/api
+ARG VITE_API_TOKEN=
 ENV VERSION=$VERSION
 ENV COMMIT_HASH=$COMMIT_HASH
 ENV BUILD_DATE=$BUILD_DATE
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_API_TOKEN=$VITE_API_TOKEN
 
 # Build with Vite (prebuild script will inject version)
-# VITE_API_URL can be set at build time if needed
 RUN npm run build
 
 # Production stage - serve with nginx
@@ -49,4 +52,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
-

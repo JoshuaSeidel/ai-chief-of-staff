@@ -1,199 +1,173 @@
-# AI Chief of Staff - Unraid Community Apps
+# Unraid Deployment
 
-## Installation from Community Apps
+AI Chief of Staff can run on Unraid as an all-in-one container or as the full
+Docker Compose microservices stack.
 
-1. Open Unraid WebUI
-2. Go to **Apps** tab
-3. Search for **"AI Chief of Staff"**
-4. Click **Install**
-5. Configure the template (see below)
-6. Click **Apply**
+For v2.3.0 and later, configure API token authentication before using the app in
+production. Destructive admin tools, including history wipe, require
+`AICOS_AUTH_TOKEN` or `API_TOKEN`.
 
-## Quick Setup
+## Recommended Setup
 
-### Required Configuration
+Use PostgreSQL for production-style Unraid deployments:
 
-1. **Database Setup** (Choose one):
+1. Install PostgreSQL from Community Apps or run the official PostgreSQL image.
+2. Create a database and user for AI Chief of Staff.
+3. Install the AI Chief of Staff template.
+4. Set API auth and origin variables.
+5. Configure AI and integrations in the app UI.
 
-   **Option A: Use Existing PostgreSQL Container**
-   - Install PostgreSQL from Community Apps first
-   - Set `POSTGRES_HOST` to your PostgreSQL container name or IP
-   - Set `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
+SQLite is acceptable for local testing, but PostgreSQL is the recommended
+long-term database.
 
-   **Option B: Use SQLite (Simpler)**
-   - Set `DB_TYPE` to `sqlite`
-   - All data stored in `/mnt/user/appdata/ai-chief-of-staff`
+## Required Template Values
 
-2. **Anthropic API Key**:
-   - After container starts, open WebUI
-   - Go to **Configuration** tab
-   - Enter your Anthropic API key
-   - Click **Save**
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `AICOS_AUTH_TOKEN` or `API_TOKEN` | Yes | Required for API auth and admin history wipe |
+| `DB_TYPE` | Yes | `postgres` recommended |
+| `POSTGRES_HOST` | PostgreSQL | Hostname/IP of PostgreSQL |
+| `POSTGRES_PORT` | PostgreSQL | Usually `5432` |
+| `POSTGRES_DB` | PostgreSQL | Database name |
+| `POSTGRES_USER` | PostgreSQL | Database user |
+| `POSTGRES_PASSWORD` | PostgreSQL | Database password |
+| `FRONTEND_URL` | Reverse proxy | Public app origin, for example `https://aicos.yourdomain.com` |
+| `ALLOWED_ORIGINS` | Reverse proxy | Same public origin, comma-separated if multiple |
+| `TRUST_PROXY` | Reverse proxy | `true` behind SWAG/NPM/Traefik |
 
-### Optional Configuration
-
-**Google Calendar Integration**:
-1. Set up Google OAuth in Google Cloud Console
-2. Add redirect URI: `http://[YOUR-UNRAID-IP]:3001/api/calendar/google/callback`
-3. Enter Client ID & Secret in Configuration UI
-
-**Push Notifications**:
-1. Generate VAPID keys: `docker exec -it AI-Chief-of-Staff npx web-push generate-vapid-keys`
-2. Add keys to container template
-3. Restart container
-
-**Reverse Proxy (SWAG)**:
-1. Install SWAG from Community Apps
-2. Set `GOOGLE_REDIRECT_URI` to `https://aicos.yourdomain.com/api/calendar/google/callback`
-3. Copy `swag-config/aicos.subdomain.conf` to SWAG proxy-confs directory
-
-## Template Variables Explained
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DB_TYPE` | Yes | `postgres` | Use `postgres` (recommended) or `sqlite` |
-| `POSTGRES_HOST` | If using PostgreSQL | - | PostgreSQL hostname/IP |
-| `POSTGRES_PORT` | If using PostgreSQL | `5432` | PostgreSQL port |
-| `POSTGRES_DB` | If using PostgreSQL | `ai_chief_of_staff` | Database name |
-| `POSTGRES_USER` | If using PostgreSQL | `aicos` | Database username |
-| `POSTGRES_PASSWORD` | If using PostgreSQL | - | Database password (required!) |
-| `GOOGLE_REDIRECT_URI` | For SWAG | - | OAuth callback URL |
-| `VAPID_PUBLIC_KEY` | For notifications | - | Push notification key |
-| `VAPID_PRIVATE_KEY` | For notifications | - | Push notification key |
-
-## PostgreSQL Setup (Recommended)
-
-### Option 1: Official PostgreSQL Container
+Generate token values with:
 
 ```bash
-# In Unraid terminal
+openssl rand -base64 48   # API and OAuth secrets
+openssl rand -hex 32      # PostgreSQL password
+```
+
+Leave `VITE_API_TOKEN` blank unless the deployment is private and you
+intentionally want the token built into frontend assets.
+
+## PostgreSQL Example
+
+```bash
 docker run -d \
-  --name=postgres \
+  --name=aicos-postgres \
   --net=bridge \
-  -e POSTGRES_DB=ai_chief_of_staff \
+  -e POSTGRES_DB=aicos \
   -e POSTGRES_USER=aicos \
-  -e POSTGRES_PASSWORD=your-secure-password \
-  -v /mnt/user/appdata/postgres:/var/lib/postgresql/data \
-  postgres:16-alpine
+  -e POSTGRES_PASSWORD=replace-with-secure-password \
+  -v /mnt/user/appdata/aicos-postgres:/var/lib/postgresql/data \
+  postgres:15-alpine
 ```
 
-Then in AI Chief of Staff template:
-- `POSTGRES_HOST`: `postgres` (or your Unraid IP)
-- `POSTGRES_USER`: `aicos`
-- `POSTGRES_PASSWORD`: `your-secure-password`
-- `POSTGRES_DB`: `ai_chief_of_staff`
+Template values:
 
-### Option 2: PostgreSQL from Community Apps
-
-1. Install **PostgreSQL** from Community Apps
-2. Note the database credentials
-3. Configure AI Chief of Staff template with those credentials
-
-## SWAG Integration (For SSL/HTTPS)
-
-### Step 1: Install SWAG
-```bash
-# From Community Apps, install SWAG
-# Configure with your domain and DNS provider
+```text
+DB_TYPE=postgres
+POSTGRES_HOST=aicos-postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=aicos
+POSTGRES_USER=aicos
+POSTGRES_PASSWORD=replace-with-secure-password
 ```
 
-### Step 2: Configure Subdomain
+On a fresh appdata directory, the app generates `/app/data/config.json` from
+`DB_TYPE`, `DATABASE_URL`, or the `POSTGRES_*` values in the template. Existing
+installs keep their saved database config until changed in Settings.
+
+## SWAG / HTTPS
+
+If publishing through SWAG:
+
+```text
+FRONTEND_URL=https://aicos.yourdomain.com
+ALLOWED_ORIGINS=https://aicos.yourdomain.com
+TRUST_PROXY=true
+GOOGLE_REDIRECT_URI=https://aicos.yourdomain.com/api/calendar/google/callback
+MICROSOFT_REDIRECT_URI=https://aicos.yourdomain.com/api/calendar/microsoft/callback
+```
+
+Copy the SWAG proxy file:
+
 ```bash
-# Copy the subdomain config
 cp /mnt/user/appdata/ai-chief-of-staff/swag-config/aicos.subdomain.conf \
-   /mnt/user/appdata/swag/nginx/proxy-confs/
-
-# Restart SWAG
+  /mnt/user/appdata/swag/nginx/proxy-confs/
 docker restart swag
 ```
 
-### Step 3: Update Redirect URI
-In AI Chief of Staff template:
-```
-GOOGLE_REDIRECT_URI=https://aicos.yourdomain.com/api/calendar/google/callback
+More detail is in [../swag-config/README.md](../swag-config/README.md).
+
+## Microsoft 365
+
+Microsoft 365 supports email intake, meeting import, Planner/To Do, calendar,
+and optional Teams transcript/recording capture.
+
+Use [../docs/MICROSOFT-365-SETUP.md](../docs/MICROSOFT-365-SETUP.md). For
+Unraid behind HTTPS, use this callback:
+
+```text
+https://aicos.yourdomain.com/api/calendar/microsoft/callback
 ```
 
-Access via: `https://aicos.yourdomain.com`
+## Admin History Wipe
+
+The wipe tool is in:
+
+```text
+Settings > System > Danger Zone > Wipe History
+```
+
+It is designed for starting fresh after a job change or workspace reset. It
+deletes history and derived work data while preserving profiles, prompts,
+provider settings, and integrations.
+
+It requires:
+
+- `AICOS_AUTH_TOKEN` or `API_TOKEN` configured in the container
+- The browser user to enter the API token
+- Typing `WIPE HISTORY` in the confirmation modal
+
+Back up PostgreSQL before using it if you may need the old records.
+
+## Backup
+
+PostgreSQL:
+
+```bash
+docker exec aicos-postgres pg_dump -U aicos aicos > aicos-backup.sql
+```
+
+App data:
+
+```bash
+cp -r /mnt/user/appdata/ai-chief-of-staff /mnt/user/backup/
+```
 
 ## Troubleshooting
 
-### Container Won't Start
-```bash
-# Check logs
-docker logs AI-Chief-of-Staff
+### The app asks for an API token
 
-# Common issues:
-# - PostgreSQL not accessible
-# - Wrong database credentials
-# - Port 3001 already in use
-```
+Enter `AICOS_AUTH_TOKEN` or `API_TOKEN`. This is expected when backend auth is
+enabled.
 
-### Database Connection Failed
-```bash
-# Test PostgreSQL connection
-docker exec -it AI-Chief-of-Staff ping postgres
+### Admin wipe says token required
 
-# Check PostgreSQL is running
-docker ps | grep postgres
+Set `AICOS_AUTH_TOKEN` or `API_TOKEN` in the template and restart the container.
 
-# Verify credentials match
-```
+### DELETE requests return 403
 
-### Can't Access WebUI
-- Check if container is running: `docker ps | grep AI-Chief`
-- Verify port 3001 is not blocked by firewall
-- Try: `http://[UNRAID-IP]:3001`
+Check `FRONTEND_URL`, `ALLOWED_ORIGINS`, and `TRUST_PROXY`. Behind SWAG, all
+three should use the public HTTPS origin/proxy setting.
 
-### AI Features Not Working
-- Verify Anthropic API key is entered in Configuration UI
-- Check logs: `docker logs AI-Chief-of-Staff | grep -i anthropic`
-- Ensure API key starts with `sk-ant-`
+### OAuth fails
 
-## Backup & Restore
+The provider redirect URI must exactly match the public callback URL. Update
+Google/Microsoft registration and reconnect the integration in Settings.
 
-### Backup
-```bash
-# SQLite backup
-cp -r /mnt/user/appdata/ai-chief-of-staff /mnt/user/backup/
+### Container cannot connect to PostgreSQL
 
-# PostgreSQL backup
-docker exec postgres pg_dump -U aicos ai_chief_of_staff > backup.sql
-```
-
-### Restore
-```bash
-# SQLite restore
-cp -r /mnt/user/backup/ai-chief-of-staff /mnt/user/appdata/
-
-# PostgreSQL restore
-cat backup.sql | docker exec -i postgres psql -U aicos ai_chief_of-staff
-```
-
-## Updates
-
-Updates are automatic! The container uses `:latest` tag.
-
-To manually update:
-1. Go to **Docker** tab in Unraid
-2. Click **Check for Updates**
-3. Click **Update** if available
-4. Or run: `docker pull ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest && docker restart AI-Chief-of-Staff`
+Confirm the database container is running and reachable from the AI Chief of
+Staff container network. Check credentials and database name.
 
 ## Support
 
-- **GitHub Issues**: https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff/issues
-- **Documentation**: https://github.com/JoshuaSeidel/plaud-ai-chief-of-staff
-- **Unraid Forums**: Post in Docker Containers section
-
-## Community Apps Submission
-
-This template is pending review for Community Apps. In the meantime:
-
-1. Download `ai-chief-of-staff.xml`
-2. In Unraid WebUI, go to **Docker** tab
-3. Click **Add Container** at bottom
-4. Toggle **Advanced View**
-5. At top right, change **Template** dropdown to **User Templates**
-6. Click folder icon, upload XML
-7. Configure and click **Apply**
-
+- GitHub Issues: https://github.com/JoshuaSeidel/ai-chief-of-staff/issues
+- Documentation: https://github.com/JoshuaSeidel/ai-chief-of-staff

@@ -1,200 +1,136 @@
-# SWAG Reverse Proxy Configuration
+# SWAG Reverse Proxy
 
-This directory contains the SWAG (Secure Web Application Gateway) configuration for AI Chief of Staff.
+This directory contains an example SWAG proxy configuration for publishing AI
+Chief of Staff over HTTPS.
 
-## Prerequisites
+The current Docker Compose stack exposes the frontend on port `3000`. The
+frontend nginx container proxies `/api` to the backend, so SWAG should normally
+proxy only to the frontend.
 
-1. **SWAG Container**: Install LinuxServer.io SWAG from Community Applications
-2. **DNS Configuration**: Create a CNAME or A record: `aicos.yourdomain.com` → Your server IP
-3. **Network**: Both SWAG and AI Chief of Staff containers must be on the same Docker network
+## Required App Environment
 
-## Installation Steps
+Set these in `.env` before exposing the app:
 
-### 1. Setup Docker Network (if needed)
+```env
+AICOS_AUTH_TOKEN=replace-with-a-long-random-token
+FRONTEND_URL=https://aicos.yourdomain.com
+ALLOWED_ORIGINS=https://aicos.yourdomain.com
+TRUST_PROXY=true
+VITE_API_URL=/api
+```
+
+Destructive admin tools, including history wipe, require `AICOS_AUTH_TOKEN` or
+`API_TOKEN`. Do not leave API authentication disabled on a public SWAG deployment.
+
+## DNS And Certificate
+
+1. Create a DNS record for your app, for example:
+
+   ```text
+   aicos.yourdomain.com -> your server IP
+   ```
+
+2. Configure SWAG with your DNS provider plugin.
+3. Confirm ports `80` and `443` reach SWAG.
+4. Wait for SWAG to issue the Let's Encrypt certificate.
+
+## Container Networking
+
+SWAG and `aicos-frontend` must share a Docker network. If you use a separate
+proxy network:
 
 ```bash
 docker network create proxynet
+docker network connect proxynet swag
+docker network connect proxynet aicos-frontend
 ```
 
-### 2. Update AI Chief of Staff Container
+If you use the included compose network, connect SWAG to `aicos-network`.
 
-Add the container to the proxy network and set the redirect URI:
+## Proxy Target
 
-**Via Unraid Docker UI:**
-- Edit the AI Chief of Staff container
-- Under "Network Type", add `proxynet` as an additional network
-- Add Environment Variable:
-  - **Variable**: `GOOGLE_REDIRECT_URI`
-  - **Value**: `https://aicos.yourdomain.com/api/calendar/google/callback`
-- Apply changes
+Use this upstream:
 
-**Via Docker Run:**
-```bash
-docker run -d \
-  --name=ai-chief-of-staff \
-  --network=proxynet \
-  -e GOOGLE_REDIRECT_URI=https://aicos.yourdomain.com/api/calendar/google/callback \
-  -v /mnt/user/appdata/ai-chief-of-staff/data:/app/data \
-  -v /mnt/user/appdata/ai-chief-of-staff/uploads:/app/uploads \
-  --restart=unless-stopped \
-  ghcr.io/joshuaseidel/plaud-ai-chief-of-staff:latest
+```text
+http://aicos-frontend:3000
 ```
 
-**Important:** Replace `aicos.yourdomain.com` with your actual domain!
+Required headers:
 
-Note: Remove the `-p 3001:3001` port mapping since SWAG will handle external access.
-
-### 3. Copy SWAG Configuration
-
-Copy `aicos.subdomain.conf` to your SWAG config directory:
-
-```bash
-cp aicos.subdomain.conf /mnt/user/appdata/swag/nginx/proxy-confs/
+```nginx
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
 ```
 
-Or manually copy via Unraid file browser:
-- Source: `/mnt/user/appdata/ai-chief-of-staff/swag-config/aicos.subdomain.conf`
-- Destination: `/mnt/user/appdata/swag/nginx/proxy-confs/aicos.subdomain.conf`
+The included `aicos.subdomain.conf` also uses extended timeouts because AI and
+transcript processing requests can take longer than normal web requests.
 
-### 4. Configure Google Calendar OAuth (if using)
+## OAuth Redirect URIs
 
-If you're using Google Calendar integration with SWAG, you have **TWO options**:
+Use public HTTPS callback URLs in Google and Microsoft app registrations:
 
-#### Option A: Environment Variable (Recommended - Easiest)
+```text
+https://aicos.yourdomain.com/api/calendar/google/callback
+https://aicos.yourdomain.com/api/calendar/microsoft/callback
+```
 
-Set the `GOOGLE_REDIRECT_URI` environment variable when creating the container (see step 2 above).
+Set the same values in `.env` or in the app Settings:
 
-Then:
-1. **In Google Cloud Console:**
-   - Go to [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials)
-   - Edit your OAuth 2.0 Client ID
-   - Add to **Authorized redirect URIs**:
-     ```
-     https://aicos.s1m0n.app/api/calendar/google/callback
-     ```
-   - Save changes
+```env
+GOOGLE_REDIRECT_URI=https://aicos.yourdomain.com/api/calendar/google/callback
+MICROSOFT_REDIRECT_URI=https://aicos.yourdomain.com/api/calendar/microsoft/callback
+```
 
-2. **In AI Chief of Staff Configuration:**
-   - Enter your Google Client ID and Secret
-   - Leave Redirect URI field blank (uses environment variable)
-   - Click "Connect Google Calendar"
+Redirect URI values must match exactly, including scheme, host, and path.
 
-#### Option B: Database Configuration
+## Install The SWAG Config
 
-If you didn't set the environment variable:
-
-1. **In Google Cloud Console:** (same as above)
-   - Add the redirect URI to authorized list
-
-2. **In AI Chief of Staff Configuration:**
-   - Go to Configuration → Google Calendar section
-   - Enter Client ID, Client Secret, **AND Redirect URI**:
-     ```
-     https://aicos.s1m0n.app/api/calendar/google/callback
-     ```
-   - Click Save Configuration
-   - **Restart the container**
-   - Click "Connect Google Calendar"
-
-**Important:** 
-- The redirect URI must match exactly (https, domain, path)
-- Replace `aicos.s1m0n.app` with YOUR actual domain
-- Environment variable takes precedence over database config
-
-### 5. Restart SWAG
+Copy the proxy file:
 
 ```bash
+cp swag-config/aicos.subdomain.conf /mnt/user/appdata/swag/nginx/proxy-confs/
 docker restart swag
 ```
 
-Or via Unraid: Go to Docker tab → Click SWAG → Restart
+Then open:
 
-### 6. Test Access
-
-Visit: `https://aicos.yourdomain.com`
-
-You should see:
-- ✅ SSL certificate (automatic via Let's Encrypt)
-- ✅ AI Chief of Staff dashboard
-- ✅ No need to specify port 3001
-
-**Note on Timeouts:**
-The SWAG configuration includes 180-second timeouts for proxy requests. This is required because AI operations (brief generation, pattern analysis) can take 30-120 seconds. If you see 502 Bad Gateway errors during AI operations, check:
-1. SWAG timeout settings in the subdomain config
-2. Frontend nginx timeout settings (in the container)
-3. Backend is running and healthy
-
-## Configuration Details
-
-### Upload Size Limit
-The config allows uploads up to **50MB** (`client_max_body_size 50M`). 
-
-To increase:
-```nginx
-client_max_body_size 100M;  # Allow 100MB uploads
-```
-
-### Timeouts
-Long-running AI requests have extended timeouts (300 seconds):
-- `proxy_connect_timeout 300s`
-- `proxy_send_timeout 300s`
-- `proxy_read_timeout 300s`
-
-Adjust these if needed for very large transcripts.
-
-### WebSocket Support
-The config includes WebSocket support for real-time features:
-```nginx
-proxy_http_version 1.1;
-proxy_set_header Upgrade $http_upgrade;
-proxy_set_header Connection "upgrade";
+```text
+https://aicos.yourdomain.com
 ```
 
 ## Troubleshooting
 
+### 401 API responses
+
+This is expected when `AICOS_AUTH_TOKEN` or `API_TOKEN` is set. Enter the token
+in the app prompt.
+
+### 403 on DELETE/POST/PUT
+
+Check:
+
+- `FRONTEND_URL=https://aicos.yourdomain.com`
+- `ALLOWED_ORIGINS=https://aicos.yourdomain.com`
+- `TRUST_PROXY=true`
+- SWAG sends `X-Forwarded-Proto`
+
 ### 502 Bad Gateway
-- Check that both containers are on the same network
-- Verify AI Chief of Staff container name is `ai-chief-of-staff`
-- Check SWAG logs: `docker logs swag`
 
-### SSL Certificate Issues
-- Verify DNS is properly configured
-- Check SWAG logs for Let's Encrypt errors
-- Ensure ports 80 and 443 are forwarded to your server
+Check:
 
-### Can't Access Locally
-If you want to access via both:
-- External: `https://aicos.yourdomain.com`
-- Internal: `http://192.168.x.x:3001`
+- SWAG and `aicos-frontend` are on the same Docker network
+- The frontend container name is `aicos-frontend`
+- `docker compose ps` shows the frontend healthy
+- SWAG logs with `docker logs swag`
 
-Keep the port mapping `-p 3001:3001` in the AI Chief of Staff container.
+### OAuth redirect mismatch
 
-### Google Calendar OAuth Fails
-Make sure you've updated the redirect URI in Google Cloud Console to use `https://aicos.yourdomain.com`.
+The Entra or Google redirect URI must exactly match the public callback URL.
+Update the provider registration, then reconnect the integration in Settings.
 
-## Alternative: Custom Domain (Not Subdomain)
+### Admin wipe disabled
 
-If you want to use `aichiefofstaff.com` instead of `aicos.domain.com`, rename the file:
-
-```bash
-mv aicos.subdomain.conf aichiefofstaff.conf
-```
-
-And update the `server_name` line:
-```nginx
-server_name aichiefofstaff.com;
-```
-
-## Security Notes
-
-- SWAG provides automatic SSL/TLS encryption via Let's Encrypt
-- All traffic is encrypted end-to-end
-- API keys and sensitive data are protected in transit
-- Consider adding HTTP authentication for additional security:
-
-```nginx
-# Add to location / block
-auth_basic "Restricted";
-auth_basic_user_file /config/nginx/.htpasswd;
-```
-
+Set `AICOS_AUTH_TOKEN` or `API_TOKEN`, restart the backend, and enter the token
+in the app. The wipe endpoint will not run without backend API authentication.

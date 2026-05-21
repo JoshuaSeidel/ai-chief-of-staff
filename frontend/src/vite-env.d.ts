@@ -3,6 +3,7 @@
 // Environment variables available in the app
 interface ImportMetaEnv {
   readonly VITE_API_URL?: string;
+  readonly VITE_API_TOKEN?: string;
   readonly VITE_APP_VERSION?: string;
   readonly MODE: string;
   readonly DEV: boolean;
