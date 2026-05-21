@@ -425,6 +425,7 @@ After connecting Microsoft 365:
 - **Teams capture forbidden**: Confirm the app has application permissions, admin consent, and the Teams application access policy.
 - **No matching Teams online meeting found**: The meeting must include a Teams join URL and still be available through Microsoft Graph.
 - **Policy recently added**: Wait up to 30 minutes after granting the Teams application access policy.
+- **AADSTS50194 or `/common` endpoint error**: The app is single-tenant. Set `MICROSOFT_TENANT_ID` and the in-app Tenant ID field to the Directory tenant ID GUID or a verified tenant domain, then reconnect Microsoft 365.
 - **Client credentials fail with tenant `common`**: Set `MICROSOFT_TENANT_ID` to the Directory (tenant) ID GUID.
 
 ## Microsoft References

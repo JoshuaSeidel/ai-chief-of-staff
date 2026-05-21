@@ -1,6 +1,7 @@
 const { Client } = require('@microsoft/microsoft-graph-client');
 const fetch = require('node-fetch');
 const { getConfig, setConfig, query } = require('../utils/db-helper');
+const { getMicrosoftIdentityBaseUrl, requireMicrosoftTenantId, resolveMicrosoftTenantId } = require('../utils/microsoft-identity');
 
 const logger = {
   info: (msg, ...args) => console.log(`[MS Planner] ${msg}`, ...args),
@@ -30,24 +31,27 @@ class CustomAuthProvider {
  * Get Microsoft OAuth2 client configuration from database
  */
 async function getOAuthConfig() {
-  const clientId = await getConfig('microsoftClientId');
-  const clientSecret = await getConfig('microsoftClientSecret');
-  const tenantId = await getConfig('microsoftTenantId');
+  const clientId = await getConfig('microsoftClientId') || process.env.MICROSOFT_CLIENT_ID;
+  const clientSecret = await getConfig('microsoftClientSecret') || process.env.MICROSOFT_CLIENT_SECRET;
+  const rawTenantId = resolveMicrosoftTenantId(await getConfig('microsoftTenantId'), process.env.MICROSOFT_TENANT_ID);
   
   let redirectUri = process.env.MICROSOFT_REDIRECT_URI;
   if (!redirectUri) {
     redirectUri = await getConfig('microsoftRedirectUri') || 'http://localhost:3001/api/planner/microsoft/callback';
   }
   
-  logger.info(`Using Microsoft OAuth redirect URI: ${redirectUri} (multi-tenant mode)`);
+  logger.info(`Using Microsoft OAuth redirect URI: ${redirectUri}`);
   
   const missing = [];
   if (!clientId) missing.push('Client ID');
   if (!clientSecret) missing.push('Client Secret');
+  if (!rawTenantId) missing.push('Tenant ID');
   
   if (missing.length > 0) {
     throw new Error(`Microsoft OAuth credentials not configured. Missing: ${missing.join(', ')}. Please configure in the Configuration page.`);
   }
+
+  const tenantId = requireMicrosoftTenantId(rawTenantId);
   
   return {
     clientId,
@@ -61,7 +65,7 @@ async function getOAuthConfig() {
  * Generate OAuth URL for user to authorize
  */
 async function getAuthUrl() {
-  const { clientId, redirectUri } = await getOAuthConfig();
+  const { clientId, tenantId, redirectUri } = await getOAuthConfig();
   
   const scopes = [
     'Calendars.ReadWrite',
@@ -79,7 +83,7 @@ async function getAuthUrl() {
     prompt: 'select_account'
   });
   
-  const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+  const url = `${getMicrosoftIdentityBaseUrl(tenantId)}/authorize?${params.toString()}`;
   
   logger.info('Generated Microsoft OAuth URL (Calendar + Tasks)');
   return url;
@@ -89,9 +93,9 @@ async function getAuthUrl() {
  * Exchange authorization code for tokens
  */
 async function getTokenFromCode(code) {
-  const { clientId, clientSecret, redirectUri } = await getOAuthConfig();
+  const { clientId, clientSecret, tenantId, redirectUri } = await getOAuthConfig();
   
-  const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
+  const tokenUrl = `${getMicrosoftIdentityBaseUrl(tenantId)}/token`;
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -168,9 +172,9 @@ async function getGraphClient() {
  * Refresh access token using refresh token
  */
 async function refreshToken(refreshTokenValue) {
-  const { clientId, clientSecret } = await getOAuthConfig();
+  const { clientId, clientSecret, tenantId } = await getOAuthConfig();
   
-  const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
+  const tokenUrl = `${getMicrosoftIdentityBaseUrl(tenantId)}/token`;
   
   const params = new URLSearchParams({
     client_id: clientId,

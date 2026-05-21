@@ -3,6 +3,7 @@ const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
 const { getMicrosoftScopeString } = require('./microsoft-scopes');
 const { createOAuthState } = require('./oauth-state');
+const { getMicrosoftIdentityBaseUrl, requireMicrosoftTenantId, resolveMicrosoftTenantId } = require('./microsoft-identity');
 
 const logger = createModuleLogger('MICROSOFT-PLANNER');
 
@@ -35,6 +36,9 @@ async function getOAuthClient(profileId = 2) {
   const clientIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftClientId']);
   const clientSecretRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftClientSecret']);
   const tenantIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftTenantId']);
+  const clientId = clientIdRow?.value || process.env.MICROSOFT_CLIENT_ID;
+  const clientSecret = clientSecretRow?.value || process.env.MICROSOFT_CLIENT_SECRET;
+  const rawTenantId = resolveMicrosoftTenantId(tenantIdRow?.value, process.env.MICROSOFT_TENANT_ID);
   
   // Get redirect URI from config or environment variable
   let redirectUri = process.env.MICROSOFT_REDIRECT_URI;
@@ -43,22 +47,24 @@ async function getOAuthClient(profileId = 2) {
     redirectUri = redirectUriRow?.value || 'http://localhost:3001/api/planner/microsoft/callback';
   }
   
-  logger.info(`Using Microsoft OAuth redirect URI: ${redirectUri} (multi-tenant mode)`);
+  logger.info(`Using Microsoft OAuth redirect URI: ${redirectUri}`);
   
   // Check which credentials are missing and provide helpful error message
   const missing = [];
-  if (!clientIdRow || !clientIdRow.value) missing.push('Client ID');
-  if (!clientSecretRow || !clientSecretRow.value) missing.push('Client Secret');
-  // Note: Tenant ID is optional for multi-tenant apps, but still recommended for logging
+  if (!clientId) missing.push('Client ID');
+  if (!clientSecret) missing.push('Client Secret');
+  if (!rawTenantId) missing.push('Tenant ID');
   
   if (missing.length > 0) {
     throw new Error(`Microsoft OAuth credentials not configured. Missing: ${missing.join(', ')}. Please configure in the Configuration page.`);
   }
+
+  const tenantId = requireMicrosoftTenantId(rawTenantId);
   
   return {
-    clientId: clientIdRow.value,
-    clientSecret: clientSecretRow.value,
-    tenantId: tenantIdRow?.value || null, // Optional for multi-tenant, used only for logging
+    clientId,
+    clientSecret,
+    tenantId,
     redirectUri
   };
 }
@@ -68,9 +74,9 @@ async function getOAuthClient(profileId = 2) {
  * Includes Microsoft 365 scopes for unified Microsoft integration
  */
 async function getAuthUrl(profileId = 2) {
-  const { clientId, redirectUri } = await getOAuthClient(profileId);
+  const { clientId, tenantId, redirectUri } = await getOAuthClient(profileId);
   
-  // Microsoft OAuth2 authorization endpoint - using /common for multi-tenant support
+  // Microsoft OAuth2 authorization endpoint.
   // Includes calendar, task, mail, and online meeting scopes for unified Microsoft 365 integration.
   const scopes = getMicrosoftScopeString();
   
@@ -84,8 +90,7 @@ async function getAuthUrl(profileId = 2) {
     prompt: 'select_account' // Allow user to choose which account to use
   });
   
-  // Use /common for multi-tenant support (works with any org or personal accounts)
-  const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params.toString()}`;
+  const url = `${getMicrosoftIdentityBaseUrl(tenantId)}/authorize?${params.toString()}`;
   
   logger.info('Generated Microsoft OAuth URL (Microsoft 365)');
   return url;
@@ -99,11 +104,9 @@ async function getAuthUrl(profileId = 2) {
  * @param {number} profileId - Profile ID to associate tokens with
  */
 async function getTokenFromCode(code, profileId = 2) {
-  const { clientId, clientSecret, redirectUri } = await getOAuthClient(profileId);
+  const { clientId, clientSecret, tenantId, redirectUri } = await getOAuthClient(profileId);
   
-  // Use /common for multi-tenant token exchange
-  // The actual tenant will be determined by the authorization code
-  const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
+  const tokenUrl = `${getMicrosoftIdentityBaseUrl(tenantId)}/token`;
   
   const params = new URLSearchParams({
     client_id: clientId,
@@ -201,11 +204,9 @@ async function getGraphClient(profileId = 2) {
  * @param {number} profileId - Profile ID to update tokens for
  */
 async function refreshToken(refreshTokenValue, profileId = 2) {
-  const { clientId, clientSecret } = await getOAuthClient(profileId);
+  const { clientId, clientSecret, tenantId } = await getOAuthClient(profileId);
   
-  // Use /common for multi-tenant token refresh
-  // The tenant is determined by the refresh token itself
-  const tokenUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/token`;
+  const tokenUrl = `${getMicrosoftIdentityBaseUrl(tenantId)}/token`;
   
   const params = new URLSearchParams({
     client_id: clientId,

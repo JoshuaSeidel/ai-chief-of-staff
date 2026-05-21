@@ -5,6 +5,7 @@ const { createModuleLogger } = require('../utils/logger');
 const { getConfig } = require('../config/manager');
 const googleCalendar = require('../services/google-calendar');
 const microsoftCalendar = require('../services/microsoft-calendar');
+const { normalizeMicrosoftTenantId, requireMicrosoftTenantId, resolveMicrosoftTenantId } = require('../services/microsoft-identity');
 const { verifyOAuthState } = require('../services/oauth-state');
 
 const logger = createModuleLogger('CALENDAR');
@@ -351,10 +352,10 @@ router.get('/microsoft/config', async (req, res) => {
     const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftRedirectUri']);
 
     res.json({
-      client_id: clientIdRow?.value || '',
-      client_secret: clientSecretRow?.value ? '********' : '', // Don't expose secret
-      tenant_id: tenantIdRow?.value || 'common',
-      redirect_uri: redirectUriRow?.value || ''
+      client_id: clientIdRow?.value || process.env.MICROSOFT_CLIENT_ID || '',
+      client_secret: (clientSecretRow?.value || process.env.MICROSOFT_CLIENT_SECRET) ? '********' : '',
+      tenant_id: resolveMicrosoftTenantId(tenantIdRow?.value, process.env.MICROSOFT_TENANT_ID),
+      redirect_uri: redirectUriRow?.value || process.env.MICROSOFT_REDIRECT_URI || ''
     });
   } catch (error) {
     logger.error('Error getting Microsoft config', error);
@@ -384,9 +385,17 @@ router.post('/microsoft/config', async (req, res) => {
       );
     }
     if (tenant_id !== undefined) {
+      const normalizedTenantId = normalizeMicrosoftTenantId(tenant_id);
+      if (normalizedTenantId) {
+        try {
+          requireMicrosoftTenantId(normalizedTenantId);
+        } catch (validationError) {
+          return res.status(400).json({ error: validationError.message });
+        }
+      }
       await db.run(
         'INSERT INTO config (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value',
-        ['microsoftTenantId', tenant_id]
+        ['microsoftTenantId', normalizedTenantId]
       );
     }
     if (redirect_uri !== undefined) {

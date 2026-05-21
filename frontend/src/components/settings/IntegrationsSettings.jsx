@@ -188,7 +188,7 @@ export function IntegrationsSettings() {
         setMicrosoftConfig({
           clientId: configResponse.data.client_id || '',
           clientSecret: configResponse.data.client_secret || '',
-          tenantId: configResponse.data.tenant_id || 'common',
+          tenantId: configResponse.data.tenant_id || '',
           redirectUri: configResponse.data.redirect_uri || ''
         });
       }
@@ -334,8 +334,13 @@ export function IntegrationsSettings() {
   };
 
   const handleMicrosoftSaveConfig = async () => {
-    if (!microsoftConfig.clientId || !microsoftConfig.clientSecret || !microsoftConfig.redirectUri) {
-      toast.warning('Please fill in Client ID, Client Secret, and Redirect URI');
+    if (!microsoftConfig.clientId || !microsoftConfig.clientSecret || !microsoftConfig.tenantId || !microsoftConfig.redirectUri) {
+      toast.warning('Please fill in Client ID, Client Secret, Tenant ID, and Redirect URI');
+      return;
+    }
+
+    if (['common', 'organizations', 'consumers'].includes(microsoftConfig.tenantId.trim().toLowerCase())) {
+      toast.warning('Use your Directory tenant ID GUID or verified tenant domain, not common');
       return;
     }
 
@@ -344,7 +349,7 @@ export function IntegrationsSettings() {
       await calendarAPI.saveMicrosoftConfig({
         client_id: microsoftConfig.clientId,
         client_secret: microsoftConfig.clientSecret,
-        tenant_id: microsoftConfig.tenantId || 'common',
+        tenant_id: microsoftConfig.tenantId.trim(),
         redirect_uri: microsoftConfig.redirectUri
       });
       toast.success('Microsoft configuration saved. You can now connect.');
@@ -617,11 +622,11 @@ export function IntegrationsSettings() {
             type="text"
             value={microsoftConfig.tenantId}
             onChange={(e) => setMicrosoftConfig({ ...microsoftConfig, tenantId: e.target.value })}
-            placeholder="common (or your tenant ID)"
+            placeholder="Directory tenant ID GUID"
             className="form-input"
           />
           <span className="form-hint">
-            Use &quot;common&quot; for multi-tenant or your specific tenant ID
+            Use your Directory tenant ID GUID or verified tenant domain. Do not use &quot;common&quot; for single-tenant apps.
           </span>
         </div>
         <div className="form-group">
