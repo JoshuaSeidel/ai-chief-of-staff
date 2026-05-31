@@ -123,6 +123,12 @@ export const adminAPI = {
   }),
 };
 
+export const promptsAPI = {
+  getAll: () => api.get('/prompts'),
+  update: (key, prompt) => api.put(`/prompts/${encodeURIComponent(key)}`, { prompt }),
+  reset: (key) => api.post(`/prompts/${encodeURIComponent(key)}/reset`),
+};
+
 export const intakeAPI = {
   getEmailMessages: ({ limit = 25, unreadOnly = false, query = '' } = {}) => api.get('/intake/email/messages', {
     params: { limit, unreadOnly, query }

@@ -4,6 +4,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { Button } from '../common/Button';
 import { Modal } from '../common/Modal';
 import { CardSkeleton } from '../common/LoadingSkeleton';
+import { promptsAPI } from '../../services/api';
 
 export function PromptsSettings() {
   const toast = useToast();
@@ -22,14 +23,12 @@ export function PromptsSettings() {
   const loadPrompts = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/prompts');
-      if (response.ok) {
-        const data = await response.json();
-        setPrompts(data);
-      }
+      const response = await promptsAPI.getAll();
+      setPrompts(response.data || []);
     } catch (err) {
       console.error('Failed to load prompts:', err);
-      toast.error('Failed to load prompts');
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to load prompts');
+      setPrompts([]);
     } finally {
       setLoading(false);
     }
@@ -45,21 +44,12 @@ export function PromptsSettings() {
 
     setSaving(true);
     try {
-      const response = await fetch(`/api/prompts/${editingPrompt.key}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: editValue })
-      });
-
-      if (response.ok) {
-        toast.success('Prompt updated successfully');
-        setEditingPrompt(null);
-        loadPrompts();
-      } else {
-        toast.error('Failed to update prompt');
-      }
+      await promptsAPI.update(editingPrompt.key, editValue);
+      toast.success('Prompt updated successfully');
+      setEditingPrompt(null);
+      loadPrompts();
     } catch (err) {
-      toast.error('Error updating prompt');
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Error updating prompt');
     } finally {
       setSaving(false);
     }
@@ -70,18 +60,11 @@ export function PromptsSettings() {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/prompts/${key}/reset`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        toast.success('Prompt reset to default');
-        loadPrompts();
-      } else {
-        toast.error('Failed to reset prompt');
-      }
+      await promptsAPI.reset(key);
+      toast.success('Prompt reset to default');
+      loadPrompts();
     } catch (err) {
-      toast.error('Error resetting prompt');
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Error resetting prompt');
     }
   };
 
