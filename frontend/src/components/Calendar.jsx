@@ -1,7 +1,117 @@
-import React, { useState, useEffect } from 'react';
-import { CalendarDays, Plus, RefreshCw, X } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  ExternalLink,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Video,
+  X
+} from 'lucide-react';
 import { calendarAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
+
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function getEventTitle(event) {
+  return event.summary || event.subject || event.title || '(No title)';
+}
+
+function getEventStart(event) {
+  return event.start || event.startTime || event.startDateTime;
+}
+
+function getEventEnd(event) {
+  return event.end || event.endTime || event.endDateTime;
+}
+
+function isAllDayEvent(event) {
+  const start = getEventStart(event);
+  return typeof start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(start);
+}
+
+function parseEventDate(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getDateKey(date) {
+  if (!date) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatMonthLabel(date) {
+  return date.toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
+function formatDayLabel(date) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+function formatTimeOnly(date) {
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit'
+  });
+}
+
+function formatTimeRange(event) {
+  if (isAllDayEvent(event)) return 'All day';
+
+  const start = parseEventDate(getEventStart(event));
+  const end = parseEventDate(getEventEnd(event));
+  if (!start || !end) return 'Time unavailable';
+  return `${formatTimeOnly(start)} - ${formatTimeOnly(end)}`;
+}
+
+function stripHtml(value = '') {
+  return String(value)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&amp;/gi, '&')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function getEventDescription(event) {
+  return stripHtml(event.description || event.body || event.bodyPreview || '');
+}
+
+function buildMonthDays(visibleMonth) {
+  const firstOfMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1);
+  const gridStart = new Date(firstOfMonth);
+  gridStart.setDate(firstOfMonth.getDate() - firstOfMonth.getDay());
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = new Date(gridStart);
+    day.setDate(gridStart.getDate() + index);
+    return day;
+  });
+}
 
 function Calendar() {
   const [events, setEvents] = useState([]);
@@ -10,6 +120,9 @@ function Calendar() {
   const [infoMessage, setInfoMessage] = useState(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date());
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [eventToast, setEventToast] = useState(null);
   
   // Form state
   const [newEvent, setNewEvent] = useState({
@@ -51,6 +164,11 @@ function Calendar() {
     await loadEvents();
   };
 
+  const openEventDetails = (event) => {
+    setSelectedEventId(prev => (prev === event.id ? null : event.id));
+    setEventToast(event);
+  };
+
   const handleCreateBlock = async (e) => {
     e.preventDefault();
     
@@ -87,22 +205,6 @@ function Calendar() {
     }
   };
 
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-  };
-
   const getDefaultStartTime = () => {
     const now = new Date();
     now.setMinutes(0, 0, 0);
@@ -117,13 +219,37 @@ function Calendar() {
     return now.toISOString().slice(0, 16);
   };
 
+  const sortedEvents = useMemo(() => {
+    if (!Array.isArray(events)) return [];
+
+    return [...events].sort((a, b) => {
+      const startA = parseEventDate(getEventStart(a))?.getTime() || 0;
+      const startB = parseEventDate(getEventStart(b))?.getTime() || 0;
+      return startA - startB;
+    });
+  }, [events]);
+
+  const eventsByDate = useMemo(() => {
+    const grouped = new Map();
+    sortedEvents.forEach(event => {
+      const start = parseEventDate(getEventStart(event));
+      if (!start) return;
+      const key = getDateKey(start);
+      const dayEvents = grouped.get(key) || [];
+      dayEvents.push(event);
+      grouped.set(key, dayEvents);
+    });
+    return grouped;
+  }, [sortedEvents]);
+
+  const monthDays = useMemo(() => buildMonthDays(visibleMonth), [visibleMonth]);
+
   const groupEventsByDate = () => {
     const grouped = {};
-    if (!Array.isArray(events)) {
-      return grouped;
-    }
-    events.forEach(event => {
-      const dateKey = new Date(event.start).toDateString();
+    sortedEvents.forEach(event => {
+      const start = parseEventDate(getEventStart(event));
+      if (!start) return;
+      const dateKey = getDateKey(start);
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
       }
@@ -133,184 +259,298 @@ function Calendar() {
   };
 
   const groupedEvents = groupEventsByDate();
+  const todayKey = getDateKey(new Date());
+  const eventToastDescription = eventToast ? getEventDescription(eventToast) : '';
+  const eventToastLink = eventToast?.webLink || eventToast?.htmlLink;
 
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="calendar">
-      <div className="card">
-        <div className="flex justify-between items-center mb-md gap-md flex-wrap">
-          <h2 className="mt-0 mb-0">Calendar</h2>
-          <div className="flex gap-sm items-center">
-            <button 
-              onClick={loadEvents} 
-              disabled={loading}
-              className="glass-button btn-icon-square"
-            >
-              <RefreshCw size={16} className={loading ? 'icon-spin' : ''} />
-            </button>
-            <button 
-              onClick={() => setShowCreateForm(!showCreateForm)}
-              className="glass-button-primary btn-icon-square"
-            >
-              {showCreateForm ? <X size={16} /> : <Plus size={16} />}
-            </button>
+      <div className="calendar calendar-page">
+        <div className="card calendar-board-card">
+          <div className="calendar-board-header">
+            <div>
+              <span className="page-eyebrow"><CalendarDays size={15} /> Calendar</span>
+              <h2 className="mt-0 mb-0">{formatMonthLabel(visibleMonth)}</h2>
+            </div>
+
+            <div className="calendar-toolbar">
+              <button
+                onClick={() => setVisibleMonth(new Date())}
+                className="glass-button calendar-today-button"
+              >
+                Today
+              </button>
+              <div className="calendar-month-nav" aria-label="Month navigation">
+                <button
+                  onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1))}
+                  className="glass-button btn-icon-square"
+                  aria-label="Previous month"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => setVisibleMonth(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1))}
+                  className="glass-button btn-icon-square"
+                  aria-label="Next month"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <button
+                onClick={loadEvents}
+                disabled={loading}
+                className="glass-button btn-icon-square"
+                aria-label="Refresh events"
+              >
+                <RefreshCw size={16} className={loading ? 'icon-spin' : ''} />
+              </button>
+              <button
+                onClick={() => setShowCreateForm(!showCreateForm)}
+                className="glass-button-primary btn-icon-square"
+                aria-label={showCreateForm ? 'Close create form' : 'Create time block'}
+              >
+                {showCreateForm ? <X size={16} /> : <Plus size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="calendar-error-box">
+              <strong>Error:</strong> {error}
+              {error.includes('not configured') && (
+                <p className="text-md-mt-sm">
+                  Go to Configuration tab to set up your iCloud calendar URL.
+                </p>
+              )}
+            </div>
+          )}
+
+          {infoMessage && (
+            <div className="calendar-info-box">
+              <strong>{infoMessage}</strong>
+            </div>
+          )}
+
+          {successMessage && (
+            <div className="calendar-success-box">
+              {successMessage}
+            </div>
+          )}
+
+          {showCreateForm && (
+            <div className="calendar-form-box">
+              <h3 className="mt-0">Create Time Block</h3>
+              <form onSubmit={handleCreateBlock}>
+                <label className="form-label-block">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
+                  placeholder="Focus Time, Deep Work, etc."
+                  required
+                />
+
+                <div className="grid-2col">
+                  <div>
+                    <label className="form-label-block">
+                      Start Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={newEvent.startTime || getDefaultStartTime()}
+                      onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label-block">
+                      End Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={newEvent.endTime || getDefaultEndTime()}
+                      onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <label className="form-label-block">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={newEvent.description}
+                  onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
+                  placeholder="Add notes or context..."
+                  rows="3"
+                  className="resize-vertical"
+                />
+
+                <button type="submit" className="mt-sm">
+                  Create & Download .ics File
+                </button>
+              </form>
+            </div>
+          )}
+
+          <div className="calendar-month-grid" role="grid" aria-label={`${formatMonthLabel(visibleMonth)} calendar`}>
+            {WEEKDAYS.map(day => (
+              <div key={day} className="calendar-weekday" role="columnheader">
+                {day}
+              </div>
+            ))}
+
+            {monthDays.map(day => {
+              const dateKey = getDateKey(day);
+              const dayEvents = eventsByDate.get(dateKey) || [];
+              const inMonth = day.getMonth() === visibleMonth.getMonth();
+              const isToday = dateKey === todayKey;
+              const visibleEvents = dayEvents.slice(0, 2);
+
+              return (
+                <div
+                  key={dateKey}
+                  className={`calendar-day-cell ${inMonth ? '' : 'outside-month'} ${isToday ? 'today' : ''}`}
+                  role="gridcell"
+                  aria-label={`${formatDayLabel(day)}${dayEvents.length ? `, ${dayEvents.length} events` : ''}`}
+                >
+                  <div className="calendar-day-number">{day.getDate()}</div>
+                  <div className="calendar-day-events">
+                    {visibleEvents.map(event => (
+                      <button
+                        key={`${event.id}-${getEventStart(event)}`}
+                        type="button"
+                        className="calendar-event-chip"
+                        onClick={() => openEventDetails(event)}
+                        title={`${getEventTitle(event)} ${formatTimeRange(event)}`}
+                      >
+                        <span className="calendar-event-chip-time">{formatTimeRange(event).split(' - ')[0]}</span>
+                        <span className="calendar-event-chip-title">{getEventTitle(event)}</span>
+                      </button>
+                    ))}
+                    {dayEvents.length > visibleEvents.length && (
+                      <span className="calendar-more-events">+{dayEvents.length - visibleEvents.length}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {error && (
-          <div className="calendar-error-box">
-            <strong>Error:</strong> {error}
-            {error.includes('not configured') && (
-              <p className="text-md-mt-sm">
-                Go to Configuration tab to set up your iCloud calendar URL.
-              </p>
-            )}
+        <div className="card calendar-agenda-card">
+          <div className="calendar-section-header">
+            <div>
+              <span className="page-eyebrow"><Clock3 size={15} /> Agenda</span>
+              <h2>Upcoming Events</h2>
+            </div>
+            <span className="calendar-event-count">{sortedEvents.length} visible</span>
           </div>
-        )}
 
-        {infoMessage && (
-          <div className="calendar-info-box">
-            <strong>{infoMessage}</strong>
-          </div>
-        )}
+          {loading && (
+            <div className="text-center p-xl text-gray">
+              <p>Loading calendar events...</p>
+            </div>
+          )}
 
-        {successMessage && (
-          <div className="calendar-success-box">
-            {successMessage}
-          </div>
-        )}
+          {!loading && sortedEvents.length === 0 && !error && (
+            <div className="empty-state">
+              <div className="empty-icon"><CalendarDays size={28} /></div>
+              <p>No upcoming events found.</p>
+              {error && error.includes('not configured') ? (
+                <p className="text-sm-gray-mt-sm">
+                  Configure your calendar URL in the Configuration tab to see events.
+                </p>
+              ) : (
+                <p className="text-sm-gray-mt-sm">
+                  Create a time block or check your calendar configuration.
+                </p>
+              )}
+            </div>
+          )}
 
-        {showCreateForm && (
-          <div className="calendar-form-box">
-            <h3 className="mt-0">Create Time Block</h3>
-            <form onSubmit={handleCreateBlock}>
-              <label className="form-label-block">
-                Title *
-              </label>
-              <input
-                type="text"
-                value={newEvent.title}
-                onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                placeholder="Focus Time, Deep Work, etc."
-                required
-              />
+          {!loading && sortedEvents.length > 0 && (
+            <div className="calendar-agenda-list">
+              {Object.keys(groupedEvents).map((dateKey) => (
+                <section key={dateKey} className="calendar-agenda-day">
+                  <h3 className="calendar-date-header">
+                    {formatDayLabel(parseEventDate(dateKey))}
+                  </h3>
 
-              <div className="grid-2col">
-                <div>
-                  <label className="form-label-block">
-                    Start Time *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={newEvent.startTime || getDefaultStartTime()}
-                    onChange={(e) => setNewEvent({ ...newEvent, startTime: e.target.value })}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="form-label-block">
-                    End Time *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={newEvent.endTime || getDefaultEndTime()}
-                    onChange={(e) => setNewEvent({ ...newEvent, endTime: e.target.value })}
-                    required
-                  />
-                </div>
+                  {groupedEvents[dateKey].map((event) => {
+                    const expanded = selectedEventId === event.id;
+                    const description = getEventDescription(event);
+
+                    return (
+                      <button
+                        key={`${event.id}-${getEventStart(event)}`}
+                        type="button"
+                        className={`calendar-agenda-event ${expanded ? 'expanded' : ''}`}
+                        onClick={() => openEventDetails(event)}
+                        aria-expanded={expanded}
+                      >
+                        <span className="calendar-agenda-time">{formatTimeRange(event)}</span>
+                        <span className="calendar-agenda-main">
+                          <span className="calendar-agenda-title">{getEventTitle(event)}</span>
+                          <span className="calendar-agenda-meta">
+                            {event.location && (
+                              <span><MapPin size={13} /> {event.location}</span>
+                            )}
+                            {event.isOnlineMeeting && (
+                              <span><Video size={13} /> Online</span>
+                            )}
+                          </span>
+                          {expanded && (
+                            <span className="calendar-agenda-details">
+                              {description && <span>{description}</span>}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </section>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {eventToast && createPortal((
+          <div className="calendar-event-toast" role="dialog" aria-live="polite" aria-label="Calendar event details">
+            <div className="calendar-event-toast-header">
+              <div>
+                <span className="page-eyebrow"><CalendarDays size={14} /> Event</span>
+                <h3>{getEventTitle(eventToast)}</h3>
               </div>
-
-              <label className="form-label-block">
-                Description (Optional)
-              </label>
-              <textarea
-                value={newEvent.description}
-                onChange={(e) => setNewEvent({ ...newEvent, description: e.target.value })}
-                placeholder="Add notes or context..."
-                rows="3"
-                className="resize-vertical"
-              />
-
-              <button type="submit" className="mt-sm">
-                Create & Download .ics File
+              <button
+                type="button"
+                onClick={() => setEventToast(null)}
+                className="calendar-event-toast-close"
+                aria-label="Close event details"
+              >
+                <X size={16} />
               </button>
-            </form>
+            </div>
+            <div className="calendar-event-toast-body">
+              <p><Clock3 size={15} /> {formatDayLabel(parseEventDate(getEventStart(eventToast)))} · {formatTimeRange(eventToast)}</p>
+              {eventToast.location && <p><MapPin size={15} /> {eventToast.location}</p>}
+              {eventToast.isOnlineMeeting && <p><Video size={15} /> Online meeting</p>}
+              {eventToastDescription && <p className="calendar-event-toast-description">{eventToastDescription}</p>}
+              {eventToastLink && (
+                <button
+                  type="button"
+                  className="calendar-event-toast-link"
+                  onClick={() => window.open(eventToastLink, '_blank', 'noopener,noreferrer')}
+                >
+                  <ExternalLink size={14} />
+                  Open in calendar
+                </button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-
-      <div className="card">
-        <h2>Upcoming Events</h2>
-        
-        {loading && (
-          <div className="text-center p-xl text-gray">
-            <p>Loading calendar events...</p>
-          </div>
-        )}
-
-        {!loading && events.length === 0 && !error && (
-          <div className="empty-state">
-            <div className="empty-icon"><CalendarDays size={28} /></div>
-            <p>No upcoming events found.</p>
-            {error && error.includes('not configured') ? (
-              <p className="text-sm-gray-mt-sm">
-                Configure your calendar URL in the Configuration tab to see events.
-              </p>
-            ) : (
-              <p className="text-sm-gray-mt-sm">
-                Create a time block or check your calendar configuration.
-              </p>
-            )}
-          </div>
-        )}
-
-        {!loading && events.length > 0 && (
-          <div>
-            {Object.keys(groupedEvents).map((dateKey) => (
-              <div key={dateKey} className="mb-xl">
-                <h3 className="calendar-date-header">
-                  {formatDate(new Date(dateKey))}
-                </h3>
-
-                {groupedEvents[dateKey].map((event) => (
-                  <div key={event.id} className="calendar-event-card">
-                    <div className="task-layout">
-                      <div className="flex-1">
-                        <h4 className="calendar-event-title">
-                          {event.summary || event.subject || '(No title)'}
-                        </h4>
-                        <p className="calendar-event-time">
-                          {formatTime(event.start)} - {formatTime(event.end)}
-                        </p>
-                        {event.location && (
-                          <p className="text-sm text-muted">
-                            {event.location}
-                          </p>
-                        )}
-                        {(event.description || event.body) && (
-                          <p className="calendar-event-description">
-                            {event.description || event.body}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="card">
-        <h2>Tips</h2>
-        <ul className="text-sm text-muted" style={{ lineHeight: '1.8' }}>
-          <li>Create time blocks for focus time, meetings, and deep work</li>
-          <li>Connected Google or Microsoft calendars show upcoming events here</li>
-          <li>If no calendar is connected, time blocks download as .ics files</li>
-          <li>Events are automatically filtered to show next 2 months</li>
-        </ul>
-      </div>
+        ), document.body)}
       </div>
     </PullToRefresh>
   );
