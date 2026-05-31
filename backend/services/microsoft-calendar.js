@@ -327,29 +327,39 @@ async function listEvents(maxResults = 50, profileId = 2) {
   try {
     const client = await getGraphClient(profileId);
     const calendarId = await getCalendarId();
-    
+
+    const startDateTime = new Date();
+    const endDateTime = new Date(startDateTime.getTime() + 60 * 24 * 60 * 60 * 1000);
     const endpoint = calendarId
-      ? `/me/calendars/${calendarId}/events`
-      : '/me/events';
-    
+      ? `/me/calendars/${calendarId}/calendarView`
+      : '/me/calendarView';
+
     const response = await client
       .api(endpoint)
-      .filter(`start/dateTime ge '${new Date().toISOString()}'`)
+      .query({
+        startDateTime: startDateTime.toISOString(),
+        endDateTime: endDateTime.toISOString()
+      })
+      .select('id,subject,body,bodyPreview,start,end,location,webLink,isOnlineMeeting,onlineMeeting,onlineMeetingUrl')
       .top(maxResults)
       .orderby('start/dateTime')
+      .header('Prefer', 'outlook.timezone="UTC"')
       .get();
-    
+
     const events = response.value || [];
     logger.info(`Retrieved ${events.length} upcoming events`);
-    
+
     return events.map(event => ({
       id: event.id,
+      summary: event.subject,
       subject: event.subject,
-      body: event.body?.content,
+      description: event.bodyPreview || event.body?.content || '',
+      body: event.body?.content || '',
       start: event.start?.dateTime,
       end: event.end?.dateTime,
       location: event.location?.displayName,
-      webLink: event.webLink
+      webLink: event.webLink,
+      isOnlineMeeting: Boolean(event.isOnlineMeeting || event.onlineMeeting || event.onlineMeetingUrl)
     }));
   } catch (error) {
     logger.error('Error listing calendar events', error);
@@ -422,7 +432,7 @@ async function createEventFromCommitment(commitment, profileId = 2) {
       startTime,
       endTime,
       description,
-      timeZone: 'America/New_York'
+      timeZone: 'UTC'
     }, profileId);
     
     logger.info(`Created Microsoft Calendar event for ${taskType} ${commitment.id}: ${event.id}`);

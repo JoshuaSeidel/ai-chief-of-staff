@@ -7,6 +7,31 @@ const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('INTAKE');
 
+class TeamsTranscriptUnavailableError extends Error {
+  constructor(message, details = []) {
+    super(message);
+    this.name = 'TeamsTranscriptUnavailableError';
+    this.code = 'TEAMS_TRANSCRIPT_UNAVAILABLE';
+    this.statusCode = 424;
+    this.details = details;
+  }
+}
+
+function isTeamsTranscriptUnavailable(error) {
+  return error?.code === 'TEAMS_TRANSCRIPT_UNAVAILABLE';
+}
+
+function errorResult(id, error) {
+  return {
+    imported: false,
+    failed: true,
+    id,
+    error: error.code || 'IMPORT_FAILED',
+    message: error.message,
+    details: error.details || []
+  };
+}
+
 async function findExistingTranscript(filename, source, profileId) {
   const db = getDb();
   return db.get(
@@ -99,30 +124,27 @@ async function buildMeetingImportPayload(meeting, profileId) {
         };
       }
 
-      return {
-        filename: microsoftIntake.meetingFilename(meeting),
-        content: microsoftIntake.formatMeetingForTranscript(meeting),
-        source: 'calendar-meeting',
-        meetingDate,
-        profileId,
-        capture: summarizeCaptureAssets(captureAssets, false)
-      };
+      const reasons = [
+        ...(captureAssets.warnings || []),
+        captureAssets.onlineMeeting ? null : 'No matching Teams online meeting was found',
+        latestTranscript ? null : 'No Teams transcript is available for this meeting yet'
+      ].filter(Boolean);
+
+      throw new TeamsTranscriptUnavailableError(
+        `Teams transcript unavailable for "${meeting.subject || 'meeting'}". ${reasons.join(' ')}`,
+        reasons
+      );
     } catch (error) {
-      logger.warn('Teams transcript capture unavailable; falling back to calendar meeting import', error.message);
-      return {
-        filename: microsoftIntake.meetingFilename(meeting),
-        content: microsoftIntake.formatMeetingForTranscript(meeting),
-        source: 'calendar-meeting',
-        meetingDate,
-        profileId,
-        capture: {
-          usedTeamsTranscript: false,
-          onlineMeetingId: null,
-          transcriptCount: 0,
-          recordingCount: 0,
-          warnings: [error.message]
-        }
-      };
+      if (isTeamsTranscriptUnavailable(error)) {
+        throw error;
+      }
+
+      const message = error.message || 'Teams transcript capture failed';
+      logger.warn('Teams transcript capture failed', { message });
+      throw new TeamsTranscriptUnavailableError(
+        `Teams transcript unavailable for "${meeting.subject || 'meeting'}". ${message}`,
+        [message]
+      );
     }
   }
 
@@ -288,10 +310,11 @@ router.get('/meetings/:id/assets', async (req, res) => {
     }
 
     logger.error('Error listing meeting capture assets', error);
-    res.status(503).json({
+    res.status(error.statusCode || 503).json({
       success: false,
-      error: 'Failed to list meeting capture assets',
-      message: error.message
+      error: error.code || 'Failed to list meeting capture assets',
+      message: error.message,
+      details: error.details || []
     });
   }
 });
@@ -324,10 +347,11 @@ router.post('/meetings/:id/process', async (req, res) => {
     }
 
     logger.error('Error processing meeting', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      error: 'Failed to process meeting',
-      message: error.message
+      error: error.code || 'Failed to process meeting',
+      message: error.message,
+      details: error.details || []
     });
   }
 });
@@ -346,10 +370,27 @@ router.post('/meetings/import', async (req, res) => {
 
     const results = await importMeetingsByIds(ids, profileId);
 
+    const imported = results.filter(result => result.imported).length;
+    const failed = results.filter(result => result.failed).length;
+    const skipped = results.filter(result => !result.imported && !result.failed).length;
+
+    if (failed > 0 && imported === 0 && skipped === 0) {
+      return res.status(424).json({
+        success: false,
+        imported,
+        skipped,
+        failed,
+        error: 'Failed to import meetings',
+        message: results[0]?.message || 'Unable to import selected meetings',
+        results
+      });
+    }
+
     res.json({
       success: true,
-      imported: results.filter(result => result.imported).length,
-      skipped: results.filter(result => !result.imported).length,
+      imported,
+      skipped,
+      failed,
       results
     });
   } catch (error) {
@@ -410,8 +451,12 @@ async function importMeeting(meeting, profileId = 2) {
 async function importMeetingsByIds(ids = [], profileId = 2) {
   const results = [];
   for (const id of ids) {
-    const meeting = await microsoftIntake.getMeeting(id, profileId);
-    results.push(await importMeeting(meeting, profileId));
+    try {
+      const meeting = await microsoftIntake.getMeeting(id, profileId);
+      results.push(await importMeeting(meeting, profileId));
+    } catch (error) {
+      results.push(errorResult(id, error));
+    }
   }
   return results;
 }
@@ -426,8 +471,12 @@ async function importMeetingsInRange(options = {}, profileId = 2) {
 
   const results = [];
   for (const meeting of meetings) {
-    const fullMeeting = await microsoftIntake.getMeeting(meeting.id, profileId);
-    results.push(await importMeeting(fullMeeting, profileId));
+    try {
+      const fullMeeting = await microsoftIntake.getMeeting(meeting.id, profileId);
+      results.push(await importMeeting(fullMeeting, profileId));
+    } catch (error) {
+      results.push(errorResult(meeting.id, error));
+    }
   }
   return results;
 }

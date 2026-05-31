@@ -152,6 +152,10 @@ function countImported(results) {
   return (results || []).filter(result => result.imported).length;
 }
 
+function countFailed(results) {
+  return (results || []).filter(result => result.failed).length;
+}
+
 /**
  * Check if current time is within quiet hours
  */
@@ -484,6 +488,7 @@ async function runDailyIntake() {
       emailSkipped: 0,
       meetingImported: 0,
       meetingSkipped: 0,
+      meetingFailed: 0,
       failedProfiles: 0
     };
 
@@ -504,14 +509,16 @@ async function runDailyIntake() {
         totals.emailImported += countImported(emailResults);
         totals.emailSkipped += emailResults.length - countImported(emailResults);
         totals.meetingImported += countImported(meetingResults);
-        totals.meetingSkipped += meetingResults.length - countImported(meetingResults);
+        totals.meetingSkipped += meetingResults.length - countImported(meetingResults) - countFailed(meetingResults);
+        totals.meetingFailed += countFailed(meetingResults);
 
         logger.info('Daily Microsoft 365 intake completed for profile', {
           profileId,
           emailImported: countImported(emailResults),
           emailSkipped: emailResults.length - countImported(emailResults),
           meetingImported: countImported(meetingResults),
-          meetingSkipped: meetingResults.length - countImported(meetingResults)
+          meetingSkipped: meetingResults.length - countImported(meetingResults) - countFailed(meetingResults),
+          meetingFailed: countFailed(meetingResults)
         });
       } catch (error) {
         totals.failedProfiles += 1;

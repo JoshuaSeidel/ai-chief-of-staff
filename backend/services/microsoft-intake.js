@@ -10,6 +10,23 @@ const GRAPH_ROOT = 'https://graph.microsoft.com/v1.0';
 
 let cachedApplicationToken = null;
 
+function describeGraphError(error) {
+  if (!error) return 'Unknown Microsoft Graph error';
+
+  const parts = [];
+  if (error.statusCode || error.status) parts.push(`status ${error.statusCode || error.status}`);
+  if (error.code) parts.push(`code ${error.code}`);
+  if (error.message) parts.push(error.message);
+
+  const body = error.body || error.response?.body || error.response?.text;
+  if (body) {
+    const bodyText = typeof body === 'string' ? body : JSON.stringify(body);
+    parts.push(bodyText.slice(0, 500));
+  }
+
+  return parts.filter(Boolean).join(': ') || 'Microsoft Graph request failed without details';
+}
+
 function removeHtmlElementBlocks(value, tagName) {
   let output = '';
   let cursor = 0;
@@ -159,7 +176,7 @@ async function getApplicationAccessToken() {
   if (!response.ok) {
     const errorText = await response.text();
     logger.error('Microsoft application token request failed', { status: response.status, error: errorText });
-    throw new Error(`Failed to get Microsoft application token: ${response.status}`);
+    throw new Error(`Failed to get Microsoft application token: ${response.status} ${errorText.slice(0, 240)}`);
   }
 
   const token = await response.json();
@@ -413,11 +430,17 @@ async function findOnlineMeetingForEvent(event, profileId = 2) {
 
   const organizerUserId = await resolveMeetingOrganizerUserId(event, profileId);
   const client = await getApplicationGraphClient();
-  const response = await client
-    .api(`/users/${encodePathSegment(organizerUserId)}/onlineMeetings`)
-    .filter(`JoinWebUrl eq '${escapeODataString(joinUrl)}'`)
-    .top(1)
-    .get();
+  let response;
+
+  try {
+    response = await client
+      .api(`/users/${encodePathSegment(organizerUserId)}/onlineMeetings`)
+      .filter(`JoinWebUrl eq '${escapeODataString(joinUrl)}'`)
+      .top(1)
+      .get();
+  } catch (error) {
+    throw new Error(`Unable to resolve Teams meeting for organizer ${organizerUserId}: ${describeGraphError(error)}`);
+  }
 
   return {
     organizerUserId,
@@ -435,10 +458,11 @@ async function listAssetCollection(client, endpoint, label, mapper) {
       warning: null
     };
   } catch (error) {
-    logger.warn(`Unable to list Teams ${label}`, error.message);
+    const message = describeGraphError(error);
+    logger.warn(`Unable to list Teams ${label}`, { endpoint, error: message });
     return {
       items: [],
-      warning: `Unable to list Teams ${label}: ${error.message}`
+      warning: `Unable to list Teams ${label}: ${message}`
     };
   }
 }

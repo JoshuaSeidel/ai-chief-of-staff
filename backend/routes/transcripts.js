@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb, getDbType } = require('../database/db');
 const { extractCommitments } = require('../services/claude');
-const googleCalendar = require('../services/google-calendar');
+const calendarSync = require('../services/calendar-sync');
 const microsoftPlanner = require('../services/microsoft-planner');
 const jira = require('../services/jira');
 const fs = require('fs');
@@ -140,10 +140,10 @@ async function createAndProcessTranscript({
  */
 async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
   const profileId = req.profileId || 2;
-  const isGoogleConnected = await googleCalendar.isConnected(profileId);
+  const isCalendarConnected = await calendarSync.isConnected(profileId);
   const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
   const isJiraConnected = await jira.isConnected(profileId);
-  logger.info(`Profile ${profileId} - Google Calendar connected: ${isGoogleConnected}, Microsoft Planner connected: ${isMicrosoftConnected}, Jira connected: ${isJiraConnected}`);
+  logger.info(`Profile ${profileId} - Calendar connected: ${isCalendarConnected}, Microsoft Planner connected: ${isMicrosoftConnected}, Jira connected: ${isJiraConnected}`);
 
   // Get user names from config
   let userNames = [];
@@ -246,12 +246,13 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       
       // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
       if (item.deadline && isUserTask && !requiresConfirmation) {
-        // Create Google Calendar event
-        if (isGoogleConnected) {
+        // Create calendar event
+        if (isCalendarConnected) {
           try {
-            const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
+            const { event, provider } = await calendarSync.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
             await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
             calendarEventsCreated++;
+            logger.info(`Created ${provider} calendar event ${event.id} for commitment ${insertedId}`);
           } catch (calError) {
             logger.warn(`Failed to create calendar event: ${calError.message}`);
           }
@@ -310,12 +311,13 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       
       // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
       if (item.deadline && isUserTask && !requiresConfirmation) {
-        // Create Google Calendar event
-        if (isGoogleConnected) {
+        // Create calendar event
+        if (isCalendarConnected) {
           try {
-            const event = await googleCalendar.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
+            const { event, provider } = await calendarSync.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
             await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
             calendarEventsCreated++;
+            logger.info(`Created ${provider} calendar event ${event.id} for action ${insertedId}`);
           } catch (calError) {
             logger.warn(`Failed to create calendar event: ${calError.message}`);
           }
@@ -375,12 +377,13 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       
       // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
       if (item.deadline && isUserTask && !requiresConfirmation) {
-        // Create Google Calendar event
-        if (isGoogleConnected) {
+        // Create calendar event
+        if (isCalendarConnected) {
           try {
-            const event = await googleCalendar.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
+            const { event, provider } = await calendarSync.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
             await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
             calendarEventsCreated++;
+            logger.info(`Created ${provider} calendar event ${event.id} for follow-up ${insertedId}`);
           } catch (calError) {
             logger.warn(`Failed to create calendar event: ${calError.message}`);
           }
@@ -796,11 +799,11 @@ async function processTranscriptAsync(id, transcript, db, req) {
     const existingTasks = await db.all('SELECT calendar_event_id FROM commitments WHERE transcript_id = ? AND profile_id = ? AND calendar_event_id IS NOT NULL', [id, req.profileId]);
     const eventIdsToDelete = existingTasks.map(t => t.calendar_event_id).filter(Boolean);
     
-    // Delete calendar events if Google Calendar is connected
-    if (eventIdsToDelete.length > 0 && await googleCalendar.isConnected(req.profileId)) {
+    // Delete calendar events if a calendar is connected
+    if (eventIdsToDelete.length > 0 && await calendarSync.isConnected(req.profileId)) {
       logger.info(`Deleting ${eventIdsToDelete.length} calendar events for transcript ${id}`);
       try {
-        await googleCalendar.deleteEvents(eventIdsToDelete, req.profileId);
+        await calendarSync.deleteEvents(eventIdsToDelete, req.profileId);
         logger.info(`Deleted calendar events successfully`);
       } catch (calError) {
         logger.warn(`Failed to delete some calendar events:`, calError.message);

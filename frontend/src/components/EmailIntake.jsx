@@ -255,6 +255,10 @@ function EmailIntake() {
       const response = await intakeAPI.importMeetings(ids);
       const teamsCount = (response.data.results || []).filter(result => result.capture?.usedTeamsTranscript).length;
       toast.success(`Queued ${response.data.imported || 0} meetings${teamsCount ? `, including ${teamsCount} Teams transcripts` : ''}`);
+      if (response.data.failed > 0) {
+        const firstFailure = (response.data.results || []).find(result => result.failed);
+        toast.warning(firstFailure?.message || `${response.data.failed} meetings could not be imported`);
+      }
       setSelectedMeetings(new Set());
     } catch (err) {
       toast.error(err.response?.data?.message || 'Unable to import meetings');

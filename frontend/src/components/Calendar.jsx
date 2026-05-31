@@ -61,21 +61,25 @@ function Calendar() {
 
     try {
       const response = await calendarAPI.createBlock(newEvent);
-      
-      // Trigger download of ICS file
-      const icsBlob = new Blob([response.data.icsContent], { type: 'text/calendar' });
-      const url = window.URL.createObjectURL(icsBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${newEvent.title.replace(/[^a-z0-9]/gi, '-')}.ics`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      setSuccessMessage('Calendar block created! The .ics file has been downloaded. Import it into your calendar app.');
+
+      if (response.data.icsContent) {
+        const icsBlob = new Blob([response.data.icsContent], { type: 'text/calendar' });
+        const url = window.URL.createObjectURL(icsBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${newEvent.title.replace(/[^a-z0-9]/gi, '-')}.ics`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        setSuccessMessage('Calendar block created. The .ics file has been downloaded.');
+      } else {
+        setSuccessMessage(response.data.message || 'Calendar block created.');
+      }
+
       setShowCreateForm(false);
       setNewEvent({ title: '', startTime: '', endTime: '', description: '' });
+      await loadEvents();
       
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
@@ -273,7 +277,7 @@ function Calendar() {
                     <div className="task-layout">
                       <div className="flex-1">
                         <h4 className="calendar-event-title">
-                          {event.summary}
+                          {event.summary || event.subject || '(No title)'}
                         </h4>
                         <p className="calendar-event-time">
                           {formatTime(event.start)} - {formatTime(event.end)}
@@ -283,9 +287,9 @@ function Calendar() {
                             {event.location}
                           </p>
                         )}
-                        {event.description && (
+                        {(event.description || event.body) && (
                           <p className="calendar-event-description">
-                            {event.description}
+                            {event.description || event.body}
                           </p>
                         )}
                       </div>
@@ -302,8 +306,8 @@ function Calendar() {
         <h2>Tips</h2>
         <ul className="text-sm text-muted" style={{ lineHeight: '1.8' }}>
           <li>Create time blocks for focus time, meetings, and deep work</li>
-          <li>Download the .ics file and import it into any calendar app</li>
-          <li>Configure your iCloud calendar URL to see upcoming events</li>
+          <li>Connected Google or Microsoft calendars show upcoming events here</li>
+          <li>If no calendar is connected, time blocks download as .ics files</li>
           <li>Events are automatically filtered to show next 2 months</li>
         </ul>
       </div>

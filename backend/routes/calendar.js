@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { rateLimit } = require('express-rate-limit');
 const { createModuleLogger } = require('../utils/logger');
-const { getConfig } = require('../config/manager');
 const googleCalendar = require('../services/google-calendar');
 const microsoftCalendar = require('../services/microsoft-calendar');
 const { normalizeMicrosoftTenantId, requireMicrosoftTenantId, resolveMicrosoftTenantId } = require('../services/microsoft-identity');
@@ -26,29 +25,19 @@ const oauthCallbackLimiter = rateLimit({
 router.get('/events', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
-    
-    // Get configuration
-    const googleEnabled = await getConfig('googleCalendarEnabled', true);
-    const microsoftEnabled = await getConfig('microsoftEnabled', false);
-    
-    // Try Google Calendar first (if enabled)
-    if (googleEnabled) {
-      const isGoogleConnected = await googleCalendar.isConnected(profileId);
-      if (isGoogleConnected) {
-        logger.info(`Fetching events from Google Calendar for profile ${profileId}`);
-        const events = await googleCalendar.listEvents(50, profileId);
-        return res.json({ source: 'google', events });
-      }
+
+    const isGoogleConnected = await googleCalendar.isConnected(profileId);
+    if (isGoogleConnected) {
+      logger.info(`Fetching events from Google Calendar for profile ${profileId}`);
+      const events = await googleCalendar.listEvents(50, profileId);
+      return res.json({ source: 'google', events });
     }
-    
-    // Try Microsoft Calendar (if enabled)
-    if (microsoftEnabled) {
-      const isMicrosoftConnected = await microsoftCalendar.isConnected(profileId);
-      if (isMicrosoftConnected) {
-        logger.info(`Fetching events from Microsoft Calendar for profile ${profileId}`);
-        const events = await microsoftCalendar.listEvents(50, profileId);
-        return res.json({ source: 'microsoft', events });
-      }
+
+    const isMicrosoftConnected = await microsoftCalendar.isConnected(profileId);
+    if (isMicrosoftConnected) {
+      logger.info(`Fetching events from Microsoft Calendar for profile ${profileId}`);
+      const events = await microsoftCalendar.listEvents(50, profileId);
+      return res.json({ source: 'microsoft', events });
     }
     
     return res.status(200).json({ 

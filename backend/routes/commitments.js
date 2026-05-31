@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb, getDbType } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
-const googleCalendar = require('../services/google-calendar');
+const calendarSync = require('../services/calendar-sync');
 const microsoftPlanner = require('../services/microsoft-planner');
 const jira = require('../services/jira');
 
@@ -174,9 +174,9 @@ router.put('/:id', async (req, res) => {
     // Delete calendar event if needed (after updating database)
     if (shouldDeleteCalendarEvent && task && task.calendar_event_id) {
       try {
-        const isConnected = await googleCalendar.isConnected(req.profileId);
+        const isConnected = await calendarSync.isConnected(req.profileId);
         if (isConnected) {
-          await googleCalendar.deleteEvent(task.calendar_event_id, req.profileId);
+          await calendarSync.deleteEvent(task.calendar_event_id, req.profileId);
           logger.info(`Deleted calendar event ${task.calendar_event_id} for completed task ${id}`);
         }
       } catch (calError) {
@@ -246,12 +246,12 @@ router.delete('/:id', async (req, res) => {
       microsoft: null
     };
     
-    // Delete from Google Calendar if event exists
+    // Delete from connected calendar if event exists
     if (task.calendar_event_id) {
       try {
-        const isConnected = await googleCalendar.isConnected(req.profileId);
+        const isConnected = await calendarSync.isConnected(req.profileId);
         if (isConnected) {
-          await googleCalendar.deleteEvent(task.calendar_event_id, req.profileId);
+          await calendarSync.deleteEvent(task.calendar_event_id, req.profileId);
           deletionResults.calendar = 'success';
           logger.info(`Deleted calendar event ${task.calendar_event_id}`);
         }
@@ -472,12 +472,12 @@ router.post('/', async (req, res) => {
     
     // Create calendar event if applicable (only for user tasks with deadlines, not risks)
     if (taskType !== 'risk' && deadline && isUserTask && !requiresConfirmation) {
-      const isGoogleConnected = await googleCalendar.isConnected(req.profileId);
-      if (isGoogleConnected) {
+      const isCalendarConnected = await calendarSync.isConnected(req.profileId);
+      if (isCalendarConnected) {
         try {
-          const event = await googleCalendar.createEventFromCommitment(taskData, req.profileId);
+          const { event, provider } = await calendarSync.createEventFromCommitment(taskData, req.profileId);
           await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
-          logger.info(`Created calendar event ${event.id} for manual task ${insertedId}`);
+          logger.info(`Created ${provider} calendar event ${event.id} for manual task ${insertedId}`);
         } catch (calError) {
           logger.warn(`Failed to create calendar event: ${calError.message}`);
         }
@@ -557,17 +557,17 @@ router.post('/:id/confirm', async (req, res) => {
         [falseValue, id]
       );
       
-      // If task has a deadline and Google Calendar is connected, create calendar event
+      // If task has a deadline and a calendar is connected, create calendar event
       if (task.deadline) {
         try {
-          const isConnected = await googleCalendar.isConnected(req.profileId);
+          const isConnected = await calendarSync.isConnected(req.profileId);
           if (isConnected && !task.calendar_event_id) {
-            const event = await googleCalendar.createEventFromCommitment({
+            const { event, provider } = await calendarSync.createEventFromCommitment({
               ...task,
               task_type: task.task_type || 'commitment'
             }, req.profileId);
             await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, id, req.profileId]);
-            logger.info(`Created calendar event ${event.id} for confirmed task ${id}`);
+            logger.info(`Created ${provider} calendar event ${event.id} for confirmed task ${id}`);
           }
         } catch (calError) {
           logger.warn(`Failed to create calendar event for confirmed task: ${calError.message}`);
@@ -598,4 +598,3 @@ router.post('/:id/confirm', async (req, res) => {
 });
 
 module.exports = router;
-
