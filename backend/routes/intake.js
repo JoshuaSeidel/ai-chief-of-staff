@@ -209,26 +209,11 @@ router.post('/email/messages/:id/process', async (req, res) => {
 router.post('/email/sync', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
-    const messages = await microsoftIntake.listMessages({
+    const results = await syncEmailMessages({
       limit: req.body.limit || 10,
       unreadOnly: req.body.unreadOnly === true,
       query: req.body.query || ''
     }, profileId);
-
-    const results = [];
-    for (const messageSummary of messages) {
-      const message = await microsoftIntake.getMessage(messageSummary.id, profileId);
-      const filename = microsoftIntake.messageFilename(message);
-      const content = microsoftIntake.formatMessageForTranscript(message);
-      const meetingDate = message.receivedDateTime ? message.receivedDateTime.slice(0, 10) : null;
-      results.push(await processTranscriptOnce({
-        filename,
-        content,
-        source: 'email',
-        meetingDate,
-        profileId
-      }));
-    }
 
     res.json({
       success: true,
@@ -359,17 +344,7 @@ router.post('/meetings/import', async (req, res) => {
       });
     }
 
-    const results = [];
-    for (const id of ids) {
-      const meeting = await microsoftIntake.getMeeting(id, profileId);
-      const payload = await buildMeetingImportPayload(meeting, profileId);
-      const result = await processTranscriptOnce(payload);
-      results.push({
-        ...result,
-        source: payload.source,
-        capture: payload.capture
-      });
-    }
+    const results = await importMeetingsByIds(ids, profileId);
 
     res.json({
       success: true,
@@ -396,5 +371,70 @@ router.post('/meetings/import', async (req, res) => {
     });
   }
 });
+
+async function syncEmailMessages(options = {}, profileId = 2) {
+  const messages = await microsoftIntake.listMessages({
+    limit: options.limit || 10,
+    unreadOnly: options.unreadOnly === true,
+    query: options.query || ''
+  }, profileId);
+
+  const results = [];
+  for (const messageSummary of messages) {
+    const message = await microsoftIntake.getMessage(messageSummary.id, profileId);
+    const filename = microsoftIntake.messageFilename(message);
+    const content = microsoftIntake.formatMessageForTranscript(message);
+    const meetingDate = message.receivedDateTime ? message.receivedDateTime.slice(0, 10) : null;
+    results.push(await processTranscriptOnce({
+      filename,
+      content,
+      source: 'email',
+      meetingDate,
+      profileId
+    }));
+  }
+
+  return results;
+}
+
+async function importMeeting(meeting, profileId = 2) {
+  const payload = await buildMeetingImportPayload(meeting, profileId);
+  const result = await processTranscriptOnce(payload);
+  return {
+    ...result,
+    source: payload.source,
+    capture: payload.capture
+  };
+}
+
+async function importMeetingsByIds(ids = [], profileId = 2) {
+  const results = [];
+  for (const id of ids) {
+    const meeting = await microsoftIntake.getMeeting(id, profileId);
+    results.push(await importMeeting(meeting, profileId));
+  }
+  return results;
+}
+
+async function importMeetingsInRange(options = {}, profileId = 2) {
+  const meetings = await microsoftIntake.listMeetings({
+    start: options.start,
+    end: options.end,
+    limit: options.limit || 25,
+    query: options.query || ''
+  }, profileId);
+
+  const results = [];
+  for (const meeting of meetings) {
+    const fullMeeting = await microsoftIntake.getMeeting(meeting.id, profileId);
+    results.push(await importMeeting(fullMeeting, profileId));
+  }
+  return results;
+}
+
+router.syncEmailMessages = syncEmailMessages;
+router.importMeetingsByIds = importMeetingsByIds;
+router.importMeetingsInRange = importMeetingsInRange;
+router.processTranscriptOnce = processTranscriptOnce;
 
 module.exports = router;

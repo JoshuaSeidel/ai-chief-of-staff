@@ -9,6 +9,148 @@ const CHECK_INTERVAL = 15 * 60 * 1000;
 
 // Track last daily digest send to avoid duplicates
 let lastDailyDigestDate = null;
+let lastDailyIntakeDate = null;
+
+function isFalseLike(value) {
+  return ['false', '0', 'no', 'off'].includes(String(value || '').trim().toLowerCase());
+}
+
+function isTrueLike(value) {
+  return ['true', '1', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+}
+
+function parsePositiveInt(value, fallback, min = 1, max = 100) {
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, min), max);
+}
+
+function parseBooleanSetting(value, fallback) {
+  if (isTrueLike(value)) return true;
+  if (isFalseLike(value)) return false;
+  return fallback;
+}
+
+async function getConfigValue(key) {
+  const db = getDb();
+  const row = await db.get('SELECT value FROM config WHERE key = ?', [key]);
+  return row?.value;
+}
+
+function getZonedNow(timeZone) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour12: false,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).formatToParts(new Date());
+    const byType = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return {
+      dateKey: `${byType.year}-${byType.month}-${byType.day}`,
+      minutes: Number(byType.hour) * 60 + Number(byType.minute)
+    };
+  } catch (error) {
+    const now = new Date();
+    return {
+      dateKey: now.toISOString().slice(0, 10),
+      minutes: now.getHours() * 60 + now.getMinutes()
+    };
+  }
+}
+
+function timeToMinutes(value = '06:00') {
+  const [hour = '6', minute = '0'] = String(value).split(':');
+  const parsedHour = parseInt(hour, 10);
+  const parsedMinute = parseInt(minute, 10);
+
+  if (
+    !Number.isFinite(parsedHour)
+    || !Number.isFinite(parsedMinute)
+    || parsedHour < 0
+    || parsedHour > 23
+    || parsedMinute < 0
+    || parsedMinute > 59
+  ) {
+    return 6 * 60;
+  }
+
+  return parsedHour * 60 + parsedMinute;
+}
+
+async function getDailyIntakeSettings() {
+  const [
+    enabledValue,
+    timeValue,
+    timezoneValue,
+    emailLimitValue,
+    emailUnreadOnlyValue,
+    meetingLimitValue,
+    meetingLookbackValue
+  ] = await Promise.all([
+    getConfigValue('intake_auto_import_enabled'),
+    getConfigValue('intake_auto_import_time'),
+    getConfigValue('intake_auto_import_timezone'),
+    getConfigValue('intake_auto_import_email_limit'),
+    getConfigValue('intake_auto_import_email_unread_only'),
+    getConfigValue('intake_auto_import_meeting_limit'),
+    getConfigValue('intake_auto_import_meeting_lookback_days')
+  ]);
+
+  return {
+    enabled: parseBooleanSetting(
+      enabledValue ?? process.env.AUTO_INTAKE_ENABLED,
+      true
+    ),
+    time: timeValue || process.env.AUTO_INTAKE_TIME || '06:00',
+    timezone: timezoneValue || process.env.AUTO_INTAKE_TIMEZONE || process.env.TZ || 'America/New_York',
+    emailLimit: parsePositiveInt(
+      emailLimitValue ?? process.env.AUTO_INTAKE_EMAIL_LIMIT,
+      25,
+      1,
+      50
+    ),
+    emailUnreadOnly: parseBooleanSetting(
+      emailUnreadOnlyValue ?? process.env.AUTO_INTAKE_EMAIL_UNREAD_ONLY,
+      false
+    ),
+    meetingLimit: parsePositiveInt(
+      meetingLimitValue ?? process.env.AUTO_INTAKE_MEETING_LIMIT,
+      25,
+      1,
+      50
+    ),
+    meetingLookbackDays: parsePositiveInt(
+      meetingLookbackValue ?? process.env.AUTO_INTAKE_MEETING_LOOKBACK_DAYS,
+      1,
+      1,
+      14
+    )
+  };
+}
+
+async function getMicrosoftIntakeProfiles() {
+  const db = getDb();
+  const rows = await db.all(
+    `SELECT profile_id, token_data, is_enabled
+     FROM profile_integrations
+     WHERE integration_type = ? AND integration_name = ?`,
+    ['calendar', 'microsoft']
+  );
+
+  return rows
+    .filter(row => row.token_data && row.is_enabled !== false && row.is_enabled !== 0)
+    .map(row => row.profile_id)
+    .filter((profileId, index, values) => values.indexOf(profileId) === index);
+}
+
+function countImported(results) {
+  return (results || []).filter(result => result.imported).length;
+}
 
 /**
  * Check if current time is within quiet hours
@@ -306,6 +448,91 @@ async function sendDailyDigest() {
 }
 
 /**
+ * Import recent Microsoft 365 email and meetings once per day.
+ */
+async function runDailyIntake() {
+  try {
+    const settings = await getDailyIntakeSettings();
+    if (!settings.enabled) {
+      return;
+    }
+
+    const scheduledMinutes = timeToMinutes(settings.time);
+    const now = getZonedNow(settings.timezone);
+    const windowMinutes = Math.ceil(CHECK_INTERVAL / 60000);
+
+    if (Math.abs(now.minutes - scheduledMinutes) > windowMinutes) {
+      return;
+    }
+
+    if (lastDailyIntakeDate === now.dateKey) {
+      return;
+    }
+
+    const profileIds = await getMicrosoftIntakeProfiles();
+    if (profileIds.length === 0) {
+      lastDailyIntakeDate = now.dateKey;
+      logger.info('Daily Microsoft 365 intake skipped: no connected Microsoft profiles');
+      return;
+    }
+
+    const intakeRoutes = require('../routes/intake');
+    const rangeEnd = new Date();
+    const rangeStart = new Date(rangeEnd.getTime() - settings.meetingLookbackDays * 24 * 60 * 60 * 1000);
+    const totals = {
+      emailImported: 0,
+      emailSkipped: 0,
+      meetingImported: 0,
+      meetingSkipped: 0,
+      failedProfiles: 0
+    };
+
+    for (const profileId of profileIds) {
+      try {
+        const emailResults = await intakeRoutes.syncEmailMessages({
+          limit: settings.emailLimit,
+          unreadOnly: settings.emailUnreadOnly,
+          query: ''
+        }, profileId);
+        const meetingResults = await intakeRoutes.importMeetingsInRange({
+          start: rangeStart.toISOString(),
+          end: rangeEnd.toISOString(),
+          limit: settings.meetingLimit,
+          query: ''
+        }, profileId);
+
+        totals.emailImported += countImported(emailResults);
+        totals.emailSkipped += emailResults.length - countImported(emailResults);
+        totals.meetingImported += countImported(meetingResults);
+        totals.meetingSkipped += meetingResults.length - countImported(meetingResults);
+
+        logger.info('Daily Microsoft 365 intake completed for profile', {
+          profileId,
+          emailImported: countImported(emailResults),
+          emailSkipped: emailResults.length - countImported(emailResults),
+          meetingImported: countImported(meetingResults),
+          meetingSkipped: meetingResults.length - countImported(meetingResults)
+        });
+      } catch (error) {
+        totals.failedProfiles += 1;
+        logger.error('Daily Microsoft 365 intake failed for profile', {
+          profileId,
+          error: error.message
+        });
+      }
+    }
+
+    if (totals.failedProfiles < profileIds.length) {
+      lastDailyIntakeDate = now.dateKey;
+    }
+
+    logger.info('Daily Microsoft 365 intake summary', totals);
+  } catch (error) {
+    logger.error('Error running daily Microsoft 365 intake:', error);
+  }
+}
+
+/**
  * Start the task scheduler
  */
 function startScheduler() {
@@ -316,6 +543,7 @@ function startScheduler() {
     checkTaskReminders();
     checkOverdueTasks();
     sendDailyDigest();
+    runDailyIntake();
   }, 5000);
 
   // Then check periodically
@@ -323,6 +551,7 @@ function startScheduler() {
     checkTaskReminders();
     checkOverdueTasks();
     sendDailyDigest();
+    runDailyIntake();
   }, CHECK_INTERVAL);
 }
 
@@ -331,5 +560,6 @@ module.exports = {
   checkTaskReminders,
   checkOverdueTasks,
   sendDailyDigest,
+  runDailyIntake,
   isQuietHours
 };
