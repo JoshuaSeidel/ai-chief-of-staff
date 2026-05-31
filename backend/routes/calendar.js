@@ -8,6 +8,10 @@ const { normalizeMicrosoftTenantId, requireMicrosoftTenantId, resolveMicrosoftTe
 const { verifyOAuthState } = require('../services/oauth-state');
 
 const logger = createModuleLogger('CALENDAR');
+const PROVIDER_PRIORITY = [
+  { name: 'microsoft', label: 'Microsoft Calendar', service: microsoftCalendar },
+  { name: 'google', label: 'Google Calendar', service: googleCalendar }
+];
 const oauthCallbackLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   limit: Number(process.env.OAUTH_CALLBACK_RATE_LIMIT_MAX || 30),
@@ -19,6 +23,23 @@ const oauthCallbackLimiter = rateLimit({
   }
 });
 
+async function getConnectedCalendarProvider(profileId) {
+  for (const provider of PROVIDER_PRIORITY) {
+    try {
+      if (await provider.service.isConnected(profileId)) {
+        return provider;
+      }
+    } catch (error) {
+      logger.warn(`${provider.label} connection check failed`, {
+        profileId,
+        error: error.message
+      });
+    }
+  }
+
+  return null;
+}
+
 /**
  * Fetch calendar events from connected calendar (Google or Microsoft)
  */
@@ -26,18 +47,11 @@ router.get('/events', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
 
-    const isGoogleConnected = await googleCalendar.isConnected(profileId);
-    if (isGoogleConnected) {
-      logger.info(`Fetching events from Google Calendar for profile ${profileId}`);
-      const events = await googleCalendar.listEvents(50, profileId);
-      return res.json({ source: 'google', events });
-    }
-
-    const isMicrosoftConnected = await microsoftCalendar.isConnected(profileId);
-    if (isMicrosoftConnected) {
-      logger.info(`Fetching events from Microsoft Calendar for profile ${profileId}`);
-      const events = await microsoftCalendar.listEvents(50, profileId);
-      return res.json({ source: 'microsoft', events });
+    const provider = await getConnectedCalendarProvider(profileId);
+    if (provider) {
+      logger.info(`Fetching events from ${provider.label} for profile ${profileId}`);
+      const events = await provider.service.listEvents(50, profileId);
+      return res.json({ source: provider.name, events });
     }
     
     return res.status(200).json({ 
@@ -66,11 +80,10 @@ router.post('/block', async (req, res) => {
   }
 
   try {
-    // Try Google Calendar first
-    const isGoogleConnected = await googleCalendar.isConnected(profileId);
-    if (isGoogleConnected) {
-      logger.info(`Creating Google Calendar event: ${title} for profile ${profileId}`);
-      const event = await googleCalendar.createEvent({
+    const provider = await getConnectedCalendarProvider(profileId);
+    if (provider) {
+      logger.info(`Creating ${provider.label} event: ${title} for profile ${profileId}`);
+      const event = await provider.service.createEvent({
         title,
         startTime,
         endTime,
@@ -80,35 +93,12 @@ router.post('/block', async (req, res) => {
       
       return res.json({
         success: true,
-        source: 'google',
+        source: provider.name,
         event: {
           id: event.id,
-          link: event.htmlLink
+          link: event.webLink || event.htmlLink
         },
-        message: 'Event created in Google Calendar'
-      });
-    }
-    
-    // Try Microsoft Calendar
-    const isMicrosoftConnected = await microsoftCalendar.isConnected(profileId);
-    if (isMicrosoftConnected) {
-      logger.info(`Creating Microsoft Calendar event: ${title} for profile ${profileId}`);
-      const event = await microsoftCalendar.createEvent({
-        title,
-        startTime,
-        endTime,
-        description,
-        attendees
-      }, profileId);
-      
-      return res.json({
-        success: true,
-        source: 'microsoft',
-        event: {
-          id: event.id,
-          link: event.webLink
-        },
-        message: 'Event created in Microsoft Calendar'
+        message: `Event created in ${provider.label}`
       });
     }
     
@@ -283,12 +273,7 @@ router.get('/google/callback', oauthCallbackLimiter, async (req, res) => {
 router.get('/google/status', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
-    logger.info(`Checking Google Calendar status for profile ${profileId}`, {
-      profileId,
-      headerProfileId: req.headers['x-profile-id']
-    });
     const connected = await googleCalendar.isConnected(profileId);
-    logger.info(`Google Calendar connected: ${connected} for profile ${profileId}`);
     res.json({ connected, profileId });
   } catch (error) {
     logger.error('Error checking Google status', { error: error.message, profileId: req.profileId });

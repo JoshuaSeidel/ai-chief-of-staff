@@ -234,10 +234,32 @@ async function refreshToken(refreshTokenValue, profileId = 2) {
 async function isConnected(profileId = 2) {
   const db = getDb();
   const tokenRow = await db.get(
-    'SELECT token_data FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ? AND is_enabled = ?',
-    [profileId, 'calendar', 'microsoft', true]
+    'SELECT token_data, is_enabled, status FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'calendar', 'microsoft']
   );
-  return !!(tokenRow && tokenRow.token_data);
+
+  if (
+    !tokenRow ||
+    tokenRow.is_enabled === false ||
+    tokenRow.is_enabled === 0 ||
+    (tokenRow.status && tokenRow.status !== 'active')
+  ) {
+    return false;
+  }
+
+  if (!tokenRow.token_data) {
+    return false;
+  }
+
+  try {
+    const tokens = typeof tokenRow.token_data === 'string'
+      ? JSON.parse(tokenRow.token_data)
+      : tokenRow.token_data;
+    return Boolean(tokens && (tokens.access_token || tokens.refresh_token));
+  } catch (error) {
+    logger.warn('Invalid stored Microsoft token data', { profileId, error: error.message });
+    return false;
+  }
 }
 
 /**

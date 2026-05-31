@@ -8,19 +8,19 @@ async function getConnectedProviders(profileId = 2) {
   const providers = [];
 
   try {
-    if (await googleCalendar.isConnected(profileId)) {
-      providers.push({ name: 'google', service: googleCalendar });
-    }
-  } catch (error) {
-    logger.warn('Google Calendar connection check failed', { profileId, error: error.message });
-  }
-
-  try {
     if (await microsoftCalendar.isConnected(profileId)) {
       providers.push({ name: 'microsoft', service: microsoftCalendar });
     }
   } catch (error) {
     logger.warn('Microsoft Calendar connection check failed', { profileId, error: error.message });
+  }
+
+  try {
+    if (await googleCalendar.isConnected(profileId)) {
+      providers.push({ name: 'google', service: googleCalendar });
+    }
+  } catch (error) {
+    logger.warn('Google Calendar connection check failed', { profileId, error: error.message });
   }
 
   return providers;
