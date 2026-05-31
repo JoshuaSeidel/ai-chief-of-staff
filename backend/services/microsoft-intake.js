@@ -114,6 +114,31 @@ function encodePathSegment(value) {
   return encodeURIComponent(String(value));
 }
 
+function isUsableGraphContentUrl(value) {
+  if (!value) return false;
+
+  try {
+    const url = new URL(value);
+    return url.hostname === 'graph.microsoft.com'
+      && url.pathname !== '/v1.0/$metadata'
+      && url.pathname.endsWith('/content');
+  } catch (error) {
+    return false;
+  }
+}
+
+function buildTranscriptContentEndpoint({ organizerUserId, onlineMeetingId, transcriptId }) {
+  return `/users/${encodePathSegment(organizerUserId)}/onlineMeetings/${encodePathSegment(onlineMeetingId)}/transcripts/${encodePathSegment(transcriptId)}/content?$format=text/vtt`;
+}
+
+function buildRecordingContentEndpoint({ organizerUserId, onlineMeetingId, recordingId }) {
+  return `/users/${encodePathSegment(organizerUserId)}/onlineMeetings/${encodePathSegment(onlineMeetingId)}/recordings/${encodePathSegment(recordingId)}/content`;
+}
+
+function resolveGraphContentEndpoint(contentUrl, fallbackEndpoint) {
+  return isUsableGraphContentUrl(contentUrl) ? contentUrl : fallbackEndpoint;
+}
+
 function parseDateOrDefault(value, fallback) {
   if (!value) return fallback;
   const parsed = new Date(value);
@@ -196,11 +221,13 @@ async function getApplicationGraphClient() {
   });
 }
 
-async function graphFetchText(path) {
+async function graphFetch(path, { headers = {} } = {}) {
   const token = await getApplicationAccessToken();
-  const response = await fetch(path.startsWith('http') ? path : `${GRAPH_ROOT}${path}`, {
+  const url = path.startsWith('http') ? path : `${GRAPH_ROOT}${path}`;
+  const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
+      ...headers
     }
   });
 
@@ -209,7 +236,22 @@ async function graphFetchText(path) {
     throw new Error(`Microsoft Graph request failed: ${response.status} ${errorText.slice(0, 240)}`);
   }
 
+  return response;
+}
+
+async function graphFetchText(path, options) {
+  const response = await graphFetch(path, options);
   return response.text();
+}
+
+async function graphFetchBuffer(path, options) {
+  const response = await graphFetch(path, options);
+  const arrayBuffer = await response.arrayBuffer();
+  return {
+    buffer: Buffer.from(arrayBuffer),
+    contentType: response.headers.get('content-type') || 'application/octet-stream',
+    contentLength: Number(response.headers.get('content-length')) || null
+  };
 }
 
 function summarizeMessage(message) {
@@ -247,7 +289,8 @@ function summarizeTranscript(transcript) {
     id: transcript.id,
     createdDateTime: transcript.createdDateTime,
     meetingId: transcript.meetingId,
-    contentCorrelationId: transcript.contentCorrelationId
+    contentCorrelationId: transcript.contentCorrelationId,
+    transcriptContentUrl: transcript.transcriptContentUrl || null
   };
 }
 
@@ -257,7 +300,8 @@ function summarizeRecording(recording) {
     createdDateTime: recording.createdDateTime,
     endDateTime: recording.endDateTime,
     meetingId: recording.meetingId,
-    contentCorrelationId: recording.contentCorrelationId
+    contentCorrelationId: recording.contentCorrelationId,
+    recordingContentUrl: recording.recordingContentUrl || null
   };
 }
 
@@ -450,12 +494,23 @@ async function findOnlineMeetingForEvent(event, profileId = 2) {
   };
 }
 
-async function listAssetCollection(client, endpoint, label, mapper) {
+async function listAssetCollection(client, endpoint, label, mapper, { pageSize = 50, maxPages = 25 } = {}) {
   try {
-    const response = await client.api(endpoint).top(20).get();
+    const items = [];
+    let page = 0;
+    let request = client.api(endpoint).top(pageSize);
+
+    while (request && page < maxPages) {
+      const response = await request.get();
+      items.push(...(response.value || []).map(mapper));
+      const nextLink = response['@odata.nextLink'];
+      request = nextLink ? client.api(nextLink) : null;
+      page += 1;
+    }
+
     return {
-      items: (response.value || []).map(mapper),
-      warning: null
+      items,
+      warning: request ? `Stopped listing Teams ${label} after ${maxPages} pages` : null
     };
   } catch (error) {
     const message = describeGraphError(error);
@@ -511,9 +566,26 @@ function selectLatestTranscript(transcripts = []) {
     .sort((a, b) => new Date(b.createdDateTime || 0) - new Date(a.createdDateTime || 0))[0] || null;
 }
 
-async function downloadTranscriptContent({ organizerUserId, onlineMeetingId, transcriptId }) {
-  const endpoint = `/users/${encodePathSegment(organizerUserId)}/onlineMeetings/${encodePathSegment(onlineMeetingId)}/transcripts/${encodePathSegment(transcriptId)}/content?$format=text/vtt`;
-  return graphFetchText(endpoint);
+function selectLatestRecording(recordings = []) {
+  return [...recordings]
+    .filter(recording => recording.id)
+    .sort((a, b) => new Date(b.createdDateTime || b.endDateTime || 0) - new Date(a.createdDateTime || a.endDateTime || 0))[0] || null;
+}
+
+async function downloadTranscriptContent({ organizerUserId, onlineMeetingId, transcriptId, transcriptContentUrl }) {
+  const endpoint = resolveGraphContentEndpoint(
+    transcriptContentUrl,
+    buildTranscriptContentEndpoint({ organizerUserId, onlineMeetingId, transcriptId })
+  );
+  return graphFetchText(endpoint, { headers: { Accept: 'text/vtt' } });
+}
+
+async function downloadRecordingContent({ organizerUserId, onlineMeetingId, recordingId, recordingContentUrl }) {
+  const endpoint = resolveGraphContentEndpoint(
+    recordingContentUrl,
+    buildRecordingContentEndpoint({ organizerUserId, onlineMeetingId, recordingId })
+  );
+  return graphFetchBuffer(endpoint, { headers: { Accept: 'video/mp4,application/octet-stream' } });
 }
 
 function normalizeTranscriptContent(content = '') {
@@ -556,9 +628,22 @@ module.exports = {
   formatMeetingForTranscript,
   getMeetingCaptureAssets,
   selectLatestTranscript,
+  selectLatestRecording,
   downloadTranscriptContent,
+  downloadRecordingContent,
   formatMeetingWithTranscript,
   messageFilename,
   meetingFilename,
-  meetingTranscriptFilename
+  meetingTranscriptFilename,
+  _test: {
+    buildRecordingContentEndpoint,
+    buildTranscriptContentEndpoint,
+    encodePathSegment,
+    isUsableGraphContentUrl,
+    listAssetCollection,
+    normalizeTranscriptContent,
+    resolveGraphContentEndpoint,
+    summarizeRecording,
+    summarizeTranscript
+  }
 };

@@ -111,7 +111,8 @@ async function buildMeetingImportPayload(meeting, profileId) {
         const transcriptContent = await microsoftIntake.downloadTranscriptContent({
           organizerUserId: captureAssets.organizerUserId,
           onlineMeetingId: captureAssets.onlineMeeting.id,
-          transcriptId: latestTranscript.id
+          transcriptId: latestTranscript.id,
+          transcriptContentUrl: latestTranscript.transcriptContentUrl
         });
 
         return {
