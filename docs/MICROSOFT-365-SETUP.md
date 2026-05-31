@@ -7,13 +7,14 @@ The platform uses one Microsoft 365 connection for:
 - Calendar and meeting list access
 - Email intake
 - Microsoft Planner and To Do task sync
-- Teams transcript and recording capture when tenant-level app permissions are enabled
+- Teams transcript and recording capture for meetings visible to the connected Microsoft user when app permissions and a user-scoped Teams policy are enabled
 
 ## Prerequisites
 
 - Microsoft Entra admin access for the tenant.
 - Global Administrator, Cloud Application Administrator, or Application Administrator rights to create and consent to the app registration.
 - Teams Administrator or equivalent rights to grant the Teams application access policy if Teams transcript/recording capture is required.
+- The UPN or object ID of each Microsoft 365 user/profile that will connect AI Chief of Staff.
 - The public URL where AI Chief of Staff will run in production.
 
 For local testing, the backend callback URL is:
@@ -229,22 +230,22 @@ Connect-MicrosoftTeams
 
 $AppId = "<MICROSOFT_CLIENT_ID_FROM_THE_AZURE_CLI_SCRIPT>"
 $PolicyName = "AIChiefOfStaff-Meetings"
-$OrganizerUpn = "organizer@yourdomain.com"
+$AccessUserUpn = "user@yourdomain.com"
 
-New-CsApplicationAccessPolicy `
-  -Identity $PolicyName `
-  -AppIds $AppId `
-  -Description "Allow AI Chief of Staff to read authorized Teams meeting artifacts"
+if (-not (Get-CsApplicationAccessPolicy -Identity $PolicyName -ErrorAction SilentlyContinue)) {
+  New-CsApplicationAccessPolicy `
+    -Identity $PolicyName `
+    -AppIds $AppId `
+    -Description "Allow AI Chief of Staff to read Teams artifacts through the connected user"
+}
 
-# Recommended: assign only to organizer users whose meetings should be captured.
+# Assign only to the Microsoft user/profile that connects AI Chief of Staff.
 Grant-CsApplicationAccessPolicy `
   -PolicyName $PolicyName `
-  -Identity $OrganizerUpn
+  -Identity $AccessUserUpn
 
-# Alternative: assign globally if your compliance posture allows it.
-# Grant-CsApplicationAccessPolicy `
-#   -PolicyName $PolicyName `
-#   -Global
+Get-CsApplicationAccessPolicy -Identity $PolicyName
+Get-CsOnlineUser -Identity $AccessUserUpn | Select-Object DisplayName,UserPrincipalName,ApplicationAccessPolicy
 ```
 
 If you do not run the Teams policy commands, email, calendar, Planner, and
@@ -320,11 +321,13 @@ OnlineMeetingRecording.Read.All
 
 Then select **Grant admin consent**.
 
-These are high-impact permissions. Scope operational access with the Teams application access policy in the next step.
+These are high-impact permissions. AI Chief of Staff scopes operational access by resolving Teams artifacts through the connected Microsoft user, then requiring a Teams application access policy for that same user in the next step.
 
 ## Step 5: Grant A Teams Application Access Policy
 
 Microsoft requires a Teams application access policy for app-only online meeting artifact APIs. Without it, Graph calls can fail with a forbidden error even when the Graph application permissions have admin consent.
+
+AI Chief of Staff uses the connected Microsoft user's calendar and the Graph path `/users/{connected-user}/onlineMeetings/...` for Teams artifact lookup. That means a meeting organized by someone else can be captured only when it is visible to the connected user, such as a Teams meeting where that user is on the calendar invite and Microsoft Graph still exposes the non-expired meeting artifacts. Do not grant the policy globally unless you intentionally want tenant-wide app access behavior.
 
 This is the only setup step that Azure CLI does not support. On macOS, install
 PowerShell 7 and run the Teams module from Terminal:
@@ -344,26 +347,32 @@ Connect-MicrosoftTeams
 Create a policy for the app. Replace `<APPLICATION_CLIENT_ID>` with the app registration's Application (client) ID:
 
 ```powershell
-New-CsApplicationAccessPolicy `
-  -Identity AIChiefOfStaff-Meetings `
-  -AppIds "<APPLICATION_CLIENT_ID>" `
-  -Description "Allow AI Chief of Staff to read authorized Teams meeting artifacts"
+$PolicyName = "AIChiefOfStaff-Meetings"
+$AppId = "<APPLICATION_CLIENT_ID>"
+
+if (-not (Get-CsApplicationAccessPolicy -Identity $PolicyName -ErrorAction SilentlyContinue)) {
+  New-CsApplicationAccessPolicy `
+    -Identity $PolicyName `
+    -AppIds $AppId `
+    -Description "Allow AI Chief of Staff to read Teams artifacts through the connected user"
+}
 ```
 
-Grant it to a specific organizer user:
+Grant it only to the Microsoft 365 user who signs in to AI Chief of Staff:
 
 ```powershell
+$AccessUserUpn = "<CONNECTED_USER_UPN_OR_OBJECT_ID>"
+
 Grant-CsApplicationAccessPolicy `
-  -PolicyName AIChiefOfStaff-Meetings `
-  -Identity "<USER_OBJECT_ID_OR_UPN>"
+  -PolicyName $PolicyName `
+  -Identity $AccessUserUpn
 ```
 
-Or grant it tenant-wide only if that is acceptable for your compliance posture:
+Verify the assignment:
 
 ```powershell
-Grant-CsApplicationAccessPolicy `
-  -PolicyName AIChiefOfStaff-Meetings `
-  -Global
+Get-CsApplicationAccessPolicy -Identity $PolicyName
+Get-CsOnlineUser -Identity $AccessUserUpn | Select-Object DisplayName,UserPrincipalName,ApplicationAccessPolicy
 ```
 
 Policy changes can take up to 30 minutes to affect Microsoft Graph API calls.
@@ -381,7 +390,7 @@ Redirect URI:  https://aicos.yourdomain.com/api/calendar/microsoft/callback
 
 For production, prefer the tenant GUID instead of `common`.
 
-Save the configuration, then select **Connect to Microsoft**. Sign in as the user whose mailbox, calendar, and tasks should be managed. The connection stores the user token in the profile integration table.
+Save the configuration, then select **Connect to Microsoft**. Sign in as the user whose mailbox, calendar, tasks, and attendee-visible Teams meeting artifacts should be managed. The connection stores the user token in the profile integration table.
 
 ## Step 7: Environment Variables
 
@@ -414,7 +423,8 @@ After connecting Microsoft 365:
 3. Switch to **Meetings** and confirm calendar meetings load.
 4. Process a meeting that has a Teams join URL.
 5. If Teams transcript capture is configured, verify the processed transcript source is `teams-transcript`.
-6. If Teams capture is not available for that meeting, the system falls back to importing calendar meeting metadata and body content.
+6. Test one meeting organized by the connected user and one meeting organized by someone else where the connected user is on the invite.
+7. If Teams capture is not available for that meeting, the system reports the Teams capture reason instead of silently importing only calendar body content.
 
 ## Troubleshooting
 
@@ -422,8 +432,9 @@ After connecting Microsoft 365:
 - **Microsoft not connected**: Save the Client ID, Client Secret, Tenant ID, and Redirect URI, then run the Connect flow again.
 - **Missing email access**: Reconnect Microsoft after adding `Mail.ReadWrite` and granting consent.
 - **Missing Planner access**: Reconnect Microsoft after adding `Tasks.ReadWrite` and granting consent.
-- **Teams capture forbidden**: Confirm the app has application permissions, admin consent, and the Teams application access policy.
-- **No matching Teams online meeting found**: The meeting must include a Teams join URL and still be available through Microsoft Graph.
+- **Teams capture forbidden**: Confirm the app has application permissions, admin consent, and the Teams application access policy assigned to the same user who connected AI Chief of Staff.
+- **No matching Teams online meeting found**: The meeting must include a Teams join URL, be visible to the connected Microsoft user, and still be available through Microsoft Graph.
+- **Organizer is someone else**: This is supported only when the connected user is on the meeting invite and Microsoft Graph exposes the meeting artifacts through that user's `/onlineMeetings` path.
 - **Policy recently added**: Wait up to 30 minutes after granting the Teams application access policy.
 - **AADSTS50194 or `/common` endpoint error**: The app is single-tenant. Set `MICROSOFT_TENANT_ID` and the in-app Tenant ID field to the Directory tenant ID GUID or a verified tenant domain, then reconnect Microsoft 365.
 - **Client credentials fail with tenant `common`**: Set `MICROSOFT_TENANT_ID` to the Directory (tenant) ID GUID.
@@ -434,5 +445,6 @@ After connecting Microsoft 365:
 - Redirect URI guidance: https://learn.microsoft.com/en-us/entra/identity-platform/reply-url
 - Microsoft Graph permissions reference: https://learn.microsoft.com/en-us/graph/permissions-reference
 - Teams application access policy: https://learn.microsoft.com/en-us/graph/cloud-communication-online-meeting-application-access-policy
+- Get Teams online meeting by organizer or invited attendee: https://learn.microsoft.com/en-us/graph/api/onlinemeeting-get
 - List Teams recordings permissions: https://learn.microsoft.com/en-us/graph/api/onlinemeeting-list-recordings
 - List Teams transcripts permissions: https://learn.microsoft.com/en-us/graph/api/onlinemeeting-list-transcripts

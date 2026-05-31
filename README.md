@@ -21,6 +21,18 @@ systems, and keep sensitive operational data under your control.
 | AI | Task extraction, effort/energy analysis, grouping, patterns, and brief generation |
 | Admin | Cache clearing and protected history wipe for starting fresh |
 
+## Interface Preview
+
+The screenshots below use generic demo data.
+
+![Morning dashboard](docs/screenshots/dashboard.jpg)
+
+![Microsoft 365 meeting intake](docs/screenshots/meeting-intake.jpg)
+
+![Task command center](docs/screenshots/tasks.jpg)
+
+![Integration settings](docs/screenshots/integrations.jpg)
+
 ## Critical Security Requirement
 
 Set `AICOS_AUTH_TOKEN` or `API_TOKEN` before exposing the app or using
@@ -196,7 +208,14 @@ Microsoft 365 powers:
 
 Production setup requires a Microsoft Entra app registration. Teams transcript
 and recording capture also require Graph application permissions plus a Teams
-application access policy.
+application access policy assigned to the Microsoft 365 user who connects AI
+Chief of Staff.
+
+Teams artifact capture resolves recordings and transcripts through the connected
+Microsoft user, not through each meeting organizer. That allows capture for
+meetings organized by other people only when the connected user is on the
+meeting invite and Microsoft Graph still exposes the non-expired Teams artifacts
+for that user.
 
 Read [docs/MICROSOFT-365-SETUP.md](docs/MICROSOFT-365-SETUP.md).
 

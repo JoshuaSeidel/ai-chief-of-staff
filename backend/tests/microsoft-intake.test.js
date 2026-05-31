@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const microsoftIntake = require('../services/microsoft-intake');
 
 const {
+  buildOnlineMeetingEndpoint,
+  buildOnlineMeetingsLookupEndpoint,
   buildRecordingContentEndpoint,
   buildTranscriptContentEndpoint,
   isUsableGraphContentUrl,
@@ -17,7 +19,7 @@ const {
 test('builds Microsoft Graph artifact content endpoints with encoded path segments', () => {
   assert.equal(
     buildRecordingContentEndpoint({
-      organizerUserId: 'jseidel@edgeconnex.com',
+      accessUserId: 'jseidel@edgeconnex.com',
       onlineMeetingId: 'MSox+meeting/thread/v2=',
       recordingId: "rec/with spaces'and/slashes"
     }),
@@ -26,11 +28,36 @@ test('builds Microsoft Graph artifact content endpoints with encoded path segmen
 
   assert.equal(
     buildTranscriptContentEndpoint({
-      organizerUserId: 'jseidel@edgeconnex.com',
+      accessUserId: 'jseidel@edgeconnex.com',
       onlineMeetingId: 'MSox+meeting/thread/v2=',
       transcriptId: 'transcript/id='
     }),
     '/users/jseidel%40edgeconnex.com/onlineMeetings/MSox%2Bmeeting%2Fthread%2Fv2%3D/transcripts/transcript%2Fid%3D/content?$format=text/vtt'
+  );
+});
+
+test('resolves Teams artifacts through the connected access user path', () => {
+  assert.equal(
+    buildOnlineMeetingsLookupEndpoint('jseidel@edgeconnex.com'),
+    '/users/jseidel%40edgeconnex.com/onlineMeetings'
+  );
+
+  assert.equal(
+    buildOnlineMeetingEndpoint({
+      accessUserId: 'jseidel@edgeconnex.com',
+      onlineMeetingId: 'meeting/id'
+    }),
+    '/users/jseidel%40edgeconnex.com/onlineMeetings/meeting%2Fid'
+  );
+
+  assert.equal(
+    buildRecordingContentEndpoint({
+      accessUserId: 'jseidel@edgeconnex.com',
+      organizerUserId: 'organizer@example.com',
+      onlineMeetingId: 'meeting/id',
+      recordingId: 'recording/id'
+    }),
+    '/users/jseidel%40edgeconnex.com/onlineMeetings/meeting%2Fid/recordings/recording%2Fid/content'
   );
 });
 

@@ -100,6 +100,13 @@ More detail is in [../swag-config/README.md](../swag-config/README.md).
 Microsoft 365 supports email intake, meeting import, Planner/To Do, calendar,
 and optional Teams transcript/recording capture.
 
+Teams transcript/recording capture needs Microsoft Graph application
+permissions and a Teams application access policy assigned to the same Microsoft
+365 user that signs in through the AI Chief of Staff UI. The backend resolves
+Teams artifacts through that connected user, so meetings organized by someone
+else are captured only when that connected user is on the invite and Microsoft
+Graph exposes the meeting artifacts for that user.
+
 Use [../docs/MICROSOFT-365-SETUP.md](../docs/MICROSOFT-365-SETUP.md). For
 Unraid behind HTTPS, use this callback:
 

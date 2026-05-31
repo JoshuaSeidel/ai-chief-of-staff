@@ -152,7 +152,7 @@ Use [MICROSOFT-365-SETUP.md](MICROSOFT-365-SETUP.md) for:
 - Microsoft Entra app registration
 - Delegated Graph permissions
 - Application permissions for Teams transcript/recording capture
-- Teams application access policy
+- User-scoped Teams application access policy
 - Redirect URI setup
 
 Production callback:
@@ -162,6 +162,13 @@ https://aicos.yourdomain.com/api/calendar/microsoft/callback
 ```
 
 Set `MICROSOFT_REDIRECT_URI` in `.env` or save it in Settings.
+
+For Teams recordings and transcripts, assign the Teams application access
+policy to the same Microsoft 365 user that signs in through AI Chief of Staff.
+The backend resolves artifacts through that connected user's
+`/onlineMeetings` path, so meetings organized by other people are captured only
+when the connected user is on the meeting invite and Microsoft Graph still
+exposes the artifacts.
 
 ## 9. Admin History Wipe
 
@@ -284,7 +291,7 @@ docker compose up -d aicos-frontend
 Confirm:
 
 - Microsoft Graph application permissions have admin consent
-- Teams application access policy is granted
+- Teams application access policy is granted to the connected Microsoft user
 - Tenant ID is a real tenant GUID, not `common`
 - Policy propagation has completed
 

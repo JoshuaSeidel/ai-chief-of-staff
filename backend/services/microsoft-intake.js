@@ -127,12 +127,25 @@ function isUsableGraphContentUrl(value) {
   }
 }
 
-function buildTranscriptContentEndpoint({ organizerUserId, onlineMeetingId, transcriptId }) {
-  return `/users/${encodePathSegment(organizerUserId)}/onlineMeetings/${encodePathSegment(onlineMeetingId)}/transcripts/${encodePathSegment(transcriptId)}/content?$format=text/vtt`;
+function resolveArtifactAccessUserId({ accessUserId, organizerUserId }) {
+  return accessUserId || organizerUserId;
 }
 
-function buildRecordingContentEndpoint({ organizerUserId, onlineMeetingId, recordingId }) {
-  return `/users/${encodePathSegment(organizerUserId)}/onlineMeetings/${encodePathSegment(onlineMeetingId)}/recordings/${encodePathSegment(recordingId)}/content`;
+function buildOnlineMeetingsLookupEndpoint(accessUserId) {
+  return `/users/${encodePathSegment(accessUserId)}/onlineMeetings`;
+}
+
+function buildOnlineMeetingEndpoint({ accessUserId, organizerUserId, onlineMeetingId }) {
+  const userId = resolveArtifactAccessUserId({ accessUserId, organizerUserId });
+  return `${buildOnlineMeetingsLookupEndpoint(userId)}/${encodePathSegment(onlineMeetingId)}`;
+}
+
+function buildTranscriptContentEndpoint({ accessUserId, organizerUserId, onlineMeetingId, transcriptId }) {
+  return `${buildOnlineMeetingEndpoint({ accessUserId, organizerUserId, onlineMeetingId })}/transcripts/${encodePathSegment(transcriptId)}/content?$format=text/vtt`;
+}
+
+function buildRecordingContentEndpoint({ accessUserId, organizerUserId, onlineMeetingId, recordingId }) {
+  return `${buildOnlineMeetingEndpoint({ accessUserId, organizerUserId, onlineMeetingId })}/recordings/${encodePathSegment(recordingId)}/content`;
 }
 
 function resolveGraphContentEndpoint(contentUrl, fallbackEndpoint) {
@@ -455,9 +468,7 @@ async function getCurrentUserIdentifier(profileId = 2) {
   return me.mail || me.userPrincipalName || me.id;
 }
 
-async function resolveMeetingOrganizerUserId(event, profileId = 2) {
-  const organizer = getEmailAddress(event.organizer);
-  if (organizer) return organizer;
+async function resolveMeetingAccessUserId(profileId = 2) {
   return getCurrentUserIdentifier(profileId);
 }
 
@@ -465,6 +476,7 @@ async function findOnlineMeetingForEvent(event, profileId = 2) {
   const joinUrl = getMeetingJoinUrl(event);
   if (!joinUrl) {
     return {
+      accessUserId: null,
       organizerUserId: null,
       joinUrl: null,
       onlineMeeting: null,
@@ -472,25 +484,29 @@ async function findOnlineMeetingForEvent(event, profileId = 2) {
     };
   }
 
-  const organizerUserId = await resolveMeetingOrganizerUserId(event, profileId);
+  const accessUserId = await resolveMeetingAccessUserId(profileId);
+  const organizerUserId = getEmailAddress(event.organizer) || null;
   const client = await getApplicationGraphClient();
   let response;
 
   try {
     response = await client
-      .api(`/users/${encodePathSegment(organizerUserId)}/onlineMeetings`)
+      .api(buildOnlineMeetingsLookupEndpoint(accessUserId))
       .filter(`JoinWebUrl eq '${escapeODataString(joinUrl)}'`)
       .top(1)
       .get();
   } catch (error) {
-    throw new Error(`Unable to resolve Teams meeting for organizer ${organizerUserId}: ${describeGraphError(error)}`);
+    throw new Error(`Unable to resolve Teams meeting for connected user ${accessUserId}: ${describeGraphError(error)}`);
   }
 
   return {
+    accessUserId,
     organizerUserId,
     joinUrl,
     onlineMeeting: (response.value || [])[0] || null,
-    reason: response.value?.length ? null : 'No matching Teams online meeting was found'
+    reason: response.value?.length
+      ? null
+      : 'No matching Teams online meeting was found for the connected Microsoft user'
   };
 }
 
@@ -527,6 +543,7 @@ async function getMeetingCaptureAssets(event, profileId = 2) {
 
   if (!lookup.onlineMeeting) {
     return {
+      accessUserId: lookup.accessUserId,
       organizerUserId: lookup.organizerUserId,
       joinUrl: lookup.joinUrl,
       onlineMeeting: null,
@@ -537,13 +554,17 @@ async function getMeetingCaptureAssets(event, profileId = 2) {
   }
 
   const client = await getApplicationGraphClient();
-  const baseEndpoint = `/users/${encodePathSegment(lookup.organizerUserId)}/onlineMeetings/${encodePathSegment(lookup.onlineMeeting.id)}`;
+  const baseEndpoint = buildOnlineMeetingEndpoint({
+    accessUserId: lookup.accessUserId,
+    onlineMeetingId: lookup.onlineMeeting.id
+  });
   const [transcriptResult, recordingResult] = await Promise.all([
     listAssetCollection(client, `${baseEndpoint}/transcripts`, 'transcripts', summarizeTranscript),
     listAssetCollection(client, `${baseEndpoint}/recordings`, 'recordings', summarizeRecording)
   ]);
 
   return {
+    accessUserId: lookup.accessUserId,
     organizerUserId: lookup.organizerUserId,
     joinUrl: lookup.joinUrl,
     onlineMeeting: {
@@ -572,18 +593,18 @@ function selectLatestRecording(recordings = []) {
     .sort((a, b) => new Date(b.createdDateTime || b.endDateTime || 0) - new Date(a.createdDateTime || a.endDateTime || 0))[0] || null;
 }
 
-async function downloadTranscriptContent({ organizerUserId, onlineMeetingId, transcriptId, transcriptContentUrl }) {
+async function downloadTranscriptContent({ accessUserId, organizerUserId, onlineMeetingId, transcriptId, transcriptContentUrl }) {
   const endpoint = resolveGraphContentEndpoint(
     transcriptContentUrl,
-    buildTranscriptContentEndpoint({ organizerUserId, onlineMeetingId, transcriptId })
+    buildTranscriptContentEndpoint({ accessUserId, organizerUserId, onlineMeetingId, transcriptId })
   );
   return graphFetchText(endpoint, { headers: { Accept: 'text/vtt' } });
 }
 
-async function downloadRecordingContent({ organizerUserId, onlineMeetingId, recordingId, recordingContentUrl }) {
+async function downloadRecordingContent({ accessUserId, organizerUserId, onlineMeetingId, recordingId, recordingContentUrl }) {
   const endpoint = resolveGraphContentEndpoint(
     recordingContentUrl,
-    buildRecordingContentEndpoint({ organizerUserId, onlineMeetingId, recordingId })
+    buildRecordingContentEndpoint({ accessUserId, organizerUserId, onlineMeetingId, recordingId })
   );
   return graphFetchBuffer(endpoint, { headers: { Accept: 'video/mp4,application/octet-stream' } });
 }
@@ -637,6 +658,8 @@ module.exports = {
   meetingTranscriptFilename,
   _test: {
     buildRecordingContentEndpoint,
+    buildOnlineMeetingEndpoint,
+    buildOnlineMeetingsLookupEndpoint,
     buildTranscriptContentEndpoint,
     encodePathSegment,
     isUsableGraphContentUrl,
