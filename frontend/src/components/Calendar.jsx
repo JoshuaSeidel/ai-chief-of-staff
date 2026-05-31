@@ -121,6 +121,7 @@ function Calendar() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState(null);
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
+  const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKey(new Date()));
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [eventToast, setEventToast] = useState(null);
   
@@ -164,7 +165,17 @@ function Calendar() {
     await loadEvents();
   };
 
+  const selectCalendarDay = (day) => {
+    setSelectedDateKey(getDateKey(day));
+
+    if (day.getMonth() !== visibleMonth.getMonth() || day.getFullYear() !== visibleMonth.getFullYear()) {
+      setVisibleMonth(new Date(day.getFullYear(), day.getMonth(), 1));
+    }
+  };
+
   const openEventDetails = (event) => {
+    const start = parseEventDate(getEventStart(event));
+    if (start) setSelectedDateKey(getDateKey(start));
     setSelectedEventId(prev => (prev === event.id ? null : event.id));
     setEventToast(event);
   };
@@ -260,6 +271,8 @@ function Calendar() {
 
   const groupedEvents = groupEventsByDate();
   const todayKey = getDateKey(new Date());
+  const selectedDay = parseEventDate(selectedDateKey) || new Date();
+  const selectedDayEvents = eventsByDate.get(selectedDateKey) || [];
   const eventToastDescription = eventToast ? getEventDescription(eventToast) : '';
   const eventToastLink = eventToast?.webLink || eventToast?.htmlLink;
 
@@ -407,14 +420,24 @@ function Calendar() {
               const dayEvents = eventsByDate.get(dateKey) || [];
               const inMonth = day.getMonth() === visibleMonth.getMonth();
               const isToday = dateKey === todayKey;
+              const isSelected = dateKey === selectedDateKey;
               const visibleEvents = dayEvents.slice(0, 2);
 
               return (
                 <div
                   key={dateKey}
-                  className={`calendar-day-cell ${inMonth ? '' : 'outside-month'} ${isToday ? 'today' : ''}`}
+                  className={`calendar-day-cell ${inMonth ? '' : 'outside-month'} ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`}
                   role="gridcell"
+                  tabIndex={0}
+                  aria-selected={isSelected}
                   aria-label={`${formatDayLabel(day)}${dayEvents.length ? `, ${dayEvents.length} events` : ''}`}
+                  onClick={() => selectCalendarDay(day)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      selectCalendarDay(day);
+                    }
+                  }}
                 >
                   <div className="calendar-day-number">{day.getDate()}</div>
                   <div className="calendar-day-events">
@@ -423,7 +446,10 @@ function Calendar() {
                         key={`${event.id}-${getEventStart(event)}`}
                         type="button"
                         className="calendar-event-chip"
-                        onClick={() => openEventDetails(event)}
+                        onClick={(clickEvent) => {
+                          clickEvent.stopPropagation();
+                          openEventDetails(event);
+                        }}
                         title={`${getEventTitle(event)} ${formatTimeRange(event)}`}
                       >
                         <span className="calendar-event-chip-time">{formatTimeRange(event).split(' - ')[0]}</span>
@@ -434,9 +460,42 @@ function Calendar() {
                       <span className="calendar-more-events">+{dayEvents.length - visibleEvents.length}</span>
                     )}
                   </div>
+                  {dayEvents.length > 0 && (
+                    <div className="calendar-event-markers" aria-hidden="true">
+                      {dayEvents.slice(0, 3).map(event => (
+                        <span key={`${event.id}-${getEventStart(event)}-dot`} />
+                      ))}
+                      {dayEvents.length > 3 && <strong>{dayEvents.length}</strong>}
+                    </div>
+                  )}
                 </div>
               );
             })}
+          </div>
+
+          <div className="calendar-mobile-day-panel" aria-live="polite">
+            <div className="calendar-mobile-day-heading">
+              <span>{formatDayLabel(selectedDay)}</span>
+              <strong>{selectedDayEvents.length ? `${selectedDayEvents.length} event${selectedDayEvents.length === 1 ? '' : 's'}` : 'No events'}</strong>
+            </div>
+
+            {selectedDayEvents.length > 0 ? (
+              <div className="calendar-mobile-event-list">
+                {selectedDayEvents.map(event => (
+                  <button
+                    key={`${event.id}-${getEventStart(event)}-mobile`}
+                    type="button"
+                    className="calendar-mobile-event"
+                    onClick={() => openEventDetails(event)}
+                  >
+                    <span className="calendar-mobile-event-time">{formatTimeRange(event).split(' - ')[0]}</span>
+                    <span className="calendar-mobile-event-title">{getEventTitle(event)}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="calendar-mobile-empty">Tap another date to check its schedule.</p>
+            )}
           </div>
         </div>
 
