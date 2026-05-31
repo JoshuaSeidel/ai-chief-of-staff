@@ -141,11 +141,11 @@ async function getTokenFromCode(code, profileId = 2) {
   // Store tokens in profile_integrations table
   const db = getDb();
   await db.run(
-    `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
      ON CONFLICT (profile_id, integration_type, integration_name)
      DO UPDATE SET token_data = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
-    [profileId, 'calendar', 'microsoft', JSON.stringify(tokens), true, JSON.stringify(tokens), true]
+    [profileId, 'calendar', 'microsoft', JSON.stringify(tokens), '{}', true, JSON.stringify(tokens), true]
   );
   
   logger.info(`Microsoft tokens stored successfully for profile ${profileId} (Microsoft 365)`);

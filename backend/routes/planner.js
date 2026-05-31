@@ -309,11 +309,11 @@ router.post('/jira/config', async (req, res) => {
     };
 
     await db.run(
-      `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, is_enabled, created_date, updated_date)
-       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        ON CONFLICT (profile_id, integration_type, integration_name)
        DO UPDATE SET token_data = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
-      [profileId, 'task', 'jira', JSON.stringify(config), true, JSON.stringify(config), true]
+      [profileId, 'task', 'jira', JSON.stringify(config), '{}', true, JSON.stringify(config), true]
     );
 
     logger.info(`Jira config saved for profile ${profileId}`);

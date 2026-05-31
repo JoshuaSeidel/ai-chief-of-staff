@@ -182,13 +182,14 @@ async function migratePostgreSQL(pool) {
     
     // Check current schema
     const columns = await client.query(`
-      SELECT column_name, data_type 
+      SELECT column_name, data_type, is_nullable 
       FROM information_schema.columns 
       WHERE table_name = 'profile_integrations'
       ORDER BY column_name
     `);
     
     const columnNames = columns.rows.map(r => r.column_name);
+    const columnInfo = new Map(columns.rows.map(r => [r.column_name, r]));
     logger.info(`Current columns: ${columnNames.join(', ')}`);
     
     // Add integration_name if it doesn't exist
@@ -210,6 +211,33 @@ async function migratePostgreSQL(pool) {
         WHERE integration_name IS NULL OR integration_name = 'default'
       `);
       logger.info('✓ Set default integration_name values');
+    }
+
+    // Keep config nullable for token-only integrations, but give older schemas a safe default.
+    if (!columnNames.includes('config')) {
+      await client.query(`
+        ALTER TABLE profile_integrations
+        ADD COLUMN config JSONB DEFAULT '{}'
+      `);
+      logger.info('✓ Added config column');
+    } else {
+      await client.query(`
+        UPDATE profile_integrations
+        SET config = '{}'
+        WHERE config IS NULL
+      `);
+      await client.query(`
+        ALTER TABLE profile_integrations
+        ALTER COLUMN config SET DEFAULT '{}'
+      `);
+
+      if (columnInfo.get('config')?.is_nullable === 'NO') {
+        await client.query(`
+          ALTER TABLE profile_integrations
+          ALTER COLUMN config DROP NOT NULL
+        `);
+        logger.info('✓ Removed NOT NULL constraint from config column');
+      }
     }
     
     // Add token_data if it doesn't exist
