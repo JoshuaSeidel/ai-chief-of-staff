@@ -51,12 +51,14 @@ export function EmptyState({
   className = ''
 }) {
   const illustration = ILLUSTRATIONS[icon] || icon;
-  const Illustration = typeof illustration === 'function' ? illustration : null;
+  const renderedIllustration = illustration && !React.isValidElement(illustration) && typeof illustration !== 'string'
+    ? React.createElement(illustration, { size: 30, strokeWidth: 1.9 })
+    : illustration;
 
   return (
     <div className={`empty-state ${className}`}>
       <div className="empty-state-icon">
-        {Illustration ? <Illustration size={30} strokeWidth={1.9} /> : illustration}
+        {renderedIllustration}
       </div>
       {title && <h3 className="empty-state-title">{title}</h3>}
       {description && <p className="empty-state-description">{description}</p>}

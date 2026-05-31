@@ -95,6 +95,9 @@ export function Button({
 }: ButtonProps) {
   const variantClass = BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.primary;
   const sizeClass = BUTTON_SIZES[size] || BUTTON_SIZES.md;
+  const renderedIcon = icon && !React.isValidElement(icon) && typeof icon !== 'string'
+    ? React.createElement(icon as React.ElementType, { size: 16, strokeWidth: 2.2 })
+    : icon;
 
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
     if (loading || disabled) return;
@@ -111,9 +114,9 @@ export function Button({
       {...props}
     >
       {loading && <span className="btn-spinner" aria-hidden="true" />}
-      {!loading && icon && iconPosition === 'left' && <span className="btn-icon-wrapper">{icon}</span>}
+      {!loading && renderedIcon && iconPosition === 'left' && <span className="btn-icon-wrapper">{renderedIcon}</span>}
       {children && <span className="btn-text">{children}</span>}
-      {!loading && icon && iconPosition === 'right' && <span className="btn-icon-wrapper">{icon}</span>}
+      {!loading && renderedIcon && iconPosition === 'right' && <span className="btn-icon-wrapper">{renderedIcon}</span>}
     </button>
   );
 }
@@ -138,10 +141,9 @@ export function IconButton({
       size={size}
       className={`btn-icon-only ${className}`}
       title={title}
+      icon={icon}
       {...props}
-    >
-      {icon}
-    </Button>
+    />
   );
 }
 
