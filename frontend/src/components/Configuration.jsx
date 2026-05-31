@@ -42,6 +42,18 @@ function Configuration() {
       toast.error('Account type mismatch. Please use the correct Microsoft account type.');
       setActiveTab('integrations');
       cleanupUrl();
+    } else if (error === 'microsoft_oauth_exchange_failed') {
+      toast.error('Microsoft sign-in completed, but the app could not save the connection. Check backend logs for the token exchange error.');
+      setActiveTab('integrations');
+      cleanupUrl();
+    } else if (error === 'oauth_exchange_failed') {
+      toast.error('OAuth sign-in completed, but the app could not save the connection. Check backend logs for details.');
+      setActiveTab('integrations');
+      cleanupUrl();
+    } else if (error === 'no_code') {
+      toast.error('OAuth callback did not include an authorization code. Please try connecting again.');
+      setActiveTab('integrations');
+      cleanupUrl();
     }
   }, [toast]);
 

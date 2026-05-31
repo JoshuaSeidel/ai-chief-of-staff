@@ -41,11 +41,8 @@ async function getOAuthClient(profileId = 2) {
   const rawTenantId = resolveMicrosoftTenantId(tenantIdRow?.value, process.env.MICROSOFT_TENANT_ID);
   
   // Get redirect URI from config or environment variable
-  let redirectUri = process.env.MICROSOFT_REDIRECT_URI;
-  if (!redirectUri) {
-    const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftRedirectUri']);
-    redirectUri = redirectUriRow?.value || 'http://localhost:3001/api/planner/microsoft/callback';
-  }
+  const redirectUriRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftRedirectUri']);
+  const redirectUri = redirectUriRow?.value || process.env.MICROSOFT_REDIRECT_URI || 'http://localhost:3001/api/planner/microsoft/callback';
   
   logger.info(`Using Microsoft OAuth redirect URI: ${redirectUri}`);
   

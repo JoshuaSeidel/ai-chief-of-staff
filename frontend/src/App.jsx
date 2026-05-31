@@ -148,6 +148,12 @@ const stateIcons = {
   checking: Loader2
 };
 
+const validTabs = ['dashboard', 'transcripts', 'email', 'tasks', 'calendar', 'intelligence', 'config'];
+
+function getTabFromHash(hash) {
+  return hash.replace(/^#/, '').split('?')[0];
+}
+
 function ConnectivityStrip() {
   const { currentProfile } = useProfile();
   const [services, setServices] = useState(null);
@@ -303,9 +309,8 @@ function ApiTokenGate() {
 function App() {
   // Get initial tab from URL hash or default to dashboard
   const getInitialTab = () => {
-    const hash = window.location.hash.replace('#', '');
-    const validTabs = ['dashboard', 'transcripts', 'email', 'tasks', 'calendar', 'intelligence', 'config'];
-    return validTabs.includes(hash) ? hash : 'dashboard';
+    const hashTab = getTabFromHash(window.location.hash);
+    return validTabs.includes(hashTab) ? hashTab : 'dashboard';
   };
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -321,7 +326,9 @@ function App() {
 
   // Update URL when tab changes
   useEffect(() => {
-    window.location.hash = activeTab;
+    if (getTabFromHash(window.location.hash) !== activeTab) {
+      window.location.hash = activeTab;
+    }
     // Close mobile menu when tab changes
     setMobileMenuOpen(false);
   }, [activeTab]);
@@ -329,10 +336,9 @@ function App() {
   // Listen for hash changes (back/forward browser buttons)
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
-      const validTabs = ['dashboard', 'transcripts', 'email', 'tasks', 'calendar', 'intelligence', 'config'];
-      if (validTabs.includes(hash)) {
-        setActiveTab(hash);
+      const hashTab = getTabFromHash(window.location.hash);
+      if (validTabs.includes(hashTab)) {
+        setActiveTab(hashTab);
       }
     };
 
