@@ -463,7 +463,8 @@ function formatMessageForTranscript(message) {
 
 async function listMeetings({ start, end, limit = 25, query = '' } = {}, profileId = 2) {
   const client = await microsoftCalendar.getGraphClient(profileId);
-  const cappedLimit = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 50);
+  const cappedLimit = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 200);
+  const pageSize = Math.min(cappedLimit, 50);
   const now = new Date();
   const defaultStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
   const defaultEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
@@ -476,7 +477,8 @@ async function listMeetings({ start, end, limit = 25, query = '' } = {}, profile
     endDate = defaultEnd;
   }
 
-  const response = await client
+  const events = [];
+  let request = client
     .api('/me/calendarView')
     .query({
       startDateTime: startDate.toISOString(),
@@ -484,11 +486,17 @@ async function listMeetings({ start, end, limit = 25, query = '' } = {}, profile
     })
     .select('id,subject,organizer,attendees,start,end,bodyPreview,webLink,isOnlineMeeting,onlineMeeting,onlineMeetingUrl')
     .orderby('start/dateTime desc')
-    .top(cappedLimit)
-    .header('Prefer', 'outlook.timezone="UTC"')
-    .get();
+    .top(pageSize)
+    .header('Prefer', 'outlook.timezone="UTC"');
 
-  let meetings = (response.value || []).map(summarizeMeeting);
+  while (request && events.length < cappedLimit) {
+    const response = await request.get();
+    events.push(...(response.value || []));
+    const nextLink = response['@odata.nextLink'];
+    request = nextLink ? client.api(nextLink) : null;
+  }
+
+  let meetings = events.slice(0, cappedLimit).map(summarizeMeeting);
 
   if (query) {
     const normalized = query.toLowerCase();
@@ -544,7 +552,21 @@ function meetingFilename(event) {
 }
 
 function meetingTranscriptFilename(event, transcript) {
-  return `Teams Transcript - ${safeTitle(event.subject, 'No subject')} - ${shortExternalId(`${event.id}:${transcript.id}`)}.txt`;
+  return `Teams Transcript - ${safeTitle(event.subject, 'No subject')} - ${shortExternalId(event.id)}.txt`;
+}
+
+function formatPendingTeamsMeeting(event, details = []) {
+  const reasons = Array.isArray(details) ? details.filter(Boolean) : [];
+
+  return [
+    formatMeetingForTranscript(event),
+    '',
+    'Teams transcript status:',
+    'Awaiting a Teams transcript or recording from Microsoft Graph.',
+    ...reasons.map(reason => `- ${reason}`),
+    '',
+    'This placeholder is intentionally not processed for tasks. It will be replaced and processed when a Teams transcript or recording becomes available.'
+  ].join('\n');
 }
 
 async function getCurrentUserLookupIds(profileId = 2) {
@@ -745,6 +767,24 @@ function formatMeetingWithTranscript(event, transcriptContent, captureAssets, tr
   ].filter(line => line !== null).join('\n');
 }
 
+function formatMeetingWithRecordingTranscript(event, recordingTranscriptContent, captureAssets, recording) {
+  const baseMetadata = formatMeetingForTranscript(event);
+
+  return [
+    baseMetadata,
+    '',
+    'Teams capture:',
+    `Recording ID: ${recording.id}`,
+    recording.createdDateTime ? `Recording created: ${recording.createdDateTime}` : null,
+    recording.endDateTime ? `Recording ended: ${recording.endDateTime}` : null,
+    `Transcript source: AI transcription of Teams recording`,
+    captureAssets.onlineMeeting?.joinWebUrl ? `Teams join URL: ${captureAssets.onlineMeeting.joinWebUrl}` : null,
+    '',
+    'Transcript:',
+    String(recordingTranscriptContent || '').trim()
+  ].filter(line => line !== null).join('\n');
+}
+
 module.exports = {
   listMessages,
   getMessage,
@@ -761,6 +801,8 @@ module.exports = {
   downloadTranscriptContent,
   downloadRecordingContent,
   formatMeetingWithTranscript,
+  formatMeetingWithRecordingTranscript,
+  formatPendingTeamsMeeting,
   messageFilename,
   meetingFilename,
   meetingTranscriptFilename,
@@ -778,6 +820,7 @@ module.exports = {
     isTeamsMeeting,
     isUsableGraphContentUrl,
     listAssetCollection,
+    meetingTranscriptFilename,
     normalizeTranscriptContent,
     resolveGraphContentEndpoint,
     summarizeRecording,

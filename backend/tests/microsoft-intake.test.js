@@ -16,6 +16,7 @@ const {
   isTeamsMeeting,
   isUsableGraphContentUrl,
   listAssetCollection,
+  meetingTranscriptFilename,
   normalizeTranscriptContent,
   resolveGraphContentEndpoint,
   summarizeRecording,
@@ -223,6 +224,18 @@ test('prefers immutable Graph user IDs for online meeting lookup candidates', ()
       userPrincipalName: 'jseidel@edgeconnex.com'
     }),
     ['7e4d-user-guid', 'jseidel@edgeconnex.com']
+  );
+});
+
+test('uses a stable Teams transcript filename across transcript and recording fallbacks', () => {
+  const event = {
+    id: 'calendar-event-id',
+    subject: 'IT Delivery Sync'
+  };
+
+  assert.equal(
+    meetingTranscriptFilename(event, { id: 'teams-transcript-id' }),
+    meetingTranscriptFilename(event, { id: 'teams-recording-id' })
   );
 });
 

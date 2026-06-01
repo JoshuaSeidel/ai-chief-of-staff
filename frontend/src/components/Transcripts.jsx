@@ -803,9 +803,10 @@ function Transcripts() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transcripts.map((transcript) => {
-                    const isProcessing = transcript.processing_status === 'processing';
-                    const isFailed = transcript.processing_status === 'failed';
+	                  {transcripts.map((transcript) => {
+	                    const isProcessing = transcript.processing_status === 'processing';
+	                    const isFailed = transcript.processing_status === 'failed';
+	                    const isPending = transcript.processing_status === 'pending';
                     return (
                       <tr key={transcript.id} className="transcript-table-row">
                         <td className="transcript-table-cell">{transcript.filename}</td>
@@ -845,11 +846,13 @@ function Transcripts() {
                                 {transcript.processing_progress || 0}%
                               </span>
                             </div>
-                          ) : isFailed ? (
-                            <span className="text-failed">Failed</span>
-                          ) : (
-                            <span className="text-complete">Complete</span>
-                          )}
+	                          ) : isFailed ? (
+	                            <span className="text-failed">Failed</span>
+	                          ) : isPending ? (
+	                            <span className="text-processing">Awaiting Teams recording</span>
+	                          ) : (
+	                            <span className="text-complete">Complete</span>
+	                          )}
                         </td>
                         <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                           <button
@@ -863,7 +866,7 @@ function Transcripts() {
                             className="secondary"
                             style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
                             onClick={() => handleViewTranscript(transcript.id)}
-                            disabled={isProcessing || isFailed}
+	                            disabled={isProcessing || isFailed || isPending}
                             title="View AI-generated meeting recap"
                           >
                             Meeting Recap
@@ -872,7 +875,7 @@ function Transcripts() {
                             className="secondary"
                             style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
                             onClick={() => handleReprocess(transcript.id, transcript.filename)}
-                            disabled={uploading || isProcessing}
+	                            disabled={uploading || isProcessing || isPending}
                             title="Re-extract commitments and action items"
                           >
                             <RefreshCw size={14} /> Reprocess
@@ -894,9 +897,10 @@ function Transcripts() {
 
             {/* Mobile card view */}
             <div className="transcripts-table-mobile">
-              {transcripts.map((transcript) => {
-                const isProcessing = transcript.processing_status === 'processing';
-                const isFailed = transcript.processing_status === 'failed';
+	              {transcripts.map((transcript) => {
+	                const isProcessing = transcript.processing_status === 'processing';
+	                const isFailed = transcript.processing_status === 'failed';
+	                const isPending = transcript.processing_status === 'pending';
                 return (
                   <div
                     key={transcript.id}
@@ -956,11 +960,13 @@ function Transcripts() {
                               {transcript.processing_progress || 0}%
                             </span>
                           </div>
-                        ) : isFailed ? (
-                          <span className="text-failed">Failed</span>
-                        ) : (
-                          <span className="text-complete">Complete</span>
-                        )}
+	                        ) : isFailed ? (
+	                          <span className="text-failed">Failed</span>
+	                        ) : isPending ? (
+	                          <span className="text-processing">Awaiting Teams recording</span>
+	                        ) : (
+	                          <span className="text-complete">Complete</span>
+	                        )}
                       </div>
                     </div>
 
@@ -983,9 +989,9 @@ function Transcripts() {
                             padding: '0.625rem 1rem', 
                             fontSize: '0.875rem',
                             flex: 1
-                          }}
-                          onClick={() => handleReprocess(transcript.id, transcript.filename)}
-                          disabled={uploading || isProcessing}
+	                          }}
+	                          onClick={() => handleReprocess(transcript.id, transcript.filename)}
+	                          disabled={uploading || isProcessing || isPending}
                           title="Re-extract commitments and action items"
                         >
                           <RefreshCw size={14} /> Reprocess

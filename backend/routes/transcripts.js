@@ -20,7 +20,7 @@ const logger = createModuleLogger('TRANSCRIPTS');
 
 // Voice processor service URL
 const VOICE_PROCESSOR_URL = process.env.VOICE_PROCESSOR_URL || 'https://aicos-voice-processor:8004';
-const MICROSERVICE_TIMEOUT = 120000; // 2 minutes for audio transcription
+const MICROSERVICE_TIMEOUT = Number(process.env.VOICE_PROCESSOR_TIMEOUT_MS || 600000); // 10 minutes for meeting recordings
 
 // Certificate-related error codes for better error detection
 const CERT_ERROR_CODES = [
@@ -289,20 +289,17 @@ function isAudioFile(filename, mimetype) {
 /**
  * Transcribe audio file using voice-processor microservice
  */
-async function transcribeAudio(filePath, originalFilename) {
+async function transcribeAudioBuffer(audioBuffer, originalFilename, contentType = 'audio/webm') {
   try {
     logger.info(`Sending audio file to voice-processor: ${originalFilename}`);
-    
-    // Read the audio file
-    const audioBuffer = fs.readFileSync(filePath);
-    
+
     // Create form data for voice-processor
     const formData = new FormData();
     formData.append('file', audioBuffer, {
       filename: originalFilename,
-      contentType: 'audio/webm' // Default, voice-processor will handle different types
+      contentType
     });
-    
+
     // Call voice-processor microservice with HTTPS agent
     const response = await axios.post(
       `${VOICE_PROCESSOR_URL}/transcribe`,
@@ -318,7 +315,7 @@ async function transcribeAudio(filePath, originalFilename) {
     
     logger.info(`Audio transcription successful: ${response.data.text?.length || 0} characters`);
     return response.data.text;
-    
+
   } catch (error) {
     logger.error(`Audio transcription failed: ${error.message}`, { 
       code: error.code, 
@@ -339,6 +336,11 @@ async function transcribeAudio(filePath, originalFilename) {
     
     throw new Error(`Audio transcription failed: ${error.message}`);
   }
+}
+
+async function transcribeAudio(filePath, originalFilename, contentType = 'audio/webm') {
+  const audioBuffer = fs.readFileSync(filePath);
+  return transcribeAudioBuffer(audioBuffer, originalFilename, contentType);
 }
 
 async function createAndProcessTranscript({
@@ -368,6 +370,62 @@ async function createAndProcessTranscript({
 
   return {
     transcriptId,
+    status: 'processing'
+  };
+}
+
+async function createPendingTranscript({
+  filename,
+  content,
+  source = 'teams-pending',
+  meetingDate = null,
+  profileId = 2
+}) {
+  if (!filename || !content) {
+    throw new Error('Filename and content are required');
+  }
+
+  const db = getDb();
+  const result = await db.run(
+    'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, processed, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [filename, content, source, meetingDate, 'pending', 0, false, profileId]
+  );
+
+  return {
+    transcriptId: result.lastID,
+    status: 'pending'
+  };
+}
+
+async function updateAndProcessTranscript({
+  id,
+  filename,
+  content,
+  source = 'manual',
+  meetingDate = null,
+  profileId = 2
+}) {
+  if (!id || !filename || !content) {
+    throw new Error('Transcript id, filename, and content are required');
+  }
+
+  const db = getDb();
+  await db.run(
+    `UPDATE transcripts
+     SET filename = ?, content = ?, source = ?, meeting_date = ?, processed = ?, processing_status = ?, processing_progress = ?
+     WHERE id = ? AND profile_id = ?`,
+    [filename, content, source, meetingDate, false, 'processing', 0, id, profileId]
+  );
+
+  const transcript = { id, filename, content, meeting_date: meetingDate };
+  const reqContext = { profileId };
+
+  processTranscriptAsync(id, transcript, db, reqContext).catch(err => {
+    logger.error(`Background processing error for transcript ${id}:`, err);
+  });
+
+  return {
+    transcriptId: id,
     status: 'processing'
   };
 }
@@ -1197,5 +1255,8 @@ router.post('/:id/meeting-notes', async (req, res) => {
 });
 
 router.createAndProcessTranscript = createAndProcessTranscript;
+router.createPendingTranscript = createPendingTranscript;
+router.updateAndProcessTranscript = updateAndProcessTranscript;
+router.transcribeAudioBuffer = transcribeAudioBuffer;
 
 module.exports = router;

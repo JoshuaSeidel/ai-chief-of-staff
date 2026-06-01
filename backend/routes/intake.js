@@ -58,16 +58,60 @@ function skippedTimeAwayResult(id) {
 
 async function findExistingTranscript(filename, source, profileId) {
   const db = getDb();
+  const teamsSources = ['teams-transcript', 'teams-recording', 'teams-pending'];
+
+  if (teamsSources.includes(source)) {
+    return db.get(
+      `SELECT id, filename, source, processing_status, processing_progress
+       FROM transcripts
+       WHERE filename = ? AND source IN (${teamsSources.map(() => '?').join(', ')}) AND profile_id = ?
+       ORDER BY CASE
+         WHEN source = 'teams-transcript' THEN 1
+         WHEN source = 'teams-recording' THEN 2
+         WHEN source = 'teams-pending' THEN 3
+         ELSE 4
+       END
+       LIMIT 1`,
+      [filename, ...teamsSources, profileId]
+    );
+  }
+
   return db.get(
-    'SELECT id, filename, processing_status, processing_progress FROM transcripts WHERE filename = ? AND source = ? AND profile_id = ?',
+    'SELECT id, filename, source, processing_status, processing_progress FROM transcripts WHERE filename = ? AND source = ? AND profile_id = ?',
     [filename, source, profileId]
   );
 }
 
-async function processTranscriptOnce({ filename, content, source, meetingDate, profileId }) {
+async function processTranscriptOnce({ filename, content, source, meetingDate, profileId, process = true }) {
   const existing = await findExistingTranscript(filename, source, profileId);
 
   if (existing) {
+    if (
+      process
+      && ['teams-transcript', 'teams-recording'].includes(source)
+      && (
+        existing.source === 'teams-pending'
+        || existing.processing_status === 'pending'
+        || (source === 'teams-transcript' && existing.source !== 'teams-transcript')
+      )
+    ) {
+      const result = await transcriptRoutes.updateAndProcessTranscript({
+        id: existing.id,
+        filename,
+        content,
+        source,
+        meetingDate,
+        profileId
+      });
+
+      return {
+        imported: true,
+        updated: true,
+        transcriptId: result.transcriptId,
+        status: result.status
+      };
+    }
+
     return {
       imported: false,
       transcriptId: existing.id,
@@ -76,16 +120,25 @@ async function processTranscriptOnce({ filename, content, source, meetingDate, p
     };
   }
 
-  const result = await transcriptRoutes.createAndProcessTranscript({
-    filename,
-    content,
-    source,
-    meetingDate,
-    profileId
-  });
+  const result = process
+    ? await transcriptRoutes.createAndProcessTranscript({
+      filename,
+      content,
+      source,
+      meetingDate,
+      profileId
+    })
+    : await transcriptRoutes.createPendingTranscript({
+      filename,
+      content,
+      source,
+      meetingDate,
+      profileId
+    });
 
   return {
-    imported: true,
+    imported: process,
+    pending: !process,
     transcriptId: result.transcriptId,
     status: result.status
   };
@@ -129,36 +182,90 @@ async function buildMeetingImportPayload(meeting, profileId) {
   if (hasOnlineMeeting) {
     try {
       const captureAssets = await microsoftIntake.getMeetingCaptureAssets(meeting, profileId);
-      const latestTranscript = microsoftIntake.selectLatestTranscript(captureAssets.transcripts);
+	      const latestTranscript = microsoftIntake.selectLatestTranscript(captureAssets.transcripts);
 
-      if (captureAssets.onlineMeeting && latestTranscript) {
-        const transcriptContent = await microsoftIntake.downloadTranscriptContent({
-          accessUserId: captureAssets.accessUserId,
-          onlineMeetingId: captureAssets.onlineMeeting.id,
-          transcriptId: latestTranscript.id,
-          transcriptContentUrl: latestTranscript.transcriptContentUrl
-        });
+	      if (captureAssets.onlineMeeting && latestTranscript) {
+	        try {
+	          const transcriptContent = await microsoftIntake.downloadTranscriptContent({
+	            accessUserId: captureAssets.accessUserId,
+	            onlineMeetingId: captureAssets.onlineMeeting.id,
+	            transcriptId: latestTranscript.id,
+	            transcriptContentUrl: latestTranscript.transcriptContentUrl
+	          });
 
-        return {
-          filename: microsoftIntake.meetingTranscriptFilename(meeting, latestTranscript),
-          content: microsoftIntake.formatMeetingWithTranscript(meeting, transcriptContent, captureAssets, latestTranscript),
-          source: 'teams-transcript',
-          meetingDate,
-          profileId,
-          capture: summarizeCaptureAssets(captureAssets, true)
-        };
+	          return {
+	            filename: microsoftIntake.meetingTranscriptFilename(meeting, latestTranscript),
+	            content: microsoftIntake.formatMeetingWithTranscript(meeting, transcriptContent, captureAssets, latestTranscript),
+	            source: 'teams-transcript',
+	            meetingDate,
+	            profileId,
+	            capture: summarizeCaptureAssets(captureAssets, true)
+	          };
+	        } catch (transcriptError) {
+	          captureAssets.warnings = [
+	            ...(captureAssets.warnings || []),
+	            `Teams transcript download failed: ${transcriptError.message}`
+	          ];
+	        }
+	      }
+
+      const latestRecording = microsoftIntake.selectLatestRecording(captureAssets.recordings);
+      if (captureAssets.onlineMeeting && latestRecording) {
+        try {
+          const recordingContent = await microsoftIntake.downloadRecordingContent({
+            accessUserId: captureAssets.accessUserId,
+            onlineMeetingId: captureAssets.onlineMeeting.id,
+            recordingId: latestRecording.id,
+            recordingContentUrl: latestRecording.recordingContentUrl
+          });
+          const recordingFilename = `teams-recording-${meeting.id}.mp4`.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+          const transcribedRecording = await transcriptRoutes.transcribeAudioBuffer(
+            recordingContent.buffer,
+            recordingFilename,
+            recordingContent.contentType || 'video/mp4'
+          );
+
+          return {
+            filename: microsoftIntake.meetingTranscriptFilename(meeting, latestRecording),
+            content: microsoftIntake.formatMeetingWithRecordingTranscript(
+              meeting,
+              transcribedRecording,
+              captureAssets,
+              latestRecording
+            ),
+            source: 'teams-recording',
+            meetingDate,
+            profileId,
+            capture: {
+              ...summarizeCaptureAssets(captureAssets, false),
+              usedTeamsRecording: true
+            }
+          };
+        } catch (recordingError) {
+          captureAssets.warnings = [
+            ...(captureAssets.warnings || []),
+            `Teams recording transcription failed: ${recordingError.message}`
+          ];
+        }
       }
 
       const reasons = [
         ...(captureAssets.warnings || []),
         captureAssets.onlineMeeting ? null : 'No matching Teams online meeting was found',
-        latestTranscript ? null : 'No Teams transcript is available for this meeting yet'
+        latestTranscript ? null : 'No Teams transcript is available for this meeting yet',
+        captureAssets.recordings?.length ? null : 'No Teams recording is available for this meeting yet'
       ].filter(Boolean);
 
-      throw new TeamsTranscriptUnavailableError(
-        `Teams transcript unavailable for "${meeting.subject || 'meeting'}". ${reasons.join(' ')}`,
-        reasons
-      );
+      return {
+        filename: microsoftIntake.meetingTranscriptFilename(meeting, { id: 'pending' }),
+        content: microsoftIntake.formatPendingTeamsMeeting(meeting, reasons),
+        source: 'teams-pending',
+        meetingDate,
+        profileId,
+        process: false,
+        capture: summarizeCaptureAssets(captureAssets, false),
+        pendingDetails: reasons
+      };
     } catch (error) {
       if (isTeamsTranscriptUnavailable(error)) {
         throw error;
@@ -560,7 +667,8 @@ async function importMeeting(meeting, profileId = 2) {
   return {
     ...result,
     source: payload.source,
-    capture: payload.capture
+    capture: payload.capture,
+    details: payload.pendingDetails || []
   };
 }
 

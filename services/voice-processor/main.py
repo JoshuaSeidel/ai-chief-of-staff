@@ -11,6 +11,9 @@ import os
 import sys
 import logging
 import tempfile
+import subprocess
+import glob
+import shutil
 from typing import Optional
 from datetime import datetime
 import redis
@@ -111,6 +114,10 @@ except Exception as e:
 # Initialize local Whisper model for Ollama/local transcription
 local_whisper_model = None
 LOCAL_WHISPER_MODEL_SIZE = os.getenv("LOCAL_WHISPER_MODEL", "base")  # tiny, base, small, medium, large-v3
+MAX_SOURCE_AUDIO_MB = float(os.getenv("MAX_SOURCE_AUDIO_MB", "500"))
+MAX_DIRECT_TRANSCRIPTION_MB = float(os.getenv("MAX_DIRECT_TRANSCRIPTION_MB", "24"))
+TRANSCRIPTION_CHUNK_SECONDS = int(os.getenv("TRANSCRIPTION_CHUNK_SECONDS", "1200"))
+TRANSCRIPTION_CHUNK_BITRATE = os.getenv("TRANSCRIPTION_CHUNK_BITRATE", "64k")
 
 def get_local_whisper_model():
     """Lazy-load the local Whisper model"""
@@ -198,6 +205,76 @@ def transcribe_with_timestamps_local(audio_path: str, language: Optional[str] = 
         "duration": info.duration,
         "words": words
     }
+
+def transcribe_file(audio_path: str, language: Optional[str] = None,
+                    prompt: Optional[str] = None, temperature: float = 0.0):
+    """Transcribe a single audio file with the configured provider."""
+    if ai_provider == "openai":
+        with open(audio_path, "rb") as audio_file:
+            return openai.audio.transcriptions.create(
+                model=ai_model,
+                file=audio_file,
+                language=language,
+                prompt=prompt,
+                temperature=temperature,
+                response_format="verbose_json"
+            )
+
+    if ai_provider == "ollama":
+        if not FASTER_WHISPER_AVAILABLE:
+            raise HTTPException(
+                status_code=503,
+                detail="Local transcription not available. Install faster-whisper or switch to OpenAI provider."
+            )
+        logger.info(f"Using local faster-whisper model: {LOCAL_WHISPER_MODEL_SIZE}")
+        local_result = transcribe_with_local_whisper(audio_path, language, temperature)
+
+        class LocalTranscript:
+            def __init__(self, result):
+                self.text = result["text"]
+                self.language = result["language"]
+                self.duration = result["duration"]
+
+        return LocalTranscript(local_result)
+
+    raise HTTPException(status_code=400, detail=f"Unsupported AI provider for transcription: {ai_provider}")
+
+def split_audio_for_transcription(input_path: str, output_dir: str) -> list[str]:
+    """Convert a large audio/video file into small mp3 chunks for Whisper limits."""
+    pattern = os.path.join(output_dir, "chunk_%03d.mp3")
+    command = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        input_path,
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-b:a",
+        TRANSCRIPTION_CHUNK_BITRATE,
+        "-f",
+        "segment",
+        "-segment_time",
+        str(TRANSCRIPTION_CHUNK_SECONDS),
+        "-reset_timestamps",
+        "1",
+        pattern
+    ]
+
+    logger.info(
+        "Splitting large recording with ffmpeg "
+        f"(segment_time={TRANSCRIPTION_CHUNK_SECONDS}s, bitrate={TRANSCRIPTION_CHUNK_BITRATE})"
+    )
+    subprocess.run(command, check=True, capture_output=True, text=True)
+    chunks = sorted(glob.glob(os.path.join(output_dir, "chunk_*.mp3")))
+    if not chunks:
+        raise RuntimeError("ffmpeg did not produce transcription chunks")
+    return chunks
 
 # Cache TTL (1 hour for transcriptions)
 CACHE_TTL = 3600
@@ -321,10 +398,10 @@ async def transcribe_audio(
     Transcribe audio file using OpenAI Whisper
     
     Supports: mp3, mp4, mpeg, mpga, m4a, wav, webm
-    Max file size: 25MB
+    Large files are automatically split into smaller mp3 chunks.
     """
     
-    if not openai_api_key:
+    if ai_provider == "openai" and not openai_api_key:
         raise HTTPException(
             status_code=503,
             detail="OpenAI API key not configured"
@@ -335,14 +412,16 @@ async def transcribe_audio(
         file_content = await file.read()
         file_size_mb = len(file_content) / (1024 * 1024)
         
-        if file_size_mb > 25:
+        if file_size_mb > MAX_SOURCE_AUDIO_MB:
             raise HTTPException(
                 status_code=413,
-                detail=f"File too large: {file_size_mb:.2f}MB (max 25MB)"
+                detail=f"File too large: {file_size_mb:.2f}MB (max {MAX_SOURCE_AUDIO_MB:.0f}MB)"
             )
         
         logger.info(f"Processing audio file: {file.filename} ({file_size_mb:.2f}MB)")
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error reading file: {e}")
         raise HTTPException(status_code=400, detail=f"Error reading file: {str(e)}")
@@ -356,50 +435,41 @@ async def transcribe_audio(
         return TranscriptionResponse(**cached_result, cached=True)
     
     # Save to temporary file for Whisper API
+    tmp_file_path = None
+    chunk_dir = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp_file:
             tmp_file.write(file_content)
             tmp_file_path = tmp_file.name
-        
-        # Transcribe with configured AI model
-        if ai_provider == "openai":
-            # Use OpenAI Whisper API
-            with open(tmp_file_path, "rb") as audio_file:
-                transcript = openai.audio.transcriptions.create(
-                    model=ai_model,
-                    file=audio_file,
-                    language=language,
-                    prompt=prompt,
-                    temperature=temperature,
-                    response_format="verbose_json"
-                )
-        elif ai_provider == "ollama":
-            # Use local faster-whisper for privacy-focused local transcription
-            if not FASTER_WHISPER_AVAILABLE:
-                raise HTTPException(
-                    status_code=503,
-                    detail="Local transcription not available. Install faster-whisper or switch to OpenAI provider."
-                )
-            logger.info(f"Using local faster-whisper model: {LOCAL_WHISPER_MODEL_SIZE}")
-            local_result = transcribe_with_local_whisper(tmp_file_path, language, temperature)
-            # Create a mock object with same interface as OpenAI response
-            class LocalTranscript:
-                def __init__(self, result):
-                    self.text = result["text"]
-                    self.language = result["language"]
-                    self.duration = result["duration"]
-            transcript = LocalTranscript(local_result)
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported AI provider for transcription: {ai_provider}")
-        
-        # Clean up temp file
-        os.unlink(tmp_file_path)
-        
+
+        files_to_transcribe = [tmp_file_path]
+        if file_size_mb > MAX_DIRECT_TRANSCRIPTION_MB:
+            chunk_dir = tempfile.mkdtemp(prefix="transcription_chunks_")
+            files_to_transcribe = split_audio_for_transcription(tmp_file_path, chunk_dir)
+
+        transcript_parts = []
+        transcript_language = None
+        transcript_duration = 0
+        for index, audio_path in enumerate(files_to_transcribe, start=1):
+            logger.info(f"Transcribing chunk {index}/{len(files_to_transcribe)}")
+            transcript = transcribe_file(audio_path, language, prompt, temperature)
+            text = getattr(transcript, "text", "") or ""
+            if text.strip():
+                transcript_parts.append(text.strip())
+            transcript_language = transcript_language or getattr(transcript, "language", None)
+            duration = getattr(transcript, "duration", None)
+            if duration:
+                transcript_duration += duration
+
+        transcript_text = "\n\n".join(transcript_parts).strip()
+        if not transcript_text:
+            raise RuntimeError("Transcription returned no text")
+
         # Build response
         result = {
-            "text": transcript.text,
-            "language": getattr(transcript, 'language', None),
-            "duration": getattr(transcript, 'duration', None),
+            "text": transcript_text,
+            "language": transcript_language,
+            "duration": transcript_duration or None,
             "cached": False
         }
         
@@ -407,7 +477,7 @@ async def transcribe_audio(
         if storage_manager:
             try:
                 metadata = {
-                    "transcription": transcript.text,
+                    "transcription": transcript_text,
                     "language": result.get('language'),
                     "duration": result.get('duration'),
                     "filename": file.filename,
@@ -424,10 +494,12 @@ async def transcribe_audio(
         # Cache result
         cache_transcription(cache_key, result)
         
-        logger.info(f"Transcription completed: {len(transcript.text)} characters")
+        logger.info(f"Transcription completed: {len(transcript_text)} characters")
         
         return TranscriptionResponse(**result)
         
+    except HTTPException:
+        raise
     except openai.OpenAIError as e:
         logger.error(f"OpenAI API error: {e}")
         raise HTTPException(
@@ -436,15 +508,20 @@ async def transcribe_audio(
         )
     except Exception as e:
         logger.error(f"Error processing audio: {e}")
-        if 'tmp_file_path' in locals():
-            try:
-                os.unlink(tmp_file_path)
-            except OSError as cleanup_err:
-                logger.debug(f"Failed to cleanup temp file: {cleanup_err}")
         raise HTTPException(
             status_code=500,
             detail=f"Error processing audio: {str(e)}"
         )
+    finally:
+        if tmp_file_path:
+            try:
+                os.unlink(tmp_file_path)
+            except FileNotFoundError:
+                pass
+            except OSError as cleanup_err:
+                logger.debug(f"Failed to cleanup temp file: {cleanup_err}")
+        if chunk_dir:
+            shutil.rmtree(chunk_dir, ignore_errors=True)
 
 @app.post("/transcribe-with-timestamps")
 async def transcribe_with_timestamps(
@@ -608,7 +685,8 @@ async def get_supported_formats():
 
     return {
         "formats": ["mp3", "mp4", "mpeg", "mpga", "m4a", "wav", "webm", "flac", "ogg"],
-        "max_file_size_mb": 25,
+        "max_file_size_mb": MAX_SOURCE_AUDIO_MB,
+        "chunking_threshold_mb": MAX_DIRECT_TRANSCRIPTION_MB,
         "providers": {
             "openai": {
                 "available": bool(openai_api_key),
