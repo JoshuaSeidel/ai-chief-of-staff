@@ -32,6 +32,17 @@ function errorResult(id, error) {
   };
 }
 
+function pendingResult(id, error) {
+  return {
+    imported: false,
+    pending: true,
+    id,
+    error: error.code || 'TEAMS_TRANSCRIPT_PENDING',
+    message: error.message,
+    details: error.details || []
+  };
+}
+
 async function findExistingTranscript(filename, source, profileId) {
   const db = getDb();
   return db.get(
@@ -100,7 +111,7 @@ function sendMicrosoftSetupState(res, collectionKey, error) {
 
 async function buildMeetingImportPayload(meeting, profileId) {
   const meetingDate = meeting.start?.dateTime ? meeting.start.dateTime.slice(0, 10) : null;
-  const hasOnlineMeeting = Boolean(meeting.isOnlineMeeting || meeting.onlineMeeting || meeting.onlineMeetingUrl);
+  const hasOnlineMeeting = microsoftIntake.isTeamsMeeting(meeting);
 
   if (hasOnlineMeeting) {
     try {
@@ -414,6 +425,50 @@ router.post('/meetings/import', async (req, res) => {
   }
 });
 
+router.post('/meetings/sync-transcripts', async (req, res) => {
+  try {
+    const profileId = req.profileId || 2;
+    const results = await importTeamsTranscriptsInRange({
+      start: req.body.start,
+      end: req.body.end,
+      endedBefore: req.body.endedBefore,
+      limit: req.body.limit || 50,
+      query: req.body.query || ''
+    }, profileId);
+
+    const imported = results.filter(result => result.imported).length;
+    const pending = results.filter(result => result.pending).length;
+    const failed = results.filter(result => result.failed).length;
+    const skipped = results.length - imported - pending - failed;
+
+    res.json({
+      success: true,
+      imported,
+      pending,
+      skipped,
+      failed,
+      results
+    });
+  } catch (error) {
+    const setupMessage = getMicrosoftSetupMessage(error);
+    if (setupMessage) {
+      return res.status(409).json({
+        success: false,
+        connected: false,
+        error: 'Microsoft not connected',
+        message: setupMessage
+      });
+    }
+
+    logger.error('Error syncing Teams transcripts', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync Teams transcripts',
+      message: error.message
+    });
+  }
+});
+
 async function syncEmailMessages(options = {}, profileId = 2) {
   const messages = await microsoftIntake.listMessages({
     limit: options.limit || 10,
@@ -482,9 +537,58 @@ async function importMeetingsInRange(options = {}, profileId = 2) {
   return results;
 }
 
+async function importTeamsTranscriptsInRange(options = {}, profileId = 2) {
+  const requestedEndedBefore = options.endedBefore ? new Date(options.endedBefore) : new Date();
+  const endedBefore = Number.isNaN(requestedEndedBefore.getTime()) ? new Date() : requestedEndedBefore;
+  const meetings = await microsoftIntake.listMeetings({
+    start: options.start,
+    end: options.end,
+    limit: options.limit || 50,
+    query: options.query || ''
+  }, profileId);
+
+  const results = [];
+  for (const meetingSummary of meetings) {
+    try {
+      const fullMeeting = await microsoftIntake.getMeeting(meetingSummary.id, profileId);
+
+      if (!microsoftIntake.isTeamsMeeting(fullMeeting)) {
+        results.push({
+          imported: false,
+          skipped: true,
+          id: meetingSummary.id,
+          reason: 'Not a Teams online meeting'
+        });
+        continue;
+      }
+
+      if (!microsoftIntake.isMeetingEndedBefore(fullMeeting, endedBefore)) {
+        results.push({
+          imported: false,
+          skipped: true,
+          id: meetingSummary.id,
+          reason: 'Meeting has not ended or is still in the transcript settle window'
+        });
+        continue;
+      }
+
+      results.push(await importMeeting(fullMeeting, profileId));
+    } catch (error) {
+      if (isTeamsTranscriptUnavailable(error)) {
+        results.push(pendingResult(meetingSummary.id, error));
+      } else {
+        results.push(errorResult(meetingSummary.id, error));
+      }
+    }
+  }
+
+  return results;
+}
+
 router.syncEmailMessages = syncEmailMessages;
 router.importMeetingsByIds = importMeetingsByIds;
 router.importMeetingsInRange = importMeetingsInRange;
+router.importTeamsTranscriptsInRange = importTeamsTranscriptsInRange;
 router.processTranscriptOnce = processTranscriptOnce;
 
 module.exports = router;

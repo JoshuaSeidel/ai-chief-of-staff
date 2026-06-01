@@ -100,10 +100,54 @@ function getEmailAddress(person) {
 }
 
 function getMeetingJoinUrl(event) {
-  return event?.onlineMeeting?.joinUrl
+  const metadataUrl = event?.onlineMeeting?.joinUrl
     || event?.onlineMeeting?.joinWebUrl
     || event?.onlineMeetingUrl
     || '';
+
+  if (metadataUrl) {
+    return metadataUrl;
+  }
+
+  const rawBody = event?.body?.content || event?.bodyPreview || '';
+  const bodyText = event?.body?.contentType === 'html'
+    ? `${rawBody}\n${stripHtml(rawBody)}`
+    : rawBody;
+  const match = String(bodyText).match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"']+/i);
+  return match?.[0]?.replace(/&amp;/gi, '&') || '';
+}
+
+function isTeamsMeeting(event) {
+  return Boolean(
+    event?.isOnlineMeeting
+    || event?.onlineMeeting
+    || event?.onlineMeetingUrl
+    || getMeetingJoinUrl(event)
+  );
+}
+
+function parseGraphDateTime(value) {
+  if (!value) return null;
+
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const dateTime = value.dateTime;
+  if (!dateTime) return null;
+
+  const hasOffset = /(?:z|[+-]\d{2}:\d{2})$/i.test(dateTime);
+  const normalized = !hasOffset && String(value.timeZone || '').toUpperCase() === 'UTC'
+    ? `${dateTime}Z`
+    : dateTime;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isMeetingEndedBefore(event, cutoff = new Date()) {
+  const endDate = parseGraphDateTime(event?.end);
+  return Boolean(endDate && endDate <= cutoff);
 }
 
 function escapeODataString(value) {
@@ -291,7 +335,7 @@ function summarizeMeeting(event) {
     end: event.end,
     bodyPreview: event.bodyPreview || '',
     webLink: event.webLink,
-    isOnlineMeeting: Boolean(event.isOnlineMeeting || event.onlineMeeting),
+    isOnlineMeeting: isTeamsMeeting(event),
     hasTeamsJoinUrl: Boolean(joinUrl),
     attendeeCount: Array.isArray(event.attendees) ? event.attendees.length : 0
   };
@@ -424,6 +468,7 @@ async function getMeeting(eventId, profileId = 2) {
   return client
     .api(`/me/events/${encodeURIComponent(eventId)}`)
     .select('id,subject,organizer,attendees,start,end,body,bodyPreview,webLink,isOnlineMeeting,onlineMeeting,onlineMeetingUrl')
+    .header('Prefer', 'outlook.timezone="UTC"')
     .get();
 }
 
@@ -648,6 +693,8 @@ module.exports = {
   getMeeting,
   formatMeetingForTranscript,
   getMeetingCaptureAssets,
+  isMeetingEndedBefore,
+  isTeamsMeeting,
   selectLatestTranscript,
   selectLatestRecording,
   downloadTranscriptContent,
@@ -662,6 +709,9 @@ module.exports = {
     buildOnlineMeetingsLookupEndpoint,
     buildTranscriptContentEndpoint,
     encodePathSegment,
+    getMeetingJoinUrl,
+    isMeetingEndedBefore,
+    isTeamsMeeting,
     isUsableGraphContentUrl,
     listAssetCollection,
     normalizeTranscriptContent,

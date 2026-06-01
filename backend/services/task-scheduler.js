@@ -10,6 +10,7 @@ const CHECK_INTERVAL = 15 * 60 * 1000;
 // Track last daily digest send to avoid duplicates
 let lastDailyDigestDate = null;
 let lastDailyIntakeDate = null;
+let recentTeamsTranscriptIntakeRunning = false;
 
 function isFalseLike(value) {
   return ['false', '0', 'no', 'off'].includes(String(value || '').trim().toLowerCase());
@@ -133,6 +134,45 @@ async function getDailyIntakeSettings() {
   };
 }
 
+async function getRecentTeamsTranscriptIntakeSettings() {
+  const [
+    enabledValue,
+    lookbackHoursValue,
+    settleMinutesValue,
+    meetingLimitValue
+  ] = await Promise.all([
+    getConfigValue('intake_teams_transcript_auto_import_enabled'),
+    getConfigValue('intake_teams_transcript_lookback_hours'),
+    getConfigValue('intake_teams_transcript_settle_minutes'),
+    getConfigValue('intake_teams_transcript_meeting_limit')
+  ]);
+
+  return {
+    enabled: parseBooleanSetting(
+      enabledValue ?? process.env.AUTO_TEAMS_TRANSCRIPT_INTAKE_ENABLED,
+      true
+    ),
+    lookbackHours: parsePositiveInt(
+      lookbackHoursValue ?? process.env.AUTO_TEAMS_TRANSCRIPT_INTAKE_LOOKBACK_HOURS,
+      48,
+      1,
+      168
+    ),
+    settleMinutes: parsePositiveInt(
+      settleMinutesValue ?? process.env.AUTO_TEAMS_TRANSCRIPT_INTAKE_SETTLE_MINUTES,
+      30,
+      0,
+      240
+    ),
+    meetingLimit: parsePositiveInt(
+      meetingLimitValue ?? process.env.AUTO_TEAMS_TRANSCRIPT_INTAKE_MEETING_LIMIT,
+      50,
+      1,
+      50
+    )
+  };
+}
+
 async function getMicrosoftIntakeProfiles() {
   const db = getDb();
   const rows = await db.all(
@@ -154,6 +194,10 @@ function countImported(results) {
 
 function countFailed(results) {
   return (results || []).filter(result => result.failed).length;
+}
+
+function countPending(results) {
+  return (results || []).filter(result => result.pending).length;
 }
 
 /**
@@ -540,6 +584,97 @@ async function runDailyIntake() {
 }
 
 /**
+ * Poll recently-ended Teams meetings for real transcript artifacts.
+ * Teams often publishes transcript files after the meeting ends, so this
+ * intentionally runs more often than the once-a-day email/calendar intake.
+ */
+async function runRecentTeamsTranscriptIntake() {
+  if (recentTeamsTranscriptIntakeRunning) {
+    logger.debug('Recent Teams transcript intake already running, skipping overlap');
+    return;
+  }
+
+  recentTeamsTranscriptIntakeRunning = true;
+
+  try {
+    const settings = await getRecentTeamsTranscriptIntakeSettings();
+    if (!settings.enabled) {
+      return;
+    }
+
+    const profileIds = await getMicrosoftIntakeProfiles();
+    if (profileIds.length === 0) {
+      logger.debug('Recent Teams transcript intake skipped: no connected Microsoft profiles');
+      return;
+    }
+
+    const now = new Date();
+    const rangeEnd = new Date(now.getTime() - settings.settleMinutes * 60 * 1000);
+    const rangeStart = new Date(now.getTime() - settings.lookbackHours * 60 * 60 * 1000);
+    const intakeRoutes = require('../routes/intake');
+    const totals = {
+      imported: 0,
+      skipped: 0,
+      pending: 0,
+      failed: 0,
+      failedProfiles: 0
+    };
+
+    for (const profileId of profileIds) {
+      try {
+        const results = await intakeRoutes.importTeamsTranscriptsInRange({
+          start: rangeStart.toISOString(),
+          end: rangeEnd.toISOString(),
+          endedBefore: rangeEnd.toISOString(),
+          limit: settings.meetingLimit,
+          query: ''
+        }, profileId);
+
+        const imported = countImported(results);
+        const pending = countPending(results);
+        const failed = countFailed(results);
+        const skipped = results.length - imported - pending - failed;
+
+        totals.imported += imported;
+        totals.pending += pending;
+        totals.failed += failed;
+        totals.skipped += skipped;
+
+        if (imported || failed) {
+          logger.info('Recent Teams transcript intake completed for profile', {
+            profileId,
+            imported,
+            pending,
+            skipped,
+            failed
+          });
+        } else {
+          logger.debug('Recent Teams transcript intake found no new transcripts for profile', {
+            profileId,
+            pending,
+            skipped
+          });
+        }
+      } catch (error) {
+        totals.failedProfiles += 1;
+        logger.error('Recent Teams transcript intake failed for profile', {
+          profileId,
+          error: error.message
+        });
+      }
+    }
+
+    if (totals.imported || totals.failed || totals.failedProfiles) {
+      logger.info('Recent Teams transcript intake summary', totals);
+    }
+  } catch (error) {
+    logger.error('Error running recent Teams transcript intake:', error);
+  } finally {
+    recentTeamsTranscriptIntakeRunning = false;
+  }
+}
+
+/**
  * Start the task scheduler
  */
 function startScheduler() {
@@ -551,6 +686,7 @@ function startScheduler() {
     checkOverdueTasks();
     sendDailyDigest();
     runDailyIntake();
+    runRecentTeamsTranscriptIntake();
   }, 5000);
 
   // Then check periodically
@@ -559,6 +695,7 @@ function startScheduler() {
     checkOverdueTasks();
     sendDailyDigest();
     runDailyIntake();
+    runRecentTeamsTranscriptIntake();
   }, CHECK_INTERVAL);
 }
 
@@ -568,5 +705,6 @@ module.exports = {
   checkOverdueTasks,
   sendDailyDigest,
   runDailyIntake,
+  runRecentTeamsTranscriptIntake,
   isQuietHours
 };

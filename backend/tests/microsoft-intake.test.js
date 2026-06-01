@@ -8,6 +8,9 @@ const {
   buildOnlineMeetingsLookupEndpoint,
   buildRecordingContentEndpoint,
   buildTranscriptContentEndpoint,
+  getMeetingJoinUrl,
+  isMeetingEndedBefore,
+  isTeamsMeeting,
   isUsableGraphContentUrl,
   listAssetCollection,
   normalizeTranscriptContent,
@@ -161,4 +164,35 @@ test('selects the latest Teams recording by creation time', () => {
   ]);
 
   assert.equal(latest.id, 'newer');
+});
+
+test('detects Teams meetings from metadata and body join URLs', () => {
+  const metadataMeeting = {
+    isOnlineMeeting: false,
+    onlineMeetingUrl: 'https://teams.microsoft.com/l/meetup-join/abc'
+  };
+  const bodyMeeting = {
+    body: {
+      contentType: 'html',
+      content: '<p>Join: <a href="https://teams.microsoft.com/l/meetup-join/xyz?context=123&amp;tenantId=abc">link</a></p>'
+    }
+  };
+
+  assert.equal(isTeamsMeeting(metadataMeeting), true);
+  assert.equal(isTeamsMeeting(bodyMeeting), true);
+  assert.equal(getMeetingJoinUrl(bodyMeeting), 'https://teams.microsoft.com/l/meetup-join/xyz?context=123&tenantId=abc');
+  assert.equal(isTeamsMeeting({ bodyPreview: 'in person' }), false);
+});
+
+test('parses UTC Graph calendar boundaries before deciding transcript retry eligibility', () => {
+  const meeting = {
+    end: {
+      dateTime: '2026-06-01T14:00:00.0000000',
+      timeZone: 'UTC'
+    }
+  };
+
+  assert.equal(isMeetingEndedBefore(meeting, new Date('2026-06-01T14:30:00Z')), true);
+  assert.equal(isMeetingEndedBefore(meeting, new Date('2026-06-01T13:59:59Z')), false);
+  assert.equal(isMeetingEndedBefore({ end: null }, new Date('2026-06-01T14:30:00Z')), false);
 });
