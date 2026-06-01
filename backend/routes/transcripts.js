@@ -10,6 +10,11 @@ const { createModuleLogger } = require('../utils/logger');
 const axios = require('axios');
 const FormData = require('form-data');
 const { getHttpsAgent } = require('../utils/https-agent');
+const {
+  getTaskProfileContext,
+  recordSystemTaskUpdate,
+  reviewExtractedTasksForCreation
+} = require('../services/task-creation-governor');
 
 const logger = createModuleLogger('TRANSCRIPTS');
 
@@ -25,6 +30,238 @@ const CERT_ERROR_CODES = [
   'SELF_SIGNED_CERT_IN_CHAIN',
   'DEPTH_ZERO_SELF_SIGNED_CERT'
 ];
+
+const PRIORITY_RANK = {
+  lowest: 1,
+  low: 2,
+  normal: 3,
+  medium: 3,
+  high: 4,
+  highest: 5,
+  critical: 5,
+  urgent: 5
+};
+
+function normalizePriority(value, fallback = 'medium') {
+  const normalized = String(value || '').toLowerCase().trim();
+  if (!normalized) return fallback;
+  if (normalized === 'normal') return 'medium';
+  if (normalized === 'urgent' || normalized === 'critical') return 'highest';
+  return PRIORITY_RANK[normalized] ? normalized : fallback;
+}
+
+function chooseHigherPriority(currentValue, nextValue) {
+  const current = normalizePriority(currentValue);
+  const next = normalizePriority(nextValue, current);
+  return (PRIORITY_RANK[next] || 0) > (PRIORITY_RANK[current] || 0) ? next : current;
+}
+
+function normalizeDateValue(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return String(value);
+  return parsed.toISOString().split('T')[0];
+}
+
+function areDatesDifferent(left, right) {
+  return normalizeDateValue(left) !== normalizeDateValue(right);
+}
+
+function describeUpdateCandidate(candidate) {
+  if (!candidate) return '';
+  if (candidate.aiUpdates?.description) return candidate.aiUpdates.description;
+  if (candidate.task_type === 'follow-up' && candidate.with) {
+    return `Follow up with ${candidate.with}: ${candidate.description}`;
+  }
+  return candidate.description || '';
+}
+
+function buildUpdateNote(candidate, transcriptId) {
+  const parts = [
+    `Source transcript: ${transcriptId}`,
+    candidate.gateReason,
+    candidate.aiUpdates?.notes,
+    `New signal: ${describeUpdateCandidate(candidate)}`
+  ].filter(Boolean);
+
+  if (candidate.deadline || candidate.aiUpdates?.deadline) {
+    parts.push(`Date signal: ${candidate.aiUpdates?.deadline || candidate.deadline}`);
+  }
+
+  if (candidate.priority || candidate.aiUpdates?.priority) {
+    parts.push(`Priority signal: ${candidate.aiUpdates?.priority || candidate.priority}`);
+  }
+
+  return parts.join('\n');
+}
+
+function appendNote(existing, note) {
+  if (!note) return existing || null;
+  const timestamp = new Date().toISOString();
+  const block = `[${timestamp}] AI update\n${note}`;
+  return existing ? `${existing}\n\n${block}` : block;
+}
+
+async function syncUpdatedTaskToExternalServices(db, beforeTask, updatedTask, updateNote, profileId) {
+  if ((updatedTask.task_type || 'commitment') === 'risk') {
+    return { calendarUpdated: false, microsoftUpdated: false, jiraUpdated: false };
+  }
+
+  const result = {
+    calendarUpdated: false,
+    microsoftUpdated: false,
+    jiraUpdated: false
+  };
+
+  const deadlineChanged = areDatesDifferent(beforeTask.deadline, updatedTask.deadline);
+
+  if (beforeTask.calendar_event_id && deadlineChanged) {
+    try {
+      const isConnected = await calendarSync.isConnected(profileId);
+      if (isConnected) {
+        if (beforeTask.calendar_event_id) {
+          await calendarSync.deleteEvent(beforeTask.calendar_event_id, profileId);
+        }
+
+        if (updatedTask.deadline) {
+          const { event, provider } = await calendarSync.createEventFromCommitment(updatedTask, profileId);
+          await db.run(
+            'UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?',
+            [event.id, updatedTask.id, profileId]
+          );
+          updatedTask.calendar_event_id = event.id;
+          logger.info(`Updated ${provider} calendar event ${event.id} for task ${updatedTask.id}`);
+        } else if (beforeTask.calendar_event_id) {
+          await db.run(
+            'UPDATE commitments SET calendar_event_id = NULL WHERE id = ? AND profile_id = ?',
+            [updatedTask.id, profileId]
+          );
+          updatedTask.calendar_event_id = null;
+        }
+        result.calendarUpdated = true;
+      }
+    } catch (error) {
+      logger.warn(`Failed to update calendar event for task ${updatedTask.id}: ${error.message}`);
+    }
+  }
+
+  if (updatedTask.microsoft_task_id) {
+    try {
+      const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
+      if (isMicrosoftConnected) {
+        result.microsoftUpdated = await microsoftPlanner.updateTaskFromCommitment(
+          updatedTask.microsoft_task_id,
+          updatedTask,
+          updateNote,
+          profileId
+        );
+      }
+    } catch (error) {
+      logger.warn(`Failed to update Microsoft task ${updatedTask.microsoft_task_id}: ${error.message}`);
+    }
+  }
+
+  if (updatedTask.jira_task_id) {
+    try {
+      const isJiraConnected = await jira.isConnected(profileId);
+      if (isJiraConnected) {
+        result.jiraUpdated = await jira.updateIssueFromCommitment(
+          updatedTask.jira_task_id,
+          updatedTask,
+          updateNote,
+          profileId
+        );
+      }
+    } catch (error) {
+      logger.warn(`Failed to update Jira issue ${updatedTask.jira_task_id}: ${error.message}`);
+    }
+  }
+
+  return result;
+}
+
+async function applyTaskUpdatesFromReview(db, transcriptId, review, profileId) {
+  const updates = review.updates || [];
+  let updatedCount = 0;
+
+  for (const candidate of updates) {
+    const existingId = candidate.duplicateOfId;
+    if (!existingId) continue;
+
+    const beforeTask = await db.get(
+      'SELECT * FROM commitments WHERE id = ? AND profile_id = ?',
+      [existingId, profileId]
+    );
+
+    if (!beforeTask) {
+      logger.warn(`Task creation review referenced missing duplicate task ${existingId}`);
+      continue;
+    }
+
+    const updateNote = buildUpdateNote(candidate, transcriptId);
+    const desiredPriority = candidate.aiUpdates?.priority || candidate.priority;
+    const mergedPriority = chooseHigherPriority(beforeTask.priority || beforeTask.urgency, desiredPriority);
+    const desiredDeadline = candidate.aiUpdates?.deadline || candidate.deadline || null;
+    const improvedDescription = candidate.aiUpdates?.description || null;
+    const changes = [];
+    const params = [];
+    const changedFields = {};
+
+    if (improvedDescription && improvedDescription !== beforeTask.description) {
+      changes.push('description = ?');
+      params.push(improvedDescription);
+      changedFields.description = { from: beforeTask.description, to: improvedDescription };
+    }
+
+    if (desiredDeadline && areDatesDifferent(beforeTask.deadline, desiredDeadline)) {
+      changes.push('deadline = ?');
+      params.push(desiredDeadline);
+      changedFields.deadline = { from: beforeTask.deadline, to: desiredDeadline };
+    }
+
+    if (mergedPriority !== normalizePriority(beforeTask.priority || beforeTask.urgency)) {
+      changes.push('priority = ?', 'urgency = ?');
+      params.push(mergedPriority, mergedPriority);
+      changedFields.priority = { from: beforeTask.priority || beforeTask.urgency, to: mergedPriority };
+    }
+
+    const desiredAssignee = candidate.aiUpdates?.assignee || candidate.assignee || null;
+    if (desiredAssignee && !beforeTask.assignee) {
+      changes.push('assignee = ?');
+      params.push(desiredAssignee);
+      changedFields.assignee = { from: beforeTask.assignee, to: desiredAssignee };
+    }
+
+    const nextSuggestedApproach = appendNote(beforeTask.suggested_approach, candidate.aiUpdates?.notes || updateNote);
+    const nextSystemNotes = appendNote(beforeTask.system_notes, updateNote);
+    changes.push('suggested_approach = ?', 'system_notes = ?');
+    params.push(nextSuggestedApproach, nextSystemNotes);
+    changedFields.notes = { appended: true };
+
+    params.push(existingId, profileId);
+    await db.run(
+      `UPDATE commitments SET ${changes.join(', ')} WHERE id = ? AND profile_id = ?`,
+      params
+    );
+
+    const updatedTask = await db.get(
+      'SELECT * FROM commitments WHERE id = ? AND profile_id = ?',
+      [existingId, profileId]
+    );
+
+    await syncUpdatedTaskToExternalServices(db, beforeTask, updatedTask, updateNote, profileId);
+    await recordSystemTaskUpdate({
+      profileId,
+      task: updatedTask,
+      reason: candidate.gateReason || 'New meeting/email signal updated existing task',
+      updates: changedFields
+    });
+
+    updatedCount++;
+  }
+
+  return updatedCount;
+}
 
 /**
  * Check if a file is an audio file based on extension and mimetype
@@ -140,22 +377,23 @@ async function createAndProcessTranscript({
  */
 async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
   const profileId = req.profileId || 2;
-  const isCalendarConnected = await calendarSync.isConnected(profileId);
   const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
   const isJiraConnected = await jira.isConnected(profileId);
-  logger.info(`Profile ${profileId} - Calendar connected: ${isCalendarConnected}, Microsoft Planner connected: ${isMicrosoftConnected}, Jira connected: ${isJiraConnected}`);
 
-  // Get user names from config
-  let userNames = [];
-  try {
-    const userNamesConfig = await db.get('SELECT value FROM config WHERE key = ?', ['userNames']);
-    if (userNamesConfig && userNamesConfig.value) {
-      userNames = userNamesConfig.value.split(',').map(name => name.trim()).filter(Boolean);
-      logger.info(`User names configured: ${userNames.join(', ')}`);
-    }
-  } catch (err) {
-    logger.warn('Could not retrieve user names from config:', err.message);
-  }
+  const review = await reviewExtractedTasksForCreation(extracted, { profileId });
+  extracted = review.filtered;
+  const profileContext = review.context || await getTaskProfileContext(profileId);
+  const userNames = profileContext.userAliases || [];
+  const primaryUserName = profileContext.primaryUserName || userNames[0] || null;
+  const autoCreateCalendarEvents = profileContext.preferences?.taskCalendarAutoCreate === true;
+  const isCalendarConnected = autoCreateCalendarEvents ? await calendarSync.isConnected(profileId) : false;
+  logger.info(`Profile ${profileId} - Calendar auto-create: ${autoCreateCalendarEvents}, Calendar connected: ${isCalendarConnected}, Microsoft Planner connected: ${isMicrosoftConnected}, Jira connected: ${isJiraConnected}`);
+  logger.info(`Task creation review filtered extraction`, {
+    accepted: review.accepted.length,
+    updates: review.updates.length,
+    skipped: review.skipped.length,
+    skippedReasons: review.skipped.slice(0, 10).map(item => item.reason)
+  });
 
   // Helper function to check if assignee matches user
   const isAssignedToUser = (assignee) => {
@@ -169,7 +407,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
     if (!assignee) return true; // No assignee = needs confirmation
     const assigneeLower = assignee.toLowerCase().trim();
     if (assigneeLower === 'tbd' || assigneeLower === 'unknown' || assigneeLower === '') return true;
-    if (userNames.length === 0) return false; // No user names configured = don't require confirmation
+    if (userNames.length === 0) return true;
     return !isAssignedToUser(assignee); // Not assigned to user = needs confirmation
   };
 
@@ -178,6 +416,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
   const getBooleanValue = (value) => dbType === 'postgres' ? value : (value ? 1 : 0);
 
   let totalSaved = 0;
+  const totalUpdated = await applyTaskUpdatesFromReview(db, transcriptId, review, profileId);
   let calendarEventsCreated = 0;
   
   // Prepare statement for all task types (with needs_confirmation)
@@ -244,10 +483,10 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
+      // Only create calendar events for tasks clearly assigned to the user
       if (item.deadline && isUserTask && !requiresConfirmation) {
         // Create calendar event
-        if (isCalendarConnected) {
+        if (autoCreateCalendarEvents && isCalendarConnected) {
           try {
             const { event, provider } = await calendarSync.createEventFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
             await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
@@ -257,18 +496,16 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
             logger.warn(`Failed to create calendar event: ${calError.message}`);
           }
         }
-        
-        // Create Microsoft Planner task
-        if (isMicrosoftConnected) {
-          try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
-            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
-            logger.info(`Created Microsoft task ${microsoftTask.id} for commitment ${insertedId}`);
-          } catch (msError) {
-            logger.warn(`Failed to create Microsoft task: ${msError.message}`);
-          }
+      }
+
+      if (isUserTask && !requiresConfirmation && isMicrosoftConnected) {
+        try {
+          const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
+          await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
+          logger.info(`Created Microsoft task ${microsoftTask.id} for commitment ${insertedId}`);
+        } catch (msError) {
+          logger.warn(`Failed to create Microsoft task: ${msError.message}`);
         }
-        
       }
       
       // Create Jira issue for all commitments (regardless of deadline or assignment)
@@ -309,10 +546,10 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
+      // Only create calendar events for tasks clearly assigned to the user
       if (item.deadline && isUserTask && !requiresConfirmation) {
         // Create calendar event
-        if (isCalendarConnected) {
+        if (autoCreateCalendarEvents && isCalendarConnected) {
           try {
             const { event, provider } = await calendarSync.createEventFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
             await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
@@ -323,17 +560,16 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
           }
         }
         
-        // Create Microsoft Planner task
-        if (isMicrosoftConnected) {
-          try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
-            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
-            logger.info(`Created Microsoft task ${microsoftTask.id} for action ${insertedId}`);
-          } catch (msError) {
-            logger.warn(`Failed to create Microsoft task: ${msError.message}`);
-          }
+      }
+
+      if (isUserTask && !requiresConfirmation && isMicrosoftConnected) {
+        try {
+          const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
+          await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
+          logger.info(`Created Microsoft task ${microsoftTask.id} for action ${insertedId}`);
+        } catch (msError) {
+          logger.warn(`Failed to create Microsoft task: ${msError.message}`);
         }
-        
       }
       
       // Create Jira issue for all actions (regardless of deadline or assignment)
@@ -354,9 +590,9 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
   if (extracted.followUps && extracted.followUps.length > 0) {
     for (const item of extracted.followUps) {
       const description = item.with ? `Follow up with ${item.with}: ${item.description}` : item.description;
-      const assignee = item.with || null;
+      const assignee = primaryUserName;
       const requiresConfirmation = needsConfirmation(assignee);
-      const isUserTask = isAssignedToUser(assignee);
+      const isUserTask = Boolean(assignee) && isAssignedToUser(assignee);
       
       const result = await stmt.run(
         transcriptId,
@@ -375,10 +611,10 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
       const insertedId = result.lastID || (result.rows && result.rows[0] && result.rows[0].id);
       totalSaved++;
       
-      // Only create calendar events and Microsoft tasks for tasks clearly assigned to the user
+      // Only create calendar events for tasks clearly assigned to the user
       if (item.deadline && isUserTask && !requiresConfirmation) {
         // Create calendar event
-        if (isCalendarConnected) {
+        if (autoCreateCalendarEvents && isCalendarConnected) {
           try {
             const { event, provider } = await calendarSync.createEventFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
             await db.run('UPDATE commitments SET calendar_event_id = ? WHERE id = ? AND profile_id = ?', [event.id, insertedId, req.profileId]);
@@ -389,17 +625,16 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
           }
         }
         
-        // Create Microsoft Planner task
-        if (isMicrosoftConnected) {
-          try {
-            const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
-            await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
-            logger.info(`Created Microsoft task ${microsoftTask.id} for follow-up ${insertedId}`);
-          } catch (msError) {
-            logger.warn(`Failed to create Microsoft task: ${msError.message}`);
-          }
+      }
+
+      if (isUserTask && !requiresConfirmation && isMicrosoftConnected) {
+        try {
+          const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
+          await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
+          logger.info(`Created Microsoft task ${microsoftTask.id} for follow-up ${insertedId}`);
+        } catch (msError) {
+          logger.warn(`Failed to create Microsoft task: ${msError.message}`);
         }
-        
       }
       
       // Create Jira issue for all follow-ups (regardless of deadline or assignment)
@@ -443,10 +678,11 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
   }
   
   await stmt.finalize();
-  logger.info(`Total: Saved ${totalSaved} tasks, created ${calendarEventsCreated} calendar events`);
+  logger.info(`Total: Saved ${totalSaved} tasks, updated ${totalUpdated} tasks, created ${calendarEventsCreated} calendar events`);
   
   return {
     saved: totalSaved,
+    updated: totalUpdated,
     calendarEvents: calendarEventsCreated,
     byType: {
       commitments: extracted.commitments?.length || 0,

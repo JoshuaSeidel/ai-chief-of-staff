@@ -1,6 +1,6 @@
 const { callAI, generateResponse, getModel, getMaxTokens } = require('./ai-service');
-const { getDb } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
+const { getTaskProfileContext } = require('./task-creation-governor');
 
 const logger = createModuleLogger('CLAUDE');
 
@@ -124,31 +124,36 @@ async function extractCommitments(transcriptText, meetingDate = null, profileId 
   const today = new Date().toISOString().split('T')[0];
   const dateContext = meetingDate ? `This meeting occurred on: ${meetingDate}` : `Today's date: ${today}`;
 
-  // Get user names from config
-  const db = getDb();
-  let userNames = [];
-  try {
-    const userNamesConfig = await db.get('SELECT value FROM config WHERE key = ?', ['userNames']);
-    if (userNamesConfig && userNamesConfig.value) {
-      // Parse comma-separated names
-      userNames = userNamesConfig.value.split(',').map(name => name.trim()).filter(Boolean);
-      logger.info(`User names configured: ${userNames.join(', ')}`);
-    }
-  } catch (err) {
-    logger.warn('Could not retrieve user names from config:', err.message);
-  }
+  const profileContext = await getTaskProfileContext(profileId, { refreshMicrosoftProfile: true });
+  const userAliases = profileContext.userAliases;
+  logger.info(`Task extraction profile context loaded`, {
+    profileId,
+    aliasCount: userAliases.length,
+    jobTitle: profileContext.jobTitle || null,
+    companyName: profileContext.companyName || null
+  });
 
-  const userNamesContext = userNames.length > 0 
-    ? `\n\nIMPORTANT - USER FILTERING:\nThe user's name(s) are: ${userNames.join(', ')}\n- Only extract tasks where the assignee clearly matches one of these names\n- If assignee is unclear, ambiguous, or doesn't match, set assignee to "TBD" or "Unknown"\n- If assignee is clearly someone else (not in the list), set assignee to that person's name (don't filter it out, but mark it)\n- Tasks assigned to the user (${userNames.join(' or ')}) should have the exact name match\n`
-    : '';
+  const prompt = `Analyze this meeting transcript and extract actionable items for the configured user.
 
-  const prompt = `Analyze this meeting transcript and extract actionable items - both explicitly stated AND implied by the discussion.
+${dateContext}
 
-${dateContext}${userNamesContext}
+Configured user profile:
+- Profile: ${profileContext.profileName || 'unknown'}
+- User aliases/names/emails: ${userAliases.join(', ') || 'not configured'}
+- Job title: ${profileContext.jobTitle || 'unknown'}
+- Company: ${profileContext.companyName || 'unknown'}
+- Department: ${profileContext.department || 'unknown'}
+
+Editable learning instructions:
+${profileContext.taskExtractionInstructions}
 
 Look for:
-- EXPLICIT commitments: "I will...", "I'll...", "We'll...", "Let me..."
-- IMPLICIT tasks: Problems discussed that need solutions, decisions that need follow-up, research mentioned, etc.
+- EXPLICIT user-owned commitments: "I will...", "I'll...", "Let me..." by the configured user, or a direct assignment to the configured user
+- User-owned action items that are clearly assigned to the configured user
+- Follow-ups the configured user should perform, including checking on another person's work when it matters to the user's role
+- Risks only when the configured user likely needs awareness or follow-up because of their role
+- Do not extract general team work, someone else's assignment, or ambiguous "we should" work as commitments/actions
+- Do not create tasks for other people. If it belongs to someone else, omit it unless it should be a follow-up for the configured user.
 - Assign realistic deadlines within 2 WEEKS unless a specific date/timeline is mentioned:
   * If specific date mentioned: use that date
   * If "urgent" or "ASAP": meeting date + 3 days
@@ -156,7 +161,9 @@ Look for:
   * If no timeline: meeting date + 7-14 days (default to 1 week for most tasks)
   * Research/investigation: meeting date + 10 days
 - ALL items should have deadlines - never use null for deadline
-- For assignee field: Use exact name if clear, "TBD" if ambiguous, or the actual person's name if clearly someone else
+- For commitments/actionItems assignee field: use the configured user's best matching alias only. If the assignee is ambiguous or someone else, omit the item.
+- For followUps with field: put the person/team the user should follow up with.
+- When uncertain, omit the item.
 
 Transcript:
 ${transcriptText}

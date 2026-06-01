@@ -125,6 +125,46 @@ async function isConnected(profileId = 2) {
   }
 }
 
+function toAdfText(text) {
+  return {
+    type: 'doc',
+    version: 1,
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: String(text || '')
+          }
+        ]
+      }
+    ]
+  };
+}
+
+function mapPriorityId(priority) {
+  const priorityMap = {
+    highest: '1',
+    critical: '1',
+    urgent: '1',
+    high: '2',
+    medium: '3',
+    normal: '3',
+    low: '4',
+    lowest: '5'
+  };
+
+  return priorityMap[String(priority || '').toLowerCase()] || '3';
+}
+
+function formatJiraDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().split('T')[0];
+}
+
 /**
  * Disconnect Jira for a profile
  * @param {number} profileId - Profile ID to disconnect
@@ -232,21 +272,7 @@ async function createIssue(issueData, profileId = 2) {
   if (description) {
     // Jira uses ADF (Atlassian Document Format) for rich text
     // For simplicity, we'll use plain text in description field
-    issue.fields.description = {
-      type: 'doc',
-      version: 1,
-      content: [
-        {
-          type: 'paragraph',
-          content: [
-            {
-              type: 'text',
-              text: description
-            }
-          ]
-        }
-      ]
-    };
+    issue.fields.description = toAdfText(description);
   }
   
   // Add assignee if provided
@@ -323,6 +349,52 @@ async function createIssue(issueData, profileId = 2) {
 }
 
 /**
+ * Update a Jira issue from a commitment and append a context note.
+ * @param {string} issueKey - Jira issue key
+ * @param {object} commitment - Local commitment/task data
+ * @param {string} updateNote - Optional note to add as a Jira comment
+ * @param {number} profileId - Profile ID to use
+ */
+async function updateIssueFromCommitment(issueKey, commitment, updateNote = '', profileId = 2) {
+  try {
+    const fields = {
+      summary: commitment.description,
+      priority: {
+        id: mapPriorityId(commitment.urgency || commitment.priority)
+      }
+    };
+
+    const descriptionParts = [
+      commitment.suggested_approach || commitment.description,
+      commitment.system_notes ? `System notes:\n${commitment.system_notes}` : ''
+    ].filter(Boolean);
+
+    if (descriptionParts.length > 0) {
+      fields.description = toAdfText(descriptionParts.join('\n\n'));
+    }
+
+    const dueDate = formatJiraDate(commitment.deadline);
+    if (dueDate) {
+      fields.duedate = dueDate;
+    }
+
+    await jiraRequest(`/issue/${issueKey}`, 'PUT', { fields }, profileId);
+
+    if (updateNote) {
+      await jiraRequest(`/issue/${issueKey}/comment`, 'POST', {
+        body: toAdfText(`AI Chief of Staff update:\n${updateNote}`)
+      }, profileId);
+    }
+
+    logger.info(`Updated Jira issue ${issueKey} from commitment ${commitment.id}`);
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to update Jira issue ${issueKey}: ${error.message}`);
+    return false;
+  }
+}
+
+/**
  * Transition a Jira issue to Done/Closed status
  * @param {string} issueKey - Jira issue key
  * @param {string} completionNote - Optional completion note
@@ -334,21 +406,7 @@ async function closeIssue(issueKey, completionNote = null, profileId = 2) {
     if (completionNote) {
       try {
         await jiraRequest(`/issue/${issueKey}/comment`, 'POST', {
-          body: {
-            type: 'doc',
-            version: 1,
-            content: [
-              {
-                type: 'paragraph',
-                content: [
-                  {
-                    type: 'text',
-                    text: `✅ Completion Note: ${completionNote}`
-                  }
-                ]
-              }
-            ]
-          }
+          body: toAdfText(`Completion Note: ${completionNote}`)
         }, profileId);
         logger.info(`Added completion note to Jira issue ${issueKey}`);
       } catch (commentError) {
@@ -479,9 +537,9 @@ module.exports = {
   getIssueTypes,
   createIssue,
   createIssueFromCommitment,
+  updateIssueFromCommitment,
   closeIssue,
   deleteIssue,
   getIssue,
   listIssues
 };
-

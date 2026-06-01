@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   Bot,
+  CalendarPlus,
   CheckCircle2,
   ClipboardList,
   Plus,
@@ -11,7 +12,7 @@ import {
   Undo2,
   Zap
 } from 'lucide-react';
-import { commitmentsAPI, intelligenceAPI, plannerAPI } from '../services/api';
+import { calendarAPI, commitmentsAPI, intelligenceAPI, plannerAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 import CompletionModal from './CompletionModal';
 import { useToast } from '../contexts/ToastContext';
@@ -31,6 +32,8 @@ function Commitments() {
   const [syncingJira, setSyncingJira] = useState(false);
   const [jiraConnected, setJiraConnected] = useState(false);
   const [hasFailedSyncs, setHasFailedSyncs] = useState(false);
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [addingToCalendarId, setAddingToCalendarId] = useState(null);
   const [filter, setFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -53,6 +56,7 @@ function Commitments() {
 
   useEffect(() => {
     loadCommitments();
+    checkCalendarStatus();
     checkMicrosoftPlannerStatus();
     checkJiraStatus();
   }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,6 +101,21 @@ function Commitments() {
     } catch (err) {
       console.error('Failed to check Microsoft Planner status:', err);
       setMicrosoftConnected(false);
+    }
+  };
+
+  const checkCalendarStatus = async () => {
+    try {
+      const [googleResponse, microsoftResponse] = await Promise.allSettled([
+        calendarAPI.getGoogleStatus(),
+        calendarAPI.getMicrosoftStatus()
+      ]);
+      const googleConnected = googleResponse.status === 'fulfilled' && googleResponse.value.data.connected;
+      const microsoftConnectedValue = microsoftResponse.status === 'fulfilled' && microsoftResponse.value.data.connected;
+      setCalendarConnected(Boolean(googleConnected || microsoftConnectedValue));
+    } catch (err) {
+      console.error('Failed to check calendar status:', err);
+      setCalendarConnected(false);
     }
   };
 
@@ -246,9 +265,36 @@ function Commitments() {
         toast.error(`Failed to create task: ${response.data.message || 'Unknown error'}`);
       }
     } catch (err) {
-      toast.error(`Error creating task: ${err.response?.data?.message || err.message}`);
+      if (err.response?.status === 409) {
+        toast.warning(err.response?.data?.message || 'A similar task already exists');
+      } else {
+        toast.error(`Error creating task: ${err.response?.data?.message || err.message}`);
+      }
     } finally {
       setCreating(false);
+    }
+  };
+
+  const addTaskToCalendar = async (task) => {
+    if (!calendarConnected) {
+      toast.warning('Connect Google or Microsoft Calendar in Settings first');
+      return;
+    }
+
+    if (!task.deadline) {
+      toast.warning('Add a deadline before placing this task on the calendar');
+      return;
+    }
+
+    setAddingToCalendarId(task.id);
+    try {
+      await commitmentsAPI.addToCalendar(task.id);
+      await loadCommitments();
+      toast.success('Task added to calendar');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.response?.data?.error || 'Failed to add task to calendar');
+    } finally {
+      setAddingToCalendarId(null);
     }
   };
 
@@ -502,9 +548,28 @@ function Commitments() {
               ) : (
                 <DeadlineTime date={commitment.deadline} />
               )}
+              {commitment.calendar_event_id && <span> • On calendar</span>}
             </div>
+            {commitment.system_notes && (
+              <details className="task-system-notes" style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#a1a1aa' }}>
+                <summary>AI update notes</summary>
+                <pre style={{ whiteSpace: 'pre-wrap', margin: '0.5rem 0 0', fontFamily: 'inherit' }}>{commitment.system_notes}</pre>
+              </details>
+            )}
           </div>
           <div className="flex gap-sm flex-wrap" style={{ marginTop: '0.5rem' }}>
+            {variant !== 'completed' && commitment.deadline && !commitment.calendar_event_id && (commitment.task_type || 'commitment') !== 'risk' && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => addTaskToCalendar(commitment)}
+                disabled={addingToCalendarId === commitment.id}
+                loading={addingToCalendarId === commitment.id}
+                icon={<CalendarPlus size={15} />}
+              >
+                Add to Calendar
+              </Button>
+            )}
             {variant === 'completed' ? (
               <Button variant="secondary" size="sm" onClick={() => updateStatus(commitment.id, 'pending')} icon={<Undo2 size={15} />}>
                 Reopen

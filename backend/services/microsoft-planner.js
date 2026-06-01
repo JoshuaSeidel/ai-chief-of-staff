@@ -390,6 +390,88 @@ async function createTaskFromCommitment(commitment, profileId = 2) {
   }
 }
 
+function mapCommitmentImportance(commitment) {
+  const urgencyMap = {
+    highest: 'high',
+    critical: 'high',
+    urgent: 'high',
+    high: 'high',
+    medium: 'normal',
+    normal: 'normal',
+    low: 'low',
+    lowest: 'low'
+  };
+
+  const value = String(commitment.urgency || commitment.priority || '').toLowerCase();
+  return urgencyMap[value] || 'normal';
+}
+
+function mapCommitmentStatus(status) {
+  const statusMap = {
+    pending: 'notStarted',
+    in_progress: 'inProgress',
+    completed: 'completed'
+  };
+
+  return statusMap[status] || 'notStarted';
+}
+
+/**
+ * Update a Microsoft To Do task from a local commitment.
+ * @param {string} taskId - Microsoft To Do task ID
+ * @param {object} commitment - Local commitment/task data
+ * @param {string} updateNote - Optional note to append to the task body
+ * @param {number} profileId - Profile ID to use
+ */
+async function updateTaskFromCommitment(taskId, commitment, updateNote = '', profileId = 2) {
+  try {
+    const client = await getGraphClient(profileId);
+    const taskListId = await getTaskListId(profileId);
+
+    let existingBody = '';
+    try {
+      const currentTask = await client
+        .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+        .get();
+      existingBody = currentTask.body?.content || '';
+    } catch (error) {
+      logger.warn(`Could not read Microsoft task ${taskId} before update: ${error.message}`);
+    }
+
+    const bodyParts = [existingBody || commitment.suggested_approach || commitment.description];
+    if (updateNote) {
+      bodyParts.push(`AI Chief of Staff update (${new Date().toISOString()}):\n${updateNote}`);
+    }
+
+    const updateData = {
+      title: commitment.description,
+      body: {
+        contentType: 'text',
+        content: bodyParts.filter(Boolean).join('\n\n')
+      },
+      importance: mapCommitmentImportance(commitment),
+      status: mapCommitmentStatus(commitment.status)
+    };
+
+    if (commitment.deadline) {
+      updateData.dueDateTime = {
+        dateTime: new Date(commitment.deadline).toISOString(),
+        timeZone: 'UTC'
+      };
+    }
+
+    await client
+      .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+      .patch(updateData);
+
+    logger.info(`Updated Microsoft task ${taskId} from commitment ${commitment.id}`);
+    return true;
+  } catch (error) {
+    logger.warn(`Failed to update Microsoft task ${taskId}: ${error.message}`);
+    return false;
+  }
+}
+
 /**
  * Update task status (mark as completed)
  * @param {string} taskId - Task ID
@@ -520,6 +602,7 @@ module.exports = {
   getTaskListId,
   createTask,
   createTaskFromCommitment,
+  updateTaskFromCommitment,
   updateTaskStatus,
   completeTask,
   deleteTask,

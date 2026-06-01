@@ -187,6 +187,7 @@ export const tasksAPI = {
   create: (data) => api.post('/commitments', data),
   update: (id, data) => api.put(`/commitments/${id}`, data),
   delete: (id) => api.delete(`/commitments/${id}`),
+  addToCalendar: (id) => api.post(`/commitments/${id}/calendar`),
   getOverdue: () => api.get('/commitments/status/overdue'),
   confirm: (id, confirmed) => api.post(`/commitments/${id}/confirm`, { confirmed }),
 };
