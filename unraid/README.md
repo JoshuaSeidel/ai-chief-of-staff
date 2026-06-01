@@ -7,6 +7,10 @@ For v2.3.0 and later, configure API token authentication before using the app in
 production. Destructive admin tools, including history wipe, require
 `AICOS_AUTH_TOKEN` or `API_TOKEN`.
 
+For v2.3.2 and later, generated tasks do not create calendar events by default.
+Task tracking is handled through the app, Microsoft To Do, Jira, or another
+task system unless a user explicitly adds an individual task to the calendar.
+
 ## Recommended Setup
 
 Use PostgreSQL for production-style Unraid deployments:
@@ -114,6 +118,38 @@ Unraid behind HTTPS, use this callback:
 https://aicos.yourdomain.com/api/calendar/microsoft/callback
 ```
 
+## Task Learning And Calendar Events
+
+Task extraction uses the profile's configured user aliases, role, company, and
+editable task instructions to avoid duplicates and avoid assigning other
+people's work to the configured user.
+
+Configure this in the UI:
+
+```text
+Settings > Prompts > Task Learning
+```
+
+Important behavior:
+
+- New meetings and emails update matching existing tasks before creating new
+  tasks.
+- Existing tasks can receive updated due dates, priority/severity, details, and
+  system notes.
+- Jira and Microsoft To Do receive update notes when a synced task changes.
+- Deleting or rejecting generated tasks records feedback for future extraction.
+- `Auto-create calendar events` is off by default.
+- Tasks with deadlines show `Add to Calendar` when you want an explicit calendar
+  block.
+
+To update an individual-container Unraid Compose deployment after a release:
+
+```bash
+docker compose pull aicos-backend aicos-frontend
+docker compose up -d aicos-backend aicos-frontend
+docker logs -f aicos-backend
+```
+
 ## Admin History Wipe
 
 The wipe tool is in:
@@ -168,6 +204,15 @@ three should use the public HTTPS origin/proxy setting.
 
 The provider redirect URI must exactly match the public callback URL. Update
 Google/Microsoft registration and reconnect the integration in Settings.
+
+### Tasks are not appearing on the calendar
+
+This is expected by default in v2.3.2 and later. Use `Add to Calendar` on a task
+card, or enable automatic task event creation in:
+
+```text
+Settings > Prompts > Task Learning
+```
 
 ### Container cannot connect to PostgreSQL
 

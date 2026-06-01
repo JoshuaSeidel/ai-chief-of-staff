@@ -15,10 +15,10 @@ systems, and keep sensitive operational data under your control.
 | Transcripts | Upload text, meeting notes, and supported audio/video files |
 | Email | Pull Microsoft 365 mailbox messages and process them like meeting records |
 | Meetings | Pull Microsoft 365 meetings and capture Teams transcripts/recordings when tenant permissions allow it |
-| Tasks | Track commitments, actions, follow-ups, risks, priorities, deadlines, and completion |
-| Calendar | Google Calendar and Microsoft Calendar connection flows |
+| Tasks | Track commitments, actions, follow-ups, risks, priorities, deadlines, completion, duplicate prevention, and AI update notes |
+| Calendar | Google Calendar and Microsoft Calendar connection flows, with task calendar events off by default |
 | Planning | Jira and Microsoft Planner/To Do task-system integrations |
-| AI | Task extraction, effort/energy analysis, grouping, patterns, and brief generation |
+| AI | Task extraction, update-first deduplication, effort/energy analysis, grouping, patterns, and brief generation |
 | Admin | Cache clearing and protected history wipe for starting fresh |
 
 ## Interface Preview
@@ -142,8 +142,10 @@ The frontend will prompt for the API token when the backend returns `401`.
 3. Select or create a profile.
 4. Configure an AI provider.
 5. Configure Microsoft 365, Google Calendar, Jira, or Planner if needed.
-6. Confirm the header shows only connectivity pills for configured services.
-7. Import a transcript, email, or meeting and review extracted tasks.
+6. Open `Settings > Prompts > Task Learning` and confirm the user's aliases,
+   role, company, and task extraction instructions.
+7. Confirm the header shows only connectivity pills for configured services.
+8. Import a transcript, email, or meeting and review extracted tasks.
 
 ## Docker Compose Notes
 
@@ -218,6 +220,55 @@ meeting invite and Microsoft Graph still exposes the non-expired Teams artifacts
 for that user.
 
 Read [docs/MICROSOFT-365-SETUP.md](docs/MICROSOFT-365-SETUP.md).
+
+## Task Learning And Updates
+
+AI Chief of Staff treats new work signals as updates to existing tasks before it
+creates anything new. Meeting transcripts, Teams artifacts, imported emails, and
+manual transcript uploads are reviewed against recent active work so duplicate
+or near-duplicate commitments are skipped or merged into an existing task.
+
+The task creation gate is intentionally conservative:
+
+- Commitments and action items are created only when the configured user is
+  clearly responsible for the work.
+- Work assigned to another person or an ambiguous owner is skipped.
+- Follow-ups may be created when the configured user should check, unblock,
+  request, or verify someone else's work because it matters to their role.
+- Existing tasks can receive updated deadlines, severity/priority, descriptions,
+  and system notes from later meetings or emails.
+- Update notes are pushed into connected task systems such as Jira and Microsoft
+  To Do where possible.
+- User deletes and rejections are recorded as learning events and can refine the
+  editable extraction instructions.
+
+Configure this in:
+
+```text
+Settings > Prompts > Task Learning
+```
+
+Editable fields include user aliases, job title, company, department, and the
+task extraction instructions that guide future AI review.
+
+## Calendar Task Events
+
+Generated tasks no longer create calendar events by default. This avoids
+polluting availability with task placeholders when the real tracking system is
+Jira, Microsoft To Do, or another task manager.
+
+Calendar behavior is profile-specific:
+
+- `Auto-create calendar events` is off by default.
+- Tasks with deadlines show an `Add to Calendar` button in the task card.
+- Existing calendar-linked tasks are kept in sync when their deadline changes.
+- Risks remain informational and are not added to calendars.
+
+To opt back into automatic calendar events:
+
+```text
+Settings > Prompts > Task Learning > Auto-create calendar events
+```
 
 ## Admin History Wipe
 
