@@ -99,6 +99,14 @@ function getEmailAddress(person) {
   return person?.emailAddress?.address || person?.address || '';
 }
 
+function normalizeTeamsJoinUrl(value) {
+  if (!value) return '';
+  return String(value)
+    .replace(/&amp;/gi, '&')
+    .replace(/[)\].,;]+$/g, '')
+    .trim();
+}
+
 function getMeetingJoinUrl(event) {
   const metadataUrl = event?.onlineMeeting?.joinUrl
     || event?.onlineMeeting?.joinWebUrl
@@ -106,7 +114,7 @@ function getMeetingJoinUrl(event) {
     || '';
 
   if (metadataUrl) {
-    return metadataUrl;
+    return normalizeTeamsJoinUrl(metadataUrl);
   }
 
   const rawBody = event?.body?.content || event?.bodyPreview || '';
@@ -114,7 +122,25 @@ function getMeetingJoinUrl(event) {
     ? `${rawBody}\n${stripHtml(rawBody)}`
     : rawBody;
   const match = String(bodyText).match(/https:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"']+/i);
-  return match?.[0]?.replace(/&amp;/gi, '&') || '';
+  return normalizeTeamsJoinUrl(match?.[0]);
+}
+
+function getMeetingJoinUrlVariants(event) {
+  const joinUrl = getMeetingJoinUrl(event);
+  if (!joinUrl) return [];
+
+  const candidates = [joinUrl];
+  try {
+    const decoded = decodeURI(joinUrl);
+    candidates.push(decoded);
+  } catch (error) {
+    // Keep the original URL only.
+  }
+
+  return candidates
+    .map(normalizeTeamsJoinUrl)
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index);
 }
 
 function isTeamsMeeting(event) {
@@ -124,6 +150,10 @@ function isTeamsMeeting(event) {
     || event?.onlineMeetingUrl
     || getMeetingJoinUrl(event)
   );
+}
+
+function isOutOfOfficeMeeting(event) {
+  return /\booto\b/i.test(event?.subject || '');
 }
 
 function parseGraphDateTime(value) {
@@ -518,8 +548,8 @@ async function resolveMeetingAccessUserId(profileId = 2) {
 }
 
 async function findOnlineMeetingForEvent(event, profileId = 2) {
-  const joinUrl = getMeetingJoinUrl(event);
-  if (!joinUrl) {
+  const joinUrlVariants = getMeetingJoinUrlVariants(event);
+  if (joinUrlVariants.length === 0) {
     return {
       accessUserId: null,
       organizerUserId: null,
@@ -531,27 +561,47 @@ async function findOnlineMeetingForEvent(event, profileId = 2) {
 
   const accessUserId = await resolveMeetingAccessUserId(profileId);
   const organizerUserId = getEmailAddress(event.organizer) || null;
+  const lookupUserIds = [accessUserId, organizerUserId]
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index);
   const client = await getApplicationGraphClient();
-  let response;
+  const warnings = [];
 
-  try {
-    response = await client
-      .api(buildOnlineMeetingsLookupEndpoint(accessUserId))
-      .filter(`JoinWebUrl eq '${escapeODataString(joinUrl)}'`)
-      .top(1)
-      .get();
-  } catch (error) {
-    throw new Error(`Unable to resolve Teams meeting for connected user ${accessUserId}: ${describeGraphError(error)}`);
+  for (const userId of lookupUserIds) {
+    for (const joinUrl of joinUrlVariants) {
+      try {
+        const response = await client
+          .api(buildOnlineMeetingsLookupEndpoint(userId))
+          .filter(`JoinWebUrl eq '${escapeODataString(joinUrl)}'`)
+          .top(1)
+          .get();
+        const onlineMeeting = (response.value || [])[0] || null;
+
+        if (onlineMeeting) {
+          return {
+            accessUserId: userId,
+            organizerUserId,
+            joinUrl,
+            onlineMeeting,
+            reason: null,
+            warnings
+          };
+        }
+      } catch (error) {
+        const message = describeGraphError(error);
+        warnings.push(`Unable to resolve Teams meeting for ${userId}: ${message}`);
+        logger.warn('Teams online meeting lookup failed', { userId, error: message });
+      }
+    }
   }
 
   return {
     accessUserId,
     organizerUserId,
-    joinUrl,
-    onlineMeeting: (response.value || [])[0] || null,
-    reason: response.value?.length
-      ? null
-      : 'No matching Teams online meeting was found for the connected Microsoft user'
+    joinUrl: joinUrlVariants[0],
+    onlineMeeting: null,
+    reason: 'No matching Teams online meeting was found for the connected Microsoft user or organizer',
+    warnings
   };
 }
 
@@ -594,7 +644,7 @@ async function getMeetingCaptureAssets(event, profileId = 2) {
       onlineMeeting: null,
       transcripts: [],
       recordings: [],
-      warnings: lookup.reason ? [lookup.reason] : []
+      warnings: [lookup.reason, ...(lookup.warnings || [])].filter(Boolean)
     };
   }
 
@@ -694,6 +744,7 @@ module.exports = {
   formatMeetingForTranscript,
   getMeetingCaptureAssets,
   isMeetingEndedBefore,
+  isOutOfOfficeMeeting,
   isTeamsMeeting,
   selectLatestTranscript,
   selectLatestRecording,
@@ -710,7 +761,9 @@ module.exports = {
     buildTranscriptContentEndpoint,
     encodePathSegment,
     getMeetingJoinUrl,
+    getMeetingJoinUrlVariants,
     isMeetingEndedBefore,
+    isOutOfOfficeMeeting,
     isTeamsMeeting,
     isUsableGraphContentUrl,
     listAssetCollection,

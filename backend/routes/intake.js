@@ -43,6 +43,15 @@ function pendingResult(id, error) {
   };
 }
 
+function skippedResult(id, reason) {
+  return {
+    imported: false,
+    skipped: true,
+    id,
+    reason
+  };
+}
+
 async function findExistingTranscript(filename, source, profileId) {
   const db = getDb();
   return db.get(
@@ -538,6 +547,10 @@ async function syncEmailMessages(options = {}, profileId = 2) {
 }
 
 async function importMeeting(meeting, profileId = 2) {
+  if (microsoftIntake.isOutOfOfficeMeeting(meeting)) {
+    return skippedResult(meeting.id, 'Skipped OOTO meeting');
+  }
+
   const payload = await buildMeetingImportPayload(meeting, profileId);
   const result = await processTranscriptOnce(payload);
   return {
@@ -571,6 +584,11 @@ async function importMeetingsInRange(options = {}, profileId = 2) {
   const results = [];
   for (const meeting of meetings) {
     try {
+      if (microsoftIntake.isOutOfOfficeMeeting(meeting)) {
+        results.push(skippedResult(meeting.id, 'Skipped OOTO meeting'));
+        continue;
+      }
+
       const fullMeeting = await microsoftIntake.getMeeting(meeting.id, profileId);
       results.push(await importMeeting(fullMeeting, profileId));
     } catch (error) {
@@ -597,7 +615,17 @@ async function importTeamsTranscriptsInRange(options = {}, profileId = 2) {
   const results = [];
   for (const meetingSummary of meetings) {
     try {
+      if (microsoftIntake.isOutOfOfficeMeeting(meetingSummary)) {
+        results.push(skippedResult(meetingSummary.id, 'Skipped OOTO meeting'));
+        continue;
+      }
+
       const fullMeeting = await microsoftIntake.getMeeting(meetingSummary.id, profileId);
+
+      if (microsoftIntake.isOutOfOfficeMeeting(fullMeeting)) {
+        results.push(skippedResult(meetingSummary.id, 'Skipped OOTO meeting'));
+        continue;
+      }
 
       if (!microsoftIntake.isTeamsMeeting(fullMeeting)) {
         results.push({

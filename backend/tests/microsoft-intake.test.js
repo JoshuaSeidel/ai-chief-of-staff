@@ -9,7 +9,9 @@ const {
   buildRecordingContentEndpoint,
   buildTranscriptContentEndpoint,
   getMeetingJoinUrl,
+  getMeetingJoinUrlVariants,
   isMeetingEndedBefore,
+  isOutOfOfficeMeeting,
   isTeamsMeeting,
   isUsableGraphContentUrl,
   listAssetCollection,
@@ -182,6 +184,26 @@ test('detects Teams meetings from metadata and body join URLs', () => {
   assert.equal(isTeamsMeeting(bodyMeeting), true);
   assert.equal(getMeetingJoinUrl(bodyMeeting), 'https://teams.microsoft.com/l/meetup-join/xyz?context=123&tenantId=abc');
   assert.equal(isTeamsMeeting({ bodyPreview: 'in person' }), false);
+});
+
+test('normalizes Teams join URLs and keeps decoded lookup fallbacks', () => {
+  const meeting = {
+    bodyPreview: 'Join https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d.'
+  };
+
+  assert.equal(
+    getMeetingJoinUrl(meeting),
+    'https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d'
+  );
+  assert.deepEqual(getMeetingJoinUrlVariants(meeting), [
+    'https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d',
+    'https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context={"Tid"%3a"tenant"}'
+  ]);
+});
+
+test('marks OOTO calendar blocks as non-syncable meetings', () => {
+  assert.equal(isOutOfOfficeMeeting({ subject: 'OOTO - customer travel' }), true);
+  assert.equal(isOutOfOfficeMeeting({ subject: 'Team sync' }), false);
 });
 
 test('parses UTC Graph calendar boundaries before deciding transcript retry eligibility', () => {
