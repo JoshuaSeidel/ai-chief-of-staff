@@ -10,6 +10,7 @@ const {
   buildTranscriptContentEndpoint,
   getMeetingJoinUrl,
   getMeetingJoinUrlVariants,
+  getUserLookupCandidates,
   isMeetingEndedBefore,
   isOutOfOfficeMeeting,
   isTeamsMeeting,
@@ -195,15 +196,34 @@ test('normalizes Teams join URLs and keeps decoded lookup fallbacks', () => {
     getMeetingJoinUrl(meeting),
     'https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d'
   );
-  assert.deepEqual(getMeetingJoinUrlVariants(meeting), [
+  const variants = getMeetingJoinUrlVariants(meeting);
+
+  assert.deepEqual(variants.slice(0, 2), [
     'https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context=%7b%22Tid%22%3a%22tenant%22%7d',
     'https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0?context={"Tid"%3a"tenant"}'
   ]);
+  assert.equal(
+    variants.includes('https%3A%2F%2Fteams.microsoft.com%2Fl%2Fmeetup-join%2F19%253ameeting_abc%2540thread.v2%2F0%3Fcontext%3D%257b%2522Tid%2522%253a%2522tenant%2522%257d'),
+    true
+  );
 });
 
-test('marks OOTO calendar blocks as non-syncable meetings', () => {
+test('marks OOTO and PTO calendar blocks as non-syncable meetings', () => {
   assert.equal(isOutOfOfficeMeeting({ subject: 'OOTO - customer travel' }), true);
+  assert.equal(isOutOfOfficeMeeting({ subject: 'PTO - family day' }), true);
+  assert.equal(isOutOfOfficeMeeting({ subject: 'Out of Office - customer travel' }), true);
   assert.equal(isOutOfOfficeMeeting({ subject: 'Team sync' }), false);
+});
+
+test('prefers immutable Graph user IDs for online meeting lookup candidates', () => {
+  assert.deepEqual(
+    getUserLookupCandidates({
+      id: '7e4d-user-guid',
+      mail: 'jseidel@edgeconnex.com',
+      userPrincipalName: 'jseidel@edgeconnex.com'
+    }),
+    ['7e4d-user-guid', 'jseidel@edgeconnex.com']
+  );
 });
 
 test('parses UTC Graph calendar boundaries before deciding transcript retry eligibility', () => {

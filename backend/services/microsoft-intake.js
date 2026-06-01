@@ -137,9 +137,13 @@ function getMeetingJoinUrlVariants(event) {
     // Keep the original URL only.
   }
 
-  return candidates
+  const normalized = candidates
     .map(normalizeTeamsJoinUrl)
-    .filter(Boolean)
+    .filter(Boolean);
+
+  const encoded = normalized.map(value => encodeURIComponent(value));
+
+  return [...normalized, ...encoded]
     .filter((value, index, values) => values.indexOf(value) === index);
 }
 
@@ -153,7 +157,13 @@ function isTeamsMeeting(event) {
 }
 
 function isOutOfOfficeMeeting(event) {
-  return /\booto\b/i.test(event?.subject || '');
+  return /\b(?:ooto|pto)\b|\bout\s+of\s+office\b/i.test(event?.subject || '');
+}
+
+function getUserLookupCandidates(user = {}) {
+  return [user.id, user.mail, user.userPrincipalName]
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index);
 }
 
 function parseGraphDateTime(value) {
@@ -537,14 +547,14 @@ function meetingTranscriptFilename(event, transcript) {
   return `Teams Transcript - ${safeTitle(event.subject, 'No subject')} - ${shortExternalId(`${event.id}:${transcript.id}`)}.txt`;
 }
 
-async function getCurrentUserIdentifier(profileId = 2) {
+async function getCurrentUserLookupIds(profileId = 2) {
   const client = await microsoftCalendar.getGraphClient(profileId);
   const me = await client.api('/me').select('id,mail,userPrincipalName').get();
-  return me.mail || me.userPrincipalName || me.id;
+  return getUserLookupCandidates(me);
 }
 
-async function resolveMeetingAccessUserId(profileId = 2) {
-  return getCurrentUserIdentifier(profileId);
+async function resolveMeetingAccessUserIds(profileId = 2) {
+  return getCurrentUserLookupIds(profileId);
 }
 
 async function findOnlineMeetingForEvent(event, profileId = 2) {
@@ -559,9 +569,9 @@ async function findOnlineMeetingForEvent(event, profileId = 2) {
     };
   }
 
-  const accessUserId = await resolveMeetingAccessUserId(profileId);
+  const accessUserIds = await resolveMeetingAccessUserIds(profileId);
   const organizerUserId = getEmailAddress(event.organizer) || null;
-  const lookupUserIds = [accessUserId, organizerUserId]
+  const lookupUserIds = [...accessUserIds, organizerUserId]
     .filter(Boolean)
     .filter((value, index, values) => values.indexOf(value) === index);
   const client = await getApplicationGraphClient();
@@ -596,7 +606,7 @@ async function findOnlineMeetingForEvent(event, profileId = 2) {
   }
 
   return {
-    accessUserId,
+    accessUserId: accessUserIds[0] || null,
     organizerUserId,
     joinUrl: joinUrlVariants[0],
     onlineMeeting: null,
@@ -762,6 +772,7 @@ module.exports = {
     encodePathSegment,
     getMeetingJoinUrl,
     getMeetingJoinUrlVariants,
+    getUserLookupCandidates,
     isMeetingEndedBefore,
     isOutOfOfficeMeeting,
     isTeamsMeeting,
