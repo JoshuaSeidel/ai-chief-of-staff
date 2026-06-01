@@ -219,6 +219,12 @@ function buildOnlineMeetingsLookupEndpoint(accessUserId) {
   return `/users/${encodePathSegment(accessUserId)}/onlineMeetings`;
 }
 
+function buildOnlineMeetingLookupRequest(client, userId, joinUrl) {
+  return client
+    .api(buildOnlineMeetingsLookupEndpoint(userId))
+    .filter(`JoinWebUrl eq '${escapeODataString(joinUrl)}'`);
+}
+
 function buildOnlineMeetingEndpoint({ accessUserId, organizerUserId, onlineMeetingId }) {
   const userId = resolveArtifactAccessUserId({ accessUserId, organizerUserId });
   return `${buildOnlineMeetingsLookupEndpoint(userId)}/${encodePathSegment(onlineMeetingId)}`;
@@ -602,11 +608,7 @@ async function findOnlineMeetingForEvent(event, profileId = 2) {
   for (const userId of lookupUserIds) {
     for (const joinUrl of joinUrlVariants) {
       try {
-        const response = await client
-          .api(buildOnlineMeetingsLookupEndpoint(userId))
-          .filter(`JoinWebUrl eq '${escapeODataString(joinUrl)}'`)
-          .top(1)
-          .get();
+        const response = await buildOnlineMeetingLookupRequest(client, userId, joinUrl).get();
         const onlineMeeting = (response.value || [])[0] || null;
 
         if (onlineMeeting) {
@@ -809,6 +811,7 @@ module.exports = {
   _test: {
     buildRecordingContentEndpoint,
     buildOnlineMeetingEndpoint,
+    buildOnlineMeetingLookupRequest,
     buildOnlineMeetingsLookupEndpoint,
     buildTranscriptContentEndpoint,
     encodePathSegment,

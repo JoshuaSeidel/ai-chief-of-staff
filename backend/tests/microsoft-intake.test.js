@@ -5,6 +5,7 @@ const microsoftIntake = require('../services/microsoft-intake');
 
 const {
   buildOnlineMeetingEndpoint,
+  buildOnlineMeetingLookupRequest,
   buildOnlineMeetingsLookupEndpoint,
   buildRecordingContentEndpoint,
   buildTranscriptContentEndpoint,
@@ -66,6 +67,41 @@ test('resolves Teams artifacts through the connected access user path', () => {
     }),
     '/users/jseidel%40edgeconnex.com/onlineMeetings/meeting%2Fid/recordings/recording%2Fid/content'
   );
+});
+
+test('looks up online meetings by JoinWebUrl without unsupported top query option', async () => {
+  const calls = [];
+  const client = {
+    api(endpoint) {
+      calls.push(['api', endpoint]);
+      return {
+        filter(value) {
+          calls.push(['filter', value]);
+          return this;
+        },
+        top() {
+          throw new Error('top should not be used for onlineMeeting JoinWebUrl lookup');
+        },
+        async get() {
+          calls.push(['get']);
+          return { value: [{ id: 'meeting-1' }] };
+        }
+      };
+    }
+  };
+
+  const response = await buildOnlineMeetingLookupRequest(
+    client,
+    'jseidel@edgeconnex.com',
+    "https://teams.microsoft.com/l/meetup-join/abc'123"
+  ).get();
+
+  assert.deepEqual(calls, [
+    ['api', '/users/jseidel%40edgeconnex.com/onlineMeetings'],
+    ['filter', "JoinWebUrl eq 'https://teams.microsoft.com/l/meetup-join/abc''123'"],
+    ['get']
+  ]);
+  assert.equal(response.value[0].id, 'meeting-1');
 });
 
 test('uses only real Graph content URLs and falls back from metadata fragment examples', () => {

@@ -178,6 +178,22 @@ async function processTranscriptOnce({ filename, content, source, meetingDate, p
   };
 }
 
+async function updateExistingTeamsTranscriptStatus({ filename, profileId, status, progress, statusMessage }) {
+  const existing = await findExistingTranscript(filename, 'teams-pending', profileId);
+  if (!existing || (existing.source !== 'teams-pending' && existing.processing_status !== 'pending')) {
+    return false;
+  }
+
+  const db = getDb();
+  await db.run(
+    `UPDATE transcripts
+     SET processing_status = ?, processing_progress = ?, status_message = ?
+     WHERE id = ? AND profile_id = ?`,
+    [status, progress, statusMessage, existing.id, profileId]
+  );
+  return true;
+}
+
 function summarizeCaptureAssets(captureAssets, usedTranscript = false) {
   return {
     usedTeamsTranscript: usedTranscript,
@@ -246,13 +262,31 @@ async function buildMeetingImportPayload(meeting, profileId) {
 
       const latestRecording = microsoftIntake.selectLatestRecording(captureAssets.recordings);
       if (captureAssets.onlineMeeting && latestRecording) {
+        const recordingTranscriptFilename = microsoftIntake.meetingTranscriptFilename(meeting, latestRecording);
         try {
+          await updateExistingTeamsTranscriptStatus({
+            filename: recordingTranscriptFilename,
+            profileId,
+            status: 'processing',
+            progress: 5,
+            statusMessage: 'Teams recording found. Downloading recording from Microsoft Graph.'
+          });
+
           const recordingContent = await microsoftIntake.downloadRecordingContent({
             accessUserId: captureAssets.accessUserId,
             onlineMeetingId: captureAssets.onlineMeeting.id,
             recordingId: latestRecording.id,
             recordingContentUrl: latestRecording.recordingContentUrl
           });
+
+          await updateExistingTeamsTranscriptStatus({
+            filename: recordingTranscriptFilename,
+            profileId,
+            status: 'processing',
+            progress: 10,
+            statusMessage: 'Teams recording downloaded. Transcribing recording inside AI Chief of Staff.'
+          });
+
           const recordingFilename = `teams-recording-${meeting.id}.mp4`.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
           const transcribedRecording = await transcriptRoutes.transcribeAudioBuffer(
             recordingContent.buffer,
@@ -261,7 +295,7 @@ async function buildMeetingImportPayload(meeting, profileId) {
           );
 
           return {
-            filename: microsoftIntake.meetingTranscriptFilename(meeting, latestRecording),
+            filename: recordingTranscriptFilename,
             content: microsoftIntake.formatMeetingWithRecordingTranscript(
               meeting,
               transcribedRecording,
@@ -278,6 +312,13 @@ async function buildMeetingImportPayload(meeting, profileId) {
             }
           };
         } catch (recordingError) {
+          await updateExistingTeamsTranscriptStatus({
+            filename: recordingTranscriptFilename,
+            profileId,
+            status: 'pending',
+            progress: 0,
+            statusMessage: `Teams recording was found, but download/transcription failed: ${recordingError.message}. The next Teams sync will retry.`
+          });
           captureAssets.warnings = [
             ...(captureAssets.warnings || []),
             `Teams recording transcription failed: ${recordingError.message}`

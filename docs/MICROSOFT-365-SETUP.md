@@ -84,6 +84,7 @@ DELEGATED_PERMISSIONS=(
 )
 
 APPLICATION_PERMISSIONS=(
+  "OnlineMeetingArtifact.Read.All"
   "OnlineMeetings.Read.All"
   "OnlineMeetingTranscript.Read.All"
   "OnlineMeetingRecording.Read.All"
@@ -315,13 +316,14 @@ Teams transcript and recording capture is not completed by delegated mailbox/cal
 
 ```text
 OnlineMeetings.Read.All
+OnlineMeetingArtifact.Read.All
 OnlineMeetingTranscript.Read.All
 OnlineMeetingRecording.Read.All
 ```
 
 Then select **Grant admin consent**.
 
-These are high-impact permissions. AI Chief of Staff scopes operational access by resolving Teams artifacts through the connected Microsoft user, then requiring a Teams application access policy for that same user in the next step.
+These are high-impact permissions. Microsoft Graph uses `OnlineMeetingArtifact.Read.All` for online meeting artifact lookup and requires the transcript/recording-specific permissions for reading those artifacts. AI Chief of Staff scopes operational access by resolving Teams artifacts through the connected Microsoft user, then requiring a Teams application access policy for that same user in the next step.
 
 ## Step 5: Grant A Teams Application Access Policy
 

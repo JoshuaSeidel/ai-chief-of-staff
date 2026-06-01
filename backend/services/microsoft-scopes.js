@@ -8,6 +8,7 @@ const MICROSOFT_GRAPH_SCOPES = [
 ];
 
 const MICROSOFT_GRAPH_APPLICATION_SCOPES = [
+  'OnlineMeetingArtifact.Read.All',
   'OnlineMeetings.Read.All',
   'OnlineMeetingTranscript.Read.All',
   'OnlineMeetingRecording.Read.All'

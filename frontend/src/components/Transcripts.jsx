@@ -23,9 +23,10 @@ function getTranscriptStatusMeta(transcript) {
   const statusMessage = transcript.status_message || '';
 
   if (status === 'pending') {
+    const recordingRetry = /recording (?:was )?found|download\/transcription failed/i.test(statusMessage);
     return {
       status,
-      label: 'Awaiting Teams recording',
+      label: recordingRetry ? 'Recording retry pending' : 'Awaiting Teams recording',
       className: 'text-processing',
       detail: statusMessage || 'Teams transcript and recording are not available yet. The next Teams sync will retry this meeting.'
     };
