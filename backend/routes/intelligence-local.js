@@ -332,20 +332,20 @@ Respond with JSON:
       [{ role: 'user', content: prompt }],
       null,
       1024,
-      req.profileId
+      profileId
     );
-    
+
     let result;
     try {
       const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
-      result = jsonMatch ? JSON.parse(jsonMatch[0]) : { 
+      result = jsonMatch ? JSON.parse(jsonMatch[0]) : {
         clusters: [],
-        raw_response: aiResponse.content 
+        raw_response: aiResponse.content
       };
     } catch (parseErr) {
       result = { clusters: [], raw_response: aiResponse.content };
     }
-    
+
     return { success: true, ...result };
   } catch (error) {
     logger.error('Error clustering tasks:', error);

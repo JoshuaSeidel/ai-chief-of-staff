@@ -114,10 +114,14 @@ services:
       - API_RATE_LIMIT_MAX=${API_RATE_LIMIT_MAX:-600}
       - OAUTH_RATE_LIMIT_MAX=${OAUTH_RATE_LIMIT_MAX:-40}
 
-      # TLS/Security (for inter-service HTTPS)
-      # Set to 'true' in development if TLS certificates are not properly configured
-      # Should be 'false' or unset in production with proper certificates
-      - ALLOW_INSECURE_TLS=${ALLOW_INSECURE_TLS:-true}
+      # TLS/Security (for inter-service HTTPS).
+      # Defaults to false (rejectUnauthorized=true) because the bundled compose
+      # stack generates a shared CA via the tls-certs volume on first start.
+      # Set to 'true' ONLY for local development where you cannot mount a
+      # trusted internal CA. Enabling this disables certificate verification
+      # for backend->microservice calls and exposes them to MITM on the
+      # internal docker network.
+      - ALLOW_INSECURE_TLS=${ALLOW_INSECURE_TLS:-false}
 
       # OAuth redirect fallbacks. Credentials can also be saved in Settings.
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI:-}

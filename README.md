@@ -166,7 +166,7 @@ Important variables:
 | `ALLOWED_ORIGINS` | Production | Comma-separated browser origins allowed to write to the API |
 | `TRUST_PROXY` | Reverse proxy | Set `true` behind SWAG, Nginx Proxy Manager, Traefik, etc. |
 | `VITE_API_URL` | Usually `/api` | Build-time frontend API URL |
-| `ALLOW_INSECURE_TLS` | Local only | Use `true` for local self-signed service certs; harden to `false` with trusted certs |
+| `ALLOW_INSECURE_TLS` | Local only | Defaults to `false`. Set `true` ONLY for local dev when you cannot mount the shared service CA — disables backend->microservice cert verification |
 
 The `tls-certs` named volume is created automatically and shared by the backend
 and microservices for internal HTTPS certificates.
