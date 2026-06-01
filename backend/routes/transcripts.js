@@ -348,7 +348,8 @@ async function createAndProcessTranscript({
   content,
   source = 'manual',
   meetingDate = null,
-  profileId = 2
+  profileId = 2,
+  statusMessage = 'Queued for AI extraction.'
 }) {
   if (!filename || !content) {
     throw new Error('Filename and content are required');
@@ -356,8 +357,8 @@ async function createAndProcessTranscript({
 
   const db = getDb();
   const result = await db.run(
-    'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [filename, content, source, meetingDate, 'processing', 0, profileId]
+    'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, status_message, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [filename, content, source, meetingDate, 'processing', 0, statusMessage, profileId]
   );
 
   const transcriptId = result.lastID;
@@ -379,7 +380,8 @@ async function createPendingTranscript({
   content,
   source = 'teams-pending',
   meetingDate = null,
-  profileId = 2
+  profileId = 2,
+  statusMessage = 'Teams transcript and recording are not available yet. The next Teams sync will retry this meeting.'
 }) {
   if (!filename || !content) {
     throw new Error('Filename and content are required');
@@ -387,8 +389,8 @@ async function createPendingTranscript({
 
   const db = getDb();
   const result = await db.run(
-    'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, processed, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [filename, content, source, meetingDate, 'pending', 0, false, profileId]
+    'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, status_message, processed, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [filename, content, source, meetingDate, 'pending', 0, statusMessage, false, profileId]
   );
 
   return {
@@ -403,7 +405,8 @@ async function updateAndProcessTranscript({
   content,
   source = 'manual',
   meetingDate = null,
-  profileId = 2
+  profileId = 2,
+  statusMessage = 'Queued for AI extraction.'
 }) {
   if (!id || !filename || !content) {
     throw new Error('Transcript id, filename, and content are required');
@@ -412,9 +415,9 @@ async function updateAndProcessTranscript({
   const db = getDb();
   await db.run(
     `UPDATE transcripts
-     SET filename = ?, content = ?, source = ?, meeting_date = ?, processed = ?, processing_status = ?, processing_progress = ?
+     SET filename = ?, content = ?, source = ?, meeting_date = ?, processed = ?, processing_status = ?, processing_progress = ?, status_message = ?
      WHERE id = ? AND profile_id = ?`,
-    [filename, content, source, meetingDate, false, 'processing', 0, id, profileId]
+    [filename, content, source, meetingDate, false, 'processing', 0, statusMessage, id, profileId]
   );
 
   const transcript = { id, filename, content, meeting_date: meetingDate };
@@ -824,8 +827,17 @@ router.post('/upload', (req, res) => {
 
       // Save to database with processing status
       const result = await db.run(
-        'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [req.file.originalname, content, isAudio ? 'recording' : 'upload', meetingDate, 'processing', 0, req.profileId]
+        'INSERT INTO transcripts (filename, content, source, meeting_date, processing_status, processing_progress, status_message, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          req.file.originalname,
+          content,
+          isAudio ? 'recording' : 'upload',
+          meetingDate,
+          'processing',
+          0,
+          isAudio ? 'Audio was transcribed and is queued for AI extraction.' : 'Uploaded transcript is queued for AI extraction.',
+          req.profileId
+        ]
       );
 
       const transcriptId = result.lastID;
@@ -911,7 +923,7 @@ router.get('/', async (req, res) => {
   try {
     const db = getDb();
     const rows = await db.all(
-      'SELECT id, filename, upload_date, processed, source, processing_status, processing_progress FROM transcripts WHERE profile_id = ? ORDER BY upload_date DESC LIMIT ?',
+      'SELECT id, filename, upload_date, processed, source, processing_status, processing_progress, status_message FROM transcripts WHERE profile_id = ? ORDER BY upload_date DESC LIMIT ?',
       [req.profileId, limit]
     );
     
@@ -1055,7 +1067,10 @@ router.post('/:id/reprocess', async (req, res) => {
     }
     
     // Set status to processing immediately
-    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ? WHERE id = ? AND profile_id = ?', ['processing', 0, id, req.profileId]);
+    await db.run(
+      'UPDATE transcripts SET processing_status = ?, processing_progress = ?, status_message = ? WHERE id = ? AND profile_id = ?',
+      ['processing', 0, 'Reprocessing started. Existing extracted tasks are being refreshed from this transcript.', id, req.profileId]
+    );
     
     logger.info(`Reprocessing transcript: ${transcript.filename}`);
     
@@ -1086,7 +1101,10 @@ router.post('/:id/reprocess', async (req, res) => {
 async function processTranscriptAsync(id, transcript, db, req) {
   try {
     // Update progress: Deleting old data
-    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ? AND profile_id = ?', [10, id, req.profileId]);
+    await db.run(
+      'UPDATE transcripts SET processing_progress = ?, status_message = ? WHERE id = ? AND profile_id = ?',
+      [10, 'Removing previously extracted tasks and notes for this transcript.', id, req.profileId]
+    );
     
     // Delete existing commitments and context for this transcript
     // Get existing calendar event IDs before deleting
@@ -1110,7 +1128,10 @@ async function processTranscriptAsync(id, transcript, db, req) {
     logger.info(`Cleared existing tasks and context for transcript ${id}`);
     
     // Update progress: Extracting with AI
-    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ? AND profile_id = ?', [30, id, req.profileId]);
+    await db.run(
+      'UPDATE transcripts SET processing_progress = ?, status_message = ? WHERE id = ? AND profile_id = ?',
+      [30, 'AI extraction is reading the transcript for commitments, follow-ups, risks, and notes.', id, req.profileId]
+    );
     
     // Extract commitments using Claude (use meeting_date if available)
     const meetingDate = transcript.meeting_date || null;
@@ -1122,13 +1143,19 @@ async function processTranscriptAsync(id, transcript, db, req) {
     });
     
     // Update progress: Saving tasks
-    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ? AND profile_id = ?', [70, id, req.profileId]);
+    await db.run(
+      'UPDATE transcripts SET processing_progress = ?, status_message = ? WHERE id = ? AND profile_id = ?',
+      [70, 'Saving extracted tasks and syncing eligible task-system records.', id, req.profileId]
+    );
     
     // Save commitments and create calendar events
     const taskStats = await saveAllTasksWithCalendar(db, id, extracted, req);
     
     // Update progress: Generating meeting notes
-    await db.run('UPDATE transcripts SET processing_progress = ? WHERE id = ? AND profile_id = ?', [85, id, req.profileId]);
+    await db.run(
+      'UPDATE transcripts SET processing_progress = ?, status_message = ? WHERE id = ? AND profile_id = ?',
+      [85, 'Generating the meeting recap.', id, req.profileId]
+    );
     
     // Generate meeting notes
     try {
@@ -1142,8 +1169,8 @@ async function processTranscriptAsync(id, transcript, db, req) {
     }
     
     // Update progress: Complete
-    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ? AND profile_id = ?', 
-      ['completed', 100, true, id, req.profileId]);
+    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ?, status_message = ? WHERE id = ? AND profile_id = ?',
+      ['completed', 100, true, 'Processing completed successfully.', id, req.profileId]);
     
     logger.info(`Transcript ${id} reprocessing completed successfully`, taskStats);
     
@@ -1151,8 +1178,8 @@ async function processTranscriptAsync(id, transcript, db, req) {
     logger.error(`Error in background processing for transcript ${id}:`, error);
     
     // Mark as failed
-    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ? WHERE id = ? AND profile_id = ?', 
-      ['failed', 0, true, id, req.profileId]);
+    await db.run('UPDATE transcripts SET processing_status = ?, processing_progress = ?, processed = ?, status_message = ? WHERE id = ? AND profile_id = ?',
+      ['failed', 0, true, error.message || 'Transcript processing failed. Check backend logs for details.', id, req.profileId]);
   }
 }
 

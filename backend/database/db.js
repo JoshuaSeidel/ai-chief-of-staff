@@ -225,7 +225,8 @@ function initDatabaseTables() {
           content TEXT NOT NULL,
           upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
           processed BOOLEAN DEFAULT 0,
-          source TEXT DEFAULT 'upload'
+          source TEXT DEFAULT 'upload',
+          status_message TEXT
         )
       `);
 
@@ -348,7 +349,8 @@ async function initDatabaseTablesPostgres() {
         content TEXT NOT NULL,
         upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         processed BOOLEAN DEFAULT false,
-        source TEXT DEFAULT 'upload'
+        source TEXT DEFAULT 'upload',
+        status_message TEXT
       )
     `);
 
@@ -968,7 +970,7 @@ async function runMigrations() {
       // Migration 4: Add processing tracking to transcripts
       try {
         await pool.query(`
-          ALTER TABLE transcripts 
+          ALTER TABLE transcripts
           ADD COLUMN IF NOT EXISTS processing_status TEXT DEFAULT 'completed',
           ADD COLUMN IF NOT EXISTS processing_progress INTEGER DEFAULT 100
         `);
@@ -982,7 +984,7 @@ async function runMigrations() {
       // Migration 5: Add meeting_date to transcripts
       try {
         await pool.query(`
-          ALTER TABLE transcripts 
+          ALTER TABLE transcripts
           ADD COLUMN IF NOT EXISTS meeting_date DATE
         `);
         dbLogger.info('✓ Added meeting_date column to transcripts');
@@ -1034,10 +1036,29 @@ async function runMigrations() {
       // Migration 9: Add meeting_notes to transcripts for AI-generated recap
       try {
         await pool.query(`
-          ALTER TABLE transcripts 
+          ALTER TABLE transcripts
           ADD COLUMN IF NOT EXISTS meeting_notes TEXT
         `);
         dbLogger.info('✓ Added meeting_notes column to transcripts');
+      } catch (err) {
+        if (!err.message.includes('already exists')) {
+          dbLogger.warn('Migration warning:', err.message);
+        }
+      }
+
+      // Migration 10: Add status_message to transcripts for intake/processing details
+      try {
+        await pool.query(`
+          ALTER TABLE transcripts
+          ADD COLUMN IF NOT EXISTS status_message TEXT
+        `);
+        await pool.query(`
+          UPDATE transcripts
+          SET status_message = 'Teams transcript and recording are not available yet. The next Teams sync will retry this meeting.'
+          WHERE processing_status = 'pending'
+            AND (status_message IS NULL OR status_message = '')
+        `);
+        dbLogger.info('✓ Added status_message column to transcripts');
       } catch (err) {
         if (!err.message.includes('already exists')) {
           dbLogger.warn('Migration warning:', err.message);
@@ -1084,11 +1105,13 @@ async function runMigrations() {
       const hasProcessingProgress = transcriptsTableInfo.some(col => col.name === 'processing_progress');
       const hasMeetingDate = transcriptsTableInfo.some(col => col.name === 'meeting_date');
       const hasMeetingNotes = transcriptsTableInfo.some(col => col.name === 'meeting_notes');
+      const hasStatusMessage = transcriptsTableInfo.some(col => col.name === 'status_message');
       
       if (!hasProcessingStatus) columnsToAdd.push({ name: 'processing_status', type: 'TEXT', default: "'completed'", table: 'transcripts' });
       if (!hasProcessingProgress) columnsToAdd.push({ name: 'processing_progress', type: 'INTEGER', default: '100', table: 'transcripts' });
       if (!hasMeetingDate) columnsToAdd.push({ name: 'meeting_date', type: 'DATE', table: 'transcripts' });
       if (!hasMeetingNotes) columnsToAdd.push({ name: 'meeting_notes', type: 'TEXT', table: 'transcripts' });
+      if (!hasStatusMessage) columnsToAdd.push({ name: 'status_message', type: 'TEXT', table: 'transcripts' });
       
       if (columnsToAdd.length > 0) {
         dbLogger.info('Adding missing columns...');
@@ -1109,6 +1132,23 @@ async function runMigrations() {
           dbLogger.info(`✓ Added ${col.name} column to ${tableName}`);
         }
       }
+
+      await new Promise((resolve, reject) => {
+        db.run(
+          `UPDATE transcripts
+           SET status_message = ?
+           WHERE processing_status = ?
+             AND (status_message IS NULL OR status_message = '')`,
+          [
+            'Teams transcript and recording are not available yet. The next Teams sync will retry this meeting.',
+            'pending'
+          ],
+          (err) => {
+            if (err) reject(err);
+            else resolve();
+          }
+        );
+      });
     }
     
     dbLogger.info('All migrations completed successfully');

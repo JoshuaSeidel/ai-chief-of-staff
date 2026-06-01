@@ -4,6 +4,7 @@ import {
   ClipboardEdit,
   FileText,
   FileUp,
+  Info,
   Loader2,
   Mail,
   Mic,
@@ -15,6 +16,89 @@ import {
 import ReactMarkdown from 'react-markdown';
 import { intakeAPI, transcriptsAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
+
+function getTranscriptStatusMeta(transcript) {
+  const status = transcript.processing_status || (transcript.processed ? 'completed' : 'processing');
+  const progress = transcript.processing_progress || 0;
+  const statusMessage = transcript.status_message || '';
+
+  if (status === 'pending') {
+    return {
+      status,
+      label: 'Awaiting Teams recording',
+      className: 'text-processing',
+      detail: statusMessage || 'Teams transcript and recording are not available yet. The next Teams sync will retry this meeting.'
+    };
+  }
+
+  if (status === 'failed') {
+    return {
+      status,
+      label: 'Failed',
+      className: 'text-failed',
+      detail: statusMessage || 'Transcript processing failed. Check backend logs for the full error and try reprocessing after the issue is fixed.'
+    };
+  }
+
+  if (status === 'processing') {
+    return {
+      status,
+      label: 'Processing',
+      className: 'text-processing',
+      detail: statusMessage || `Processing is ${progress}% complete.`
+    };
+  }
+
+  return {
+    status: 'completed',
+    label: 'Complete',
+    className: 'text-complete',
+    detail: statusMessage || 'Transcript processing completed successfully.'
+  };
+}
+
+function TranscriptStatus({ transcript, compact = false }) {
+  const meta = getTranscriptStatusMeta(transcript);
+  const progress = transcript.processing_progress || 0;
+  const showInlineDetail = compact && ['pending', 'failed'].includes(meta.status);
+
+  return (
+    <div className={`transcript-status ${compact ? 'transcript-status-compact' : ''}`}>
+      <span
+        className="transcript-status-pill"
+        tabIndex={0}
+        title={meta.detail}
+        aria-label={`${meta.label}: ${meta.detail}`}
+      >
+        <span className={meta.className}>{meta.label}</span>
+        <Info size={13} aria-hidden="true" />
+        <span className="transcript-status-tooltip" role="tooltip">
+          {meta.detail}
+        </span>
+      </span>
+
+      {meta.status === 'processing' && (
+        <>
+          <div className="transcript-progress-track" aria-hidden="true">
+            <div
+              className="transcript-progress-fill"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <span className="text-muted-xs">
+            {progress}%
+          </span>
+        </>
+      )}
+
+      {showInlineDetail && (
+        <p className="transcript-status-detail">
+          {meta.detail}
+        </p>
+      )}
+    </div>
+  );
+}
 
 function Transcripts() {
   const [transcripts, setTranscripts] = useState([]);
@@ -825,34 +909,7 @@ function Transcripts() {
                           </span>
                         </td>
                         <td className="transcript-table-cell">
-                          {isProcessing ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span className="text-processing">Processing</span>
-                              <div style={{
-                                width: '60px',
-                                height: '4px',
-                                backgroundColor: '#27272a',
-                                borderRadius: '2px',
-                                overflow: 'hidden'
-                              }}>
-                                <div style={{
-                                  width: `${transcript.processing_progress || 0}%`,
-                                  height: '100%',
-                                  backgroundColor: '#60a5fa',
-                                  transition: 'width 0.3s ease'
-                                }} />
-                              </div>
-                              <span className="text-muted-xs">
-                                {transcript.processing_progress || 0}%
-                              </span>
-                            </div>
-	                          ) : isFailed ? (
-	                            <span className="text-failed">Failed</span>
-	                          ) : isPending ? (
-	                            <span className="text-processing">Awaiting Teams recording</span>
-	                          ) : (
-	                            <span className="text-complete">Complete</span>
-	                          )}
+                          <TranscriptStatus transcript={transcript} />
                         </td>
                         <td style={{ padding: '0.75rem', textAlign: 'right' }}>
                           <button
@@ -937,36 +994,9 @@ function Transcripts() {
                           {transcript.source}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem' }}>
                         <span className="text-muted">Status:</span>
-                        {isProcessing ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'flex-end' }}>
-                            <span className="text-processing">Processing</span>
-                            <div style={{
-                              width: '60px',
-                              height: '4px',
-                              backgroundColor: '#27272a',
-                              borderRadius: '2px',
-                              overflow: 'hidden'
-                            }}>
-                              <div style={{
-                                width: `${transcript.processing_progress || 0}%`,
-                                height: '100%',
-                                backgroundColor: '#60a5fa',
-                                transition: 'width 0.3s ease'
-                              }} />
-                            </div>
-                            <span className="text-muted-xs">
-                              {transcript.processing_progress || 0}%
-                            </span>
-                          </div>
-	                        ) : isFailed ? (
-	                          <span className="text-failed">Failed</span>
-	                        ) : isPending ? (
-	                          <span className="text-processing">Awaiting Teams recording</span>
-	                        ) : (
-	                          <span className="text-complete">Complete</span>
-	                        )}
+                        <TranscriptStatus transcript={transcript} compact />
                       </div>
                     </div>
 

@@ -62,7 +62,7 @@ async function findExistingTranscript(filename, source, profileId) {
 
   if (teamsSources.includes(source)) {
     return db.get(
-      `SELECT id, filename, source, processing_status, processing_progress
+      `SELECT id, filename, source, processing_status, processing_progress, status_message
        FROM transcripts
        WHERE filename = ? AND source IN (${teamsSources.map(() => '?').join(', ')}) AND profile_id = ?
        ORDER BY CASE
@@ -77,12 +77,24 @@ async function findExistingTranscript(filename, source, profileId) {
   }
 
   return db.get(
-    'SELECT id, filename, source, processing_status, processing_progress FROM transcripts WHERE filename = ? AND source = ? AND profile_id = ?',
+    'SELECT id, filename, source, processing_status, processing_progress, status_message FROM transcripts WHERE filename = ? AND source = ? AND profile_id = ?',
     [filename, source, profileId]
   );
 }
 
-async function processTranscriptOnce({ filename, content, source, meetingDate, profileId, process = true }) {
+function buildPendingStatusMessage(details = []) {
+  const cleanDetails = details.filter(Boolean);
+  if (!cleanDetails.length) {
+    return 'Teams transcript and recording are not available yet. The next Teams sync will retry this meeting.';
+  }
+
+  return [
+    'Teams transcript and recording are not available yet. The next Teams sync will retry this meeting.',
+    `Last check: ${cleanDetails.join(' ')}`
+  ].join(' ');
+}
+
+async function processTranscriptOnce({ filename, content, source, meetingDate, profileId, process = true, statusMessage }) {
   const existing = await findExistingTranscript(filename, source, profileId);
 
   if (existing) {
@@ -101,7 +113,8 @@ async function processTranscriptOnce({ filename, content, source, meetingDate, p
         content,
         source,
         meetingDate,
-        profileId
+        profileId,
+        statusMessage: statusMessage || 'Teams recording/transcript is available now and queued for AI extraction.'
       });
 
       return {
@@ -112,11 +125,30 @@ async function processTranscriptOnce({ filename, content, source, meetingDate, p
       };
     }
 
+    if (!process && (existing.source === 'teams-pending' || existing.processing_status === 'pending')) {
+      const db = getDb();
+      await db.run(
+        `UPDATE transcripts
+         SET content = ?, meeting_date = ?, status_message = ?, processing_status = ?, processing_progress = ?
+         WHERE id = ? AND profile_id = ?`,
+        [
+          content,
+          meetingDate,
+          statusMessage || existing.status_message || buildPendingStatusMessage(),
+          'pending',
+          0,
+          existing.id,
+          profileId
+        ]
+      );
+    }
+
     return {
       imported: false,
       transcriptId: existing.id,
       status: existing.processing_status || 'completed',
-      processingProgress: existing.processing_progress
+      processingProgress: existing.processing_progress,
+      statusMessage: statusMessage || existing.status_message || null
     };
   }
 
@@ -126,14 +158,16 @@ async function processTranscriptOnce({ filename, content, source, meetingDate, p
       content,
       source,
       meetingDate,
-      profileId
+      profileId,
+      statusMessage
     })
     : await transcriptRoutes.createPendingTranscript({
       filename,
       content,
       source,
       meetingDate,
-      profileId
+      profileId,
+      statusMessage
     });
 
   return {
@@ -182,32 +216,33 @@ async function buildMeetingImportPayload(meeting, profileId) {
   if (hasOnlineMeeting) {
     try {
       const captureAssets = await microsoftIntake.getMeetingCaptureAssets(meeting, profileId);
-	      const latestTranscript = microsoftIntake.selectLatestTranscript(captureAssets.transcripts);
+      const latestTranscript = microsoftIntake.selectLatestTranscript(captureAssets.transcripts);
 
-	      if (captureAssets.onlineMeeting && latestTranscript) {
-	        try {
-	          const transcriptContent = await microsoftIntake.downloadTranscriptContent({
-	            accessUserId: captureAssets.accessUserId,
-	            onlineMeetingId: captureAssets.onlineMeeting.id,
-	            transcriptId: latestTranscript.id,
-	            transcriptContentUrl: latestTranscript.transcriptContentUrl
-	          });
+      if (captureAssets.onlineMeeting && latestTranscript) {
+        try {
+          const transcriptContent = await microsoftIntake.downloadTranscriptContent({
+            accessUserId: captureAssets.accessUserId,
+            onlineMeetingId: captureAssets.onlineMeeting.id,
+            transcriptId: latestTranscript.id,
+            transcriptContentUrl: latestTranscript.transcriptContentUrl
+          });
 
-	          return {
-	            filename: microsoftIntake.meetingTranscriptFilename(meeting, latestTranscript),
-	            content: microsoftIntake.formatMeetingWithTranscript(meeting, transcriptContent, captureAssets, latestTranscript),
-	            source: 'teams-transcript',
-	            meetingDate,
-	            profileId,
-	            capture: summarizeCaptureAssets(captureAssets, true)
-	          };
-	        } catch (transcriptError) {
-	          captureAssets.warnings = [
-	            ...(captureAssets.warnings || []),
-	            `Teams transcript download failed: ${transcriptError.message}`
-	          ];
-	        }
-	      }
+          return {
+            filename: microsoftIntake.meetingTranscriptFilename(meeting, latestTranscript),
+            content: microsoftIntake.formatMeetingWithTranscript(meeting, transcriptContent, captureAssets, latestTranscript),
+            source: 'teams-transcript',
+            meetingDate,
+            profileId,
+            statusMessage: 'Teams transcript was downloaded and queued for AI extraction.',
+            capture: summarizeCaptureAssets(captureAssets, true)
+          };
+        } catch (transcriptError) {
+          captureAssets.warnings = [
+            ...(captureAssets.warnings || []),
+            `Teams transcript download failed: ${transcriptError.message}`
+          ];
+        }
+      }
 
       const latestRecording = microsoftIntake.selectLatestRecording(captureAssets.recordings);
       if (captureAssets.onlineMeeting && latestRecording) {
@@ -236,6 +271,7 @@ async function buildMeetingImportPayload(meeting, profileId) {
             source: 'teams-recording',
             meetingDate,
             profileId,
+            statusMessage: 'Teams recording was downloaded, transcribed inside AI Chief of Staff, and queued for AI extraction.',
             capture: {
               ...summarizeCaptureAssets(captureAssets, false),
               usedTeamsRecording: true
@@ -263,20 +299,34 @@ async function buildMeetingImportPayload(meeting, profileId) {
         meetingDate,
         profileId,
         process: false,
+        statusMessage: buildPendingStatusMessage(reasons),
         capture: summarizeCaptureAssets(captureAssets, false),
         pendingDetails: reasons
       };
     } catch (error) {
-      if (isTeamsTranscriptUnavailable(error)) {
-        throw error;
-      }
+      if (getMicrosoftSetupMessage(error)) throw error;
 
       const message = error.message || 'Teams transcript capture failed';
       logger.warn('Teams transcript capture failed', { message });
-      throw new TeamsTranscriptUnavailableError(
-        `Teams transcript unavailable for "${meeting.subject || 'meeting'}". ${message}`,
-        [message]
-      );
+      const reasons = [message];
+
+      return {
+        filename: microsoftIntake.meetingTranscriptFilename(meeting, { id: 'pending' }),
+        content: microsoftIntake.formatPendingTeamsMeeting(meeting, reasons),
+        source: 'teams-pending',
+        meetingDate,
+        profileId,
+        process: false,
+        statusMessage: buildPendingStatusMessage(reasons),
+        capture: {
+          usedTeamsTranscript: false,
+          onlineMeetingId: null,
+          transcriptCount: 0,
+          recordingCount: 0,
+          warnings: reasons
+        },
+        pendingDetails: reasons
+      };
     }
   }
 
@@ -777,5 +827,8 @@ router.importMeetingsByIds = importMeetingsByIds;
 router.importMeetingsInRange = importMeetingsInRange;
 router.importTeamsTranscriptsInRange = importTeamsTranscriptsInRange;
 router.processTranscriptOnce = processTranscriptOnce;
+router._test = {
+  buildPendingStatusMessage
+};
 
 module.exports = router;
