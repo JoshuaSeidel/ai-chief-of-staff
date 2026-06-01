@@ -257,7 +257,14 @@ router.get('/google/callback', oauthCallbackLimiter, async (req, res) => {
 
   try {
     const statePayload = await verifyOAuthState(state, 'google');
-    const profileId = statePayload.profileId || req.profileId || 2;
+    // Trust ONLY the HMAC-signed state — the callback is unauthenticated, so
+    // req.profileId comes from an attacker-controlled X-Profile-Id header and
+    // must never decide where tokens are stored.
+    const profileId = Number(statePayload.profileId);
+    if (!Number.isInteger(profileId) || profileId <= 0) {
+      logger.error('OAuth state missing profileId');
+      return res.redirect('/#config?error=oauth_invalid_state');
+    }
     await googleCalendar.getTokenFromCode(code, profileId);
     logger.info(`Google Calendar connected successfully for profile ${profileId}`);
     res.redirect(`/#config?success=google_calendar_connected&profile=${profileId}`);
@@ -421,7 +428,12 @@ router.get('/microsoft/callback', oauthCallbackLimiter, async (req, res) => {
 
   try {
     const statePayload = await verifyOAuthState(state, 'microsoft');
-    const profileId = statePayload.profileId || req.profileId || 2;
+    // Trust ONLY the HMAC-signed state — see comment in /google/callback.
+    const profileId = Number(statePayload.profileId);
+    if (!Number.isInteger(profileId) || profileId <= 0) {
+      logger.error('OAuth state missing profileId');
+      return res.redirect('/#config?error=microsoft_oauth_invalid_state');
+    }
     await microsoftCalendar.getTokenFromCode(code, profileId);
     logger.info(`Microsoft Calendar connected successfully for profile ${profileId}`);
     res.redirect(`/#config?success=microsoft_calendar_connected&profile=${profileId}`);

@@ -70,7 +70,14 @@ router.get('/microsoft/callback', oauthCallbackLimiter, async (req, res) => {
 
   try {
     const statePayload = await verifyOAuthState(state, 'microsoft');
-    const profileId = statePayload.profileId || req.profileId || 2;
+    // Trust ONLY the HMAC-signed state — this callback is unauthenticated, so
+    // req.profileId comes from an attacker-controlled X-Profile-Id header and
+    // must never decide where tokens are stored.
+    const profileId = Number(statePayload.profileId);
+    if (!Number.isInteger(profileId) || profileId <= 0) {
+      logger.error('OAuth state missing profileId');
+      return res.redirect('/#config?error=microsoft_oauth_invalid_state');
+    }
     // Use microsoft-calendar service for token exchange (shared token for Calendar and Planner)
     const microsoftCalendar = require('../services/microsoft-calendar');
     await microsoftCalendar.getTokenFromCode(code, profileId);
@@ -477,16 +484,17 @@ router.post('/jira/sync-failed', async (req, res) => {
   try {
     const { getDb } = require('../database/db');
     const db = getDb();
-    
-    // Get all pending tasks that don't have a Jira issue key
-    // This includes tasks that failed to sync previously
-    // Exclude risks - they're informational only and don't need actions
+
+    // Scope to the calling profile so retries of failed syncs cannot pull
+    // another profile's commitments into this profile's Jira project.
     const tasks = await db.all(
-      `SELECT * FROM commitments 
-       WHERE status != 'completed' 
+      `SELECT * FROM commitments
+       WHERE status != 'completed'
        AND (jira_task_id IS NULL OR jira_task_id = '')
        AND (task_type IS NULL OR task_type != 'risk')
-       ORDER BY created_date DESC`
+       AND profile_id = ?
+       ORDER BY created_date DESC`,
+      [req.profileId]
     );
     
     logger.info(`Syncing ${tasks.length} failed/pending tasks to Jira`);
