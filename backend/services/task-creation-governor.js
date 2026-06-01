@@ -516,7 +516,7 @@ async function findDuplicateManualTask(task, profileId = 2) {
   } : null;
 }
 
-async function recordTaskLearningEvent({ profileId = 2, action, task, reason = '' }) {
+async function recordTaskLearningEvent({ profileId = 2, action, task, reason = '', refineInstructions = true }) {
   if (!task) return;
 
   const db = getDb();
@@ -540,9 +540,11 @@ async function recordTaskLearningEvent({ profileId = 2, action, task, reason = '
     logger.warn(`Unable to record task learning event: ${error.message}`);
   }
 
-  refineTaskInstructionsFromFeedback({ profileId, action, task: snapshot, reason }).catch(error => {
-    logger.warn(`Unable to refine task instructions: ${error.message}`);
-  });
+  if (refineInstructions) {
+    refineTaskInstructionsFromFeedback({ profileId, action, task: snapshot, reason }).catch(error => {
+      logger.warn(`Unable to refine task instructions: ${error.message}`);
+    });
+  }
 }
 
 async function recordSystemTaskUpdate({ profileId = 2, task, reason = '', updates = {} }) {

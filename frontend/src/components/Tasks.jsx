@@ -7,9 +7,11 @@ import {
   ClipboardList,
   Plus,
   RefreshCw,
+  SquareCheckBig,
   Target,
   Trash2,
   Undo2,
+  X,
   Zap
 } from 'lucide-react';
 import { calendarAPI, commitmentsAPI, intelligenceAPI, plannerAPI } from '../services/api';
@@ -50,6 +52,10 @@ function Commitments() {
   const [clusteringTasks, setClusteringTasks] = useState(false);
   const [completingTask, setCompletingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [syncConfirm, setSyncConfirm] = useState(null);
 
   const toast = useToast();
@@ -86,13 +92,22 @@ function Commitments() {
         setShowCreateModal(false);
         setShowClusters(false);
         setDeleteConfirm(null);
+        setBulkDeleteConfirm(false);
         setSyncConfirm(null);
+        if (selectionMode) {
+          clearSelection();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [selectionMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const existingIds = new Set(commitments.map(task => task.id));
+    setSelectedTaskIds(previous => previous.filter(id => existingIds.has(id)));
+  }, [commitments]);
 
   const checkMicrosoftPlannerStatus = async () => {
     try {
@@ -416,6 +431,56 @@ function Commitments() {
     setDeleteConfirm({ id, description });
   };
 
+  const toggleTaskSelection = (id) => {
+    setSelectedTaskIds(previous => (
+      previous.includes(id)
+        ? previous.filter(selectedId => selectedId !== id)
+        : [...previous, id]
+    ));
+  };
+
+  const clearSelection = () => {
+    setSelectedTaskIds([]);
+    setSelectionMode(false);
+  };
+
+  const toggleSelectVisible = () => {
+    const visibleIds = filteredCommitments.map(task => task.id);
+    const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedTaskIds.includes(id));
+
+    if (allVisibleSelected) {
+      setSelectedTaskIds(previous => previous.filter(id => !visibleIds.includes(id)));
+    } else {
+      setSelectedTaskIds(previous => Array.from(new Set([...previous, ...visibleIds])));
+    }
+  };
+
+  const executeBulkDelete = async () => {
+    if (selectedTaskIds.length === 0) return;
+
+    setBulkDeleting(true);
+    try {
+      const response = await commitmentsAPI.bulkDelete(selectedTaskIds);
+      const data = response.data || {};
+      const externalSummary = data.externalSummary || {};
+      const removedFrom = [];
+
+      if (externalSummary.calendar?.success) removedFrom.push(`${externalSummary.calendar.success} calendar`);
+      if (externalSummary.jira?.success) removedFrom.push(`${externalSummary.jira.success} Jira`);
+      if (externalSummary.microsoft?.success) removedFrom.push(`${externalSummary.microsoft.success} Microsoft`);
+
+      const suffix = removedFrom.length > 0 ? ` (also removed from ${removedFrom.join(', ')})` : '';
+      toast.success(`Deleted ${data.deleted || selectedTaskIds.length} tasks${suffix}`);
+      setBulkDeleteConfirm(false);
+      clearSelection();
+      await loadCommitments();
+    } catch (err) {
+      toast.error('Failed to delete selected tasks: ' + (err.response?.data?.message || err.response?.data?.error || err.message));
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const executeDelete = async () => {
     if (!deleteConfirm) return;
 
@@ -510,6 +575,8 @@ function Commitments() {
   const filteredCommitments = getFilteredCommitments();
   const grouped = groupByStatus();
   const byType = groupByType();
+  const visibleIds = filteredCommitments.map(task => task.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedTaskIds.includes(id));
 
   const typeLabels = {
     'all': 'All Types',
@@ -535,6 +602,20 @@ function Commitments() {
         <div className="task-card-layout task-layout">
           <div className="task-card-content task-content-flex">
             <div className="flex gap-sm items-center mb-sm flex-wrap">
+              {selectionMode && (
+                <label
+                  className="task-select-control"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedTaskIds.includes(commitment.id)}
+                    onChange={() => toggleTaskSelection(commitment.id)}
+                    aria-label={`Select task: ${commitment.description}`}
+                  />
+                </label>
+              )}
               <TaskTypeBadge type={commitment.task_type} />
               {commitment.cluster_group && <ClusterBadge name={commitment.cluster_group} />}
             </div>
@@ -599,6 +680,39 @@ function Commitments() {
                 <Button variant="success" onClick={() => setShowCreateModal(true)} icon={<Plus size={16} />} title="Create a new task (Cmd+N)">
                   Create Task
                 </Button>
+                <Button
+                  variant={selectionMode ? 'secondary' : 'ghost'}
+                  onClick={() => {
+                    if (selectionMode) {
+                      clearSelection();
+                    } else {
+                      setSelectionMode(true);
+                    }
+                  }}
+                  icon={selectionMode ? <X size={16} /> : <SquareCheckBig size={16} />}
+                >
+                  {selectionMode ? 'Cancel Select' : 'Select'}
+                </Button>
+                {selectionMode && (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={toggleSelectVisible}
+                      disabled={filteredCommitments.length === 0}
+                      icon={<SquareCheckBig size={16} />}
+                    >
+                      {allVisibleSelected ? 'Clear Visible' : 'Select Visible'}
+                    </Button>
+                    <Button
+                      variant="error"
+                      onClick={() => setBulkDeleteConfirm(true)}
+                      disabled={selectedTaskIds.length === 0}
+                      icon={<Trash2 size={16} />}
+                    >
+                      Delete Selected ({selectedTaskIds.length})
+                    </Button>
+                  </>
+                )}
                 <Button
                   onClick={handleSmartGroup}
                   disabled={clusteringTasks || loading || filteredCommitments.filter(c => c.status !== 'completed').length < 2}
@@ -752,6 +866,20 @@ function Commitments() {
                 {confirmationGroup.needsConfirmation.map(commitment => (
                   <div key={commitment.id} className="task-card" style={{ backgroundColor: '#2a1f0a', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', border: '1px solid #f59e0b40' }}>
                     <div className="flex gap-sm items-center mb-sm flex-wrap">
+                      {selectionMode && (
+                        <label
+                          className="task-select-control"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedTaskIds.includes(commitment.id)}
+                            onChange={() => toggleTaskSelection(commitment.id)}
+                            aria-label={`Select task: ${commitment.description}`}
+                          />
+                        </label>
+                      )}
                       <TaskTypeBadge type={commitment.task_type} />
                       {commitment.cluster_group && <ClusterBadge name={commitment.cluster_group} />}
                     </div>
@@ -950,6 +1078,18 @@ function Commitments() {
         message={deleteConfirm ? `Are you sure you want to delete this task?\n\n"${deleteConfirm.description}"\n\nThis will also remove it from connected services if synced.` : ''}
         confirmText="Delete"
         confirmVariant="error"
+      />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={bulkDeleteConfirm}
+        onClose={() => !bulkDeleting && setBulkDeleteConfirm(false)}
+        onConfirm={executeBulkDelete}
+        title="Delete Selected Tasks"
+        message={`Delete ${selectedTaskIds.length} selected task${selectedTaskIds.length === 1 ? '' : 's'}?\n\nThis will also remove synced items from connected calendar, Jira, and Microsoft services when possible.`}
+        confirmText="Delete Selected"
+        confirmVariant="error"
+        loading={bulkDeleting}
       />
 
       {/* Sync Confirmation Modal */}

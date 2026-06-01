@@ -78,6 +78,100 @@ async function syncEditedTask(existingTask, updatedTask, updateNote, profileId) 
   }
 }
 
+function createDeletionResults() {
+  return {
+    database: false,
+    calendar: null,
+    jira: null,
+    microsoft: null
+  };
+}
+
+async function cleanupExternalTaskLinks(task, profileId, deletionResults = createDeletionResults()) {
+  if (task.calendar_event_id) {
+    try {
+      const isConnected = await calendarSync.isConnected(profileId);
+      if (isConnected) {
+        await calendarSync.deleteEvent(task.calendar_event_id, profileId);
+        deletionResults.calendar = 'success';
+        logger.info(`Deleted calendar event ${task.calendar_event_id}`);
+      }
+    } catch (calError) {
+      deletionResults.calendar = 'failed';
+      logger.warn(`Failed to delete calendar event: ${calError.message}`);
+    }
+  }
+
+  if (task.jira_task_id) {
+    try {
+      const isJiraConnected = await jira.isConnected(profileId);
+      if (isJiraConnected) {
+        await jira.deleteIssue(task.jira_task_id, profileId);
+        deletionResults.jira = 'success';
+        logger.info(`Deleted Jira issue ${task.jira_task_id}`);
+      }
+    } catch (jiraError) {
+      deletionResults.jira = 'failed';
+      logger.warn(`Failed to delete Jira issue: ${jiraError.message}`);
+    }
+  }
+
+  if (task.microsoft_task_id) {
+    try {
+      const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
+      if (isMicrosoftConnected) {
+        await microsoftPlanner.deleteTask(task.microsoft_task_id, profileId);
+        deletionResults.microsoft = 'success';
+        logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);
+      }
+    } catch (msError) {
+      deletionResults.microsoft = 'failed';
+      logger.warn(`Failed to delete Microsoft task: ${msError.message}`);
+    }
+  }
+
+  return deletionResults;
+}
+
+async function deleteCommitmentTask(db, task, profileId, {
+  learningAction = 'delete',
+  learningReason = 'User deleted task',
+  refineInstructions = true
+} = {}) {
+  const deletionResults = await cleanupExternalTaskLinks(task, profileId);
+  const result = await db.run('DELETE FROM commitments WHERE id = ? AND profile_id = ?', [task.id, profileId]);
+  deletionResults.database = result.changes > 0;
+
+  if (result.changes > 0) {
+    await recordTaskLearningEvent({
+      profileId,
+      action: learningAction,
+      task,
+      reason: learningReason,
+      refineInstructions
+    });
+  }
+
+  return deletionResults;
+}
+
+function aggregateDeletionResults(results) {
+  const summary = {
+    calendar: { success: 0, failed: 0 },
+    jira: { success: 0, failed: 0 },
+    microsoft: { success: 0, failed: 0 }
+  };
+
+  results.forEach(result => {
+    ['calendar', 'jira', 'microsoft'].forEach(key => {
+      if (result.deletionResults?.[key] === 'success') summary[key].success++;
+      if (result.deletionResults?.[key] === 'failed') summary[key].failed++;
+    });
+  });
+
+  return summary;
+}
+
 /**
  * Get all commitments with optional filtering
  */
@@ -109,6 +203,95 @@ router.get('/', async (req, res) => {
     logger.error('Error fetching commitments:', err);
     res.status(500).json({ 
       error: 'Error fetching commitments',
+      message: err.message
+    });
+  }
+});
+
+/**
+ * Bulk delete commitments and remove them from external services.
+ */
+router.delete('/', async (req, res) => {
+  const requestedIds = Array.isArray(req.body?.ids) ? req.body.ids : [];
+  const ids = Array.from(new Set(
+    requestedIds
+      .map(id => Number.parseInt(id, 10))
+      .filter(id => Number.isInteger(id) && id > 0)
+  ));
+
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'At least one task id is required' });
+  }
+
+  if (ids.length > 500) {
+    return res.status(400).json({ error: 'Bulk delete is limited to 500 tasks at a time' });
+  }
+
+  logger.info(`Bulk deleting ${ids.length} commitments`, { profileId: req.profileId });
+
+  try {
+    const db = getDb();
+    const deleted = [];
+    const notFound = [];
+
+    for (const id of ids) {
+      const task = await db.get('SELECT * FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
+
+      if (!task) {
+        notFound.push(id);
+        continue;
+      }
+
+      const deletionResults = await deleteCommitmentTask(db, task, req.profileId, {
+        learningAction: 'bulk_delete',
+        learningReason: 'User bulk deleted task',
+        refineInstructions: false
+      });
+
+      if (deletionResults.database) {
+        deleted.push({
+          id: task.id,
+          description: task.description,
+          deletionResults
+        });
+      }
+    }
+
+    if (deleted.length > 0) {
+      await recordTaskLearningEvent({
+        profileId: req.profileId,
+        action: 'delete',
+        task: {
+          description: `Bulk deleted ${deleted.length} tasks: ${deleted.slice(0, 5).map(task => task.description).join('; ')}`,
+          task_type: 'bulk-delete',
+          status: 'deleted'
+        },
+        reason: 'User bulk deleted tasks'
+      });
+    }
+
+    const externalSummary = aggregateDeletionResults(deleted);
+    logger.info(`Bulk delete completed`, {
+      profileId: req.profileId,
+      requested: ids.length,
+      deleted: deleted.length,
+      notFound: notFound.length,
+      externalSummary
+    });
+
+    res.json({
+      success: true,
+      message: `Deleted ${deleted.length} task${deleted.length === 1 ? '' : 's'}`,
+      requested: ids.length,
+      deleted: deleted.length,
+      notFound,
+      externalSummary,
+      results: deleted
+    });
+  } catch (err) {
+    logger.error('Error bulk deleting commitments:', err);
+    res.status(500).json({
+      error: 'Error bulk deleting tasks',
       message: err.message
     });
   }
@@ -344,73 +527,12 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Commitment not found' });
     }
     
-    const deletionResults = {
-      database: false,
-      calendar: null,
-      jira: null,
-      microsoft: null
-    };
+    const deletionResults = await deleteCommitmentTask(db, task, req.profileId);
     
-    // Delete from connected calendar if event exists
-    if (task.calendar_event_id) {
-      try {
-        const isConnected = await calendarSync.isConnected(req.profileId);
-        if (isConnected) {
-          await calendarSync.deleteEvent(task.calendar_event_id, req.profileId);
-          deletionResults.calendar = 'success';
-          logger.info(`Deleted calendar event ${task.calendar_event_id}`);
-        }
-      } catch (calError) {
-        deletionResults.calendar = 'failed';
-        logger.warn(`Failed to delete calendar event: ${calError.message}`);
-      }
-    }
-    
-    // Delete from Jira if issue exists
-    if (task.jira_task_id) {
-      try {
-        const isJiraConnected = await jira.isConnected(req.profileId);
-        if (isJiraConnected) {
-          await jira.deleteIssue(task.jira_task_id, req.profileId);
-          deletionResults.jira = 'success';
-          logger.info(`Deleted Jira issue ${task.jira_task_id}`);
-        }
-      } catch (jiraError) {
-        deletionResults.jira = 'failed';
-        logger.warn(`Failed to delete Jira issue: ${jiraError.message}`);
-      }
-    }
-    
-    // Delete from Microsoft Planner if task exists
-    if (task.microsoft_task_id) {
-      try {
-        const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
-        if (isMicrosoftConnected) {
-          await microsoftPlanner.deleteTask(task.microsoft_task_id, req.profileId);
-          deletionResults.microsoft = 'success';
-          logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);
-        }
-      } catch (msError) {
-        deletionResults.microsoft = 'failed';
-        logger.warn(`Failed to delete Microsoft task: ${msError.message}`);
-      }
-    }
-    
-    // Delete from database (with profile_id check for security)
-    const result = await db.run('DELETE FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
-    deletionResults.database = result.changes > 0;
-    
-    if (result.changes === 0) {
+    if (!deletionResults.database) {
       logger.warn(`Commitment ${id} not found for profile ${req.profileId}`);
       return res.status(404).json({ error: 'Commitment not found' });
     }
-
-    await recordTaskLearningEvent({
-      profileId: req.profileId,
-      action: 'delete',
-      task,
-      reason: 'User deleted task'
-    });
     
     logger.info(`Commitment ${id} deleted successfully. Results:`, deletionResults);
     res.json({ 
