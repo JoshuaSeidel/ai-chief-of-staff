@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { intakeAPI, transcriptsAPI } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
 import { PullToRefresh } from './PullToRefresh';
 
 function getTranscriptStatusMeta(transcript) {
@@ -101,7 +102,16 @@ function TranscriptStatus({ transcript, compact = false }) {
   );
 }
 
+function isLiveTranscript(transcript) {
+  return transcript.processing_status === 'processing';
+}
+
+function getPrimaryProcessingTranscript(transcripts) {
+  return transcripts.find(isLiveTranscript) || null;
+}
+
 function Transcripts() {
+  const toast = useToast();
   const [transcripts, setTranscripts] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
@@ -114,6 +124,9 @@ function Transcripts() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
+  const transcriptsRef = useRef([]);
+  const syncingSourceRef = useRef(null);
+  const liveRefreshInFlightRef = useRef(false);
   const [pasteData, setPasteData] = useState({
     filename: '',
     content: '',
@@ -132,31 +145,77 @@ function Transcripts() {
     loadTranscripts();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    syncingSourceRef.current = syncingSource;
+  }, [syncingSource]);
+
+  useEffect(() => {
+    const intervalId = setInterval(async () => {
+      const shouldPoll = Boolean(syncingSourceRef.current)
+        || transcriptsRef.current.some(isLiveTranscript);
+
+      if (!shouldPoll || liveRefreshInFlightRef.current) {
+        return;
+      }
+
+      liveRefreshInFlightRef.current = true;
+      try {
+        await loadTranscripts({ quiet: true });
+      } finally {
+        liveRefreshInFlightRef.current = false;
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Cleanup: Remove body scroll lock on unmount
   useEffect(() => {
     return () => {
       document.body.classList.remove('modal-open');
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
     };
   }, []);
 
-  const loadTranscripts = async () => {
+  const syncTranscriptListState = (loadedTranscripts) => {
+    transcriptsRef.current = loadedTranscripts;
+    setTranscripts(loadedTranscripts);
+
+    const processingTranscript = getPrimaryProcessingTranscript(loadedTranscripts);
+    if (processingTranscript) {
+      setProcessingTranscriptId(processingTranscript.id);
+      setProcessingProgress(processingTranscript.processing_progress || 0);
+    } else {
+      setProcessingTranscriptId(null);
+      setProcessingProgress(0);
+    }
+  };
+
+  const upsertTranscriptInList = (transcript) => {
+    setTranscripts((previousTranscripts) => {
+      const exists = previousTranscripts.some(item => item.id === transcript.id);
+      const nextTranscripts = exists
+        ? previousTranscripts.map(item => (item.id === transcript.id ? { ...item, ...transcript } : item))
+        : [transcript, ...previousTranscripts];
+
+      transcriptsRef.current = nextTranscripts;
+      return nextTranscripts;
+    });
+  };
+
+  const loadTranscripts = async ({ quiet = false } = {}) => {
     try {
       const response = await transcriptsAPI.getAll();
       const loadedTranscripts = response.data;
-      setTranscripts(loadedTranscripts);
-      
-      // Check if any transcripts are processing and start polling if needed
-      const processingTranscript = loadedTranscripts.find(t => 
-        t.processing_status === 'processing' && t.id !== processingTranscriptId
-      );
-      
-      if (processingTranscript && !processingTranscriptId) {
-        setProcessingTranscriptId(processingTranscript.id);
-        setProcessingProgress(processingTranscript.processing_progress || 0);
-        pollProcessingStatus(processingTranscript.id);
-      }
+      syncTranscriptListState(loadedTranscripts);
+      return loadedTranscripts;
     } catch (err) {
-      setError('Failed to load transcripts');
+      if (!quiet) {
+        setError('Failed to load transcripts');
+      }
+      return [];
     }
   };
 
@@ -236,6 +295,7 @@ function Transcripts() {
       try {
         const response = await transcriptsAPI.getById(transcriptId);
         const transcript = response.data;
+        upsertTranscriptInList(transcript);
         
         if (transcript.processing_status === 'completed') {
           setProcessingTranscriptId(null);
@@ -255,6 +315,7 @@ function Transcripts() {
           return;
         } else if (transcript.processing_status === 'processing') {
           setProcessingProgress(transcript.processing_progress || 0);
+          setProcessingTranscriptId(transcript.id);
           attempts++;
           if (attempts < maxAttempts) {
             setTimeout(poll, 1000); // Poll every second
@@ -304,7 +365,7 @@ function Transcripts() {
         setSuccessMessage(`Uploaded: ${file.name}\nProcessing in background...`);
         setProcessingTranscriptId(data.transcriptId);
         setProcessingProgress(0);
-        loadTranscripts(); // Reload to show new transcript
+        await loadTranscripts(); // Reload to show new transcript
         event.target.value = ''; // Clear the input
         setFileMeetingDate(''); // Clear meeting date
         setUploading(false); // Allow user to continue
@@ -314,7 +375,7 @@ function Transcripts() {
       } else {
         // Legacy response format (shouldn't happen with new backend)
         setSuccessMessage(`Successfully uploaded: ${file.name}`);
-        loadTranscripts();
+        await loadTranscripts();
         event.target.value = '';
         setFileMeetingDate('');
         setUploading(false);
@@ -351,7 +412,7 @@ function Transcripts() {
         setProcessingProgress(0);
         setPasteData({ filename: '', content: '', source: 'manual', meetingDate: '' });
         setShowPasteForm(false);
-        loadTranscripts(); // Reload to show new transcript
+        await loadTranscripts(); // Reload to show new transcript
         setUploading(false); // Allow user to continue
         
         // Start polling for status
@@ -361,7 +422,7 @@ function Transcripts() {
         setSuccessMessage(`Successfully saved: ${pasteData.filename}`);
         setPasteData({ filename: '', content: '', source: 'manual', meetingDate: '' });
         setShowPasteForm(false);
-        loadTranscripts();
+        await loadTranscripts();
         setUploading(false);
       }
     } catch (err) {
@@ -452,7 +513,7 @@ function Transcripts() {
         setRecordingTime(0);
         setShowRecording(false);
         setFileMeetingDate('');
-        loadTranscripts();
+        await loadTranscripts();
         setUploading(false);
         setTimeout(() => pollProcessingStatus(data.transcriptId), 1000);
       } else {
@@ -461,7 +522,7 @@ function Transcripts() {
         setRecordingTime(0);
         setShowRecording(false);
         setFileMeetingDate('');
-        loadTranscripts();
+        await loadTranscripts();
         setUploading(false);
       }
     } catch (err) {
@@ -477,14 +538,15 @@ function Transcripts() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this transcript?')) {
+    const confirmed = await toast.confirm('Delete this transcript?');
+    if (!confirmed) {
       return;
     }
 
     try {
       await transcriptsAPI.delete(id);
       setSuccessMessage('Transcript deleted successfully');
-      loadTranscripts();
+      await loadTranscripts();
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err) {
       setError('Failed to delete transcript');
@@ -492,7 +554,8 @@ function Transcripts() {
   };
 
   const handleReprocess = async (id, filename) => {
-    if (!window.confirm(`Reprocess "${filename}"?\n\nThis will re-extract commitments and action items using Claude AI.`)) {
+    const confirmed = await toast.confirm(`Reprocess "${filename}" and re-extract action items?`);
+    if (!confirmed) {
       return;
     }
 
@@ -504,8 +567,14 @@ function Transcripts() {
       const response = await transcriptsAPI.reprocess(id);
       const data = response.data;
       
-      if (data.success) {
-        let message = `Successfully reprocessed: ${filename}`;
+      if (data.success && data.status === 'processing') {
+        setSuccessMessage(`Reprocessing started: ${filename}`);
+        setProcessingTranscriptId(id);
+        setProcessingProgress(0);
+        await loadTranscripts();
+        setTimeout(() => pollProcessingStatus(id), 1000);
+      } else if (data.success) {
+        let message = `Reprocessing complete: ${filename}`;
         if (data.extracted) {
           message += `\nExtracted ${data.extracted.commitments || 0} commitments`;
           message += `\nExtracted ${data.extracted.actionItems || 0} action items`;
@@ -516,7 +585,6 @@ function Transcripts() {
       } else {
         setError(data.message || 'Reprocessing failed');
       }
-      
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to reprocess transcript');
@@ -888,10 +956,10 @@ function Transcripts() {
                   </tr>
                 </thead>
                 <tbody>
-	                  {transcripts.map((transcript) => {
-	                    const isProcessing = transcript.processing_status === 'processing';
-	                    const isFailed = transcript.processing_status === 'failed';
-	                    const isPending = transcript.processing_status === 'pending';
+                  {transcripts.map((transcript) => {
+                    const isProcessing = transcript.processing_status === 'processing';
+                    const isFailed = transcript.processing_status === 'failed';
+                    const isPending = transcript.processing_status === 'pending';
                     return (
                       <tr key={transcript.id} className="transcript-table-row">
                         <td className="transcript-table-cell">{transcript.filename}</td>
@@ -924,7 +992,7 @@ function Transcripts() {
                             className="secondary"
                             style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
                             onClick={() => handleViewTranscript(transcript.id)}
-	                            disabled={isProcessing || isFailed || isPending}
+                            disabled={isProcessing || isFailed || isPending}
                             title="View AI-generated meeting recap"
                           >
                             Meeting Recap
@@ -933,7 +1001,7 @@ function Transcripts() {
                             className="secondary"
                             style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', marginRight: '0.5rem' }}
                             onClick={() => handleReprocess(transcript.id, transcript.filename)}
-	                            disabled={uploading || isProcessing || isPending}
+                            disabled={uploading || isProcessing || isPending}
                             title="Re-extract commitments and action items"
                           >
                             <RefreshCw size={14} /> Reprocess
@@ -955,10 +1023,9 @@ function Transcripts() {
 
             {/* Mobile card view */}
             <div className="transcripts-table-mobile">
-	              {transcripts.map((transcript) => {
-	                const isProcessing = transcript.processing_status === 'processing';
-	                const isFailed = transcript.processing_status === 'failed';
-	                const isPending = transcript.processing_status === 'pending';
+              {transcripts.map((transcript) => {
+                const isProcessing = transcript.processing_status === 'processing';
+                const isPending = transcript.processing_status === 'pending';
                 return (
                   <div
                     key={transcript.id}
@@ -1020,9 +1087,9 @@ function Transcripts() {
                             padding: '0.625rem 1rem', 
                             fontSize: '0.875rem',
                             flex: 1
-	                          }}
-	                          onClick={() => handleReprocess(transcript.id, transcript.filename)}
-	                          disabled={uploading || isProcessing || isPending}
+                          }}
+                          onClick={() => handleReprocess(transcript.id, transcript.filename)}
+                          disabled={uploading || isProcessing || isPending}
                           title="Re-extract commitments and action items"
                         >
                           <RefreshCw size={14} /> Reprocess

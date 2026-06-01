@@ -80,8 +80,10 @@ export function ToastProvider({ children }) {
 }
 
 function ToastContainer({ toasts, removeToast }) {
+  const hasConfirm = toasts.some(toast => toast.type === 'confirm');
+
   return (
-    <div className="toast-container">
+    <div className={`toast-container ${hasConfirm ? 'toast-container-confirm' : ''}`}>
       {toasts.map(toast => (
         <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
       ))}

@@ -27,7 +27,7 @@ export function PullToRefresh({ onRefresh, children, disabled = false, style = {
   };
 
   const contentStyle = {
-    transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : 'translateY(0)',
+    transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : 'none',
     transition: pullDistance === 0 && !isRefreshing ? 'transform 0.3s ease-out' : 'none',
     minHeight: '100%'
   };
