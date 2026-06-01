@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
+  CalendarSync,
   ClipboardEdit,
   FileText,
   FileUp,
   Loader2,
+  Mail,
   Mic,
   RefreshCw,
   Save,
@@ -11,7 +13,7 @@ import {
   X
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { transcriptsAPI } from '../services/api';
+import { intakeAPI, transcriptsAPI } from '../services/api';
 import { PullToRefresh } from './PullToRefresh';
 
 function Transcripts() {
@@ -39,6 +41,7 @@ function Transcripts() {
   const [viewingTranscript, setViewingTranscript] = useState(null);
   const [meetingNotes, setMeetingNotes] = useState(null);
   const [loadingNotes, setLoadingNotes] = useState(false);
+  const [syncingSource, setSyncingSource] = useState(null);
 
   useEffect(() => {
     loadTranscripts();
@@ -74,6 +77,69 @@ function Transcripts() {
 
   const handleRefresh = async () => {
     await loadTranscripts();
+  };
+
+  const buildSyncSummary = (label, data = {}) => {
+    const parts = [
+      `Imported ${data.imported || 0}`,
+      `Skipped ${data.skipped || 0}`
+    ];
+
+    if (data.pending) {
+      parts.push(`Pending transcripts ${data.pending}`);
+    }
+
+    if (data.failed) {
+      parts.push(`Failed ${data.failed}`);
+    }
+
+    return `${label} sync complete.\n${parts.join(' • ')}`;
+  };
+
+  const handleEmailSync = async () => {
+    setSyncingSource('email');
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await intakeAPI.syncEmailMessages({
+        limit: 25,
+        unreadOnly: false,
+        query: ''
+      });
+      setSuccessMessage(buildSyncSummary('Email', response.data));
+      await loadTranscripts();
+      setTimeout(() => setSuccessMessage(null), 6000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to sync email');
+    } finally {
+      setSyncingSource(null);
+    }
+  };
+
+  const handleCalendarSync = async () => {
+    setSyncingSource('calendar');
+    setError(null);
+    setSuccessMessage(null);
+
+    const end = new Date();
+    const start = new Date(end.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    try {
+      const response = await intakeAPI.syncCalendarMeetings({
+        start: start.toISOString(),
+        end: end.toISOString(),
+        limit: 50,
+        query: ''
+      });
+      setSuccessMessage(buildSyncSummary('Calendar', response.data));
+      await loadTranscripts();
+      setTimeout(() => setSuccessMessage(null), 6000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Unable to sync calendar');
+    } finally {
+      setSyncingSource(null);
+    }
   };
 
   // Poll for processing status
@@ -416,6 +482,24 @@ function Transcripts() {
         <div className="flex-between-center-mb-md-wrap-gap-sm">
           <h2>Upload Transcript</h2>
           <div className="flex gap-sm items-center">
+            <button
+              onClick={handleEmailSync}
+              className="secondary glass-button"
+              disabled={syncingSource !== null || uploading}
+              title="Sync Microsoft 365 email"
+            >
+              {syncingSource === 'email' ? <Loader2 className="spin" size={16} /> : <Mail size={16} />}
+              <span>Email Sync</span>
+            </button>
+            <button
+              onClick={handleCalendarSync}
+              className="secondary glass-button"
+              disabled={syncingSource !== null || uploading}
+              title="Sync Microsoft 365 calendar meetings"
+            >
+              {syncingSource === 'calendar' ? <Loader2 className="spin" size={16} /> : <CalendarSync size={16} />}
+              <span>Calendar Sync</span>
+            </button>
             <button 
               onClick={() => {
                 setShowRecording(!showRecording);

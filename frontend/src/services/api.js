@@ -145,6 +145,19 @@ export const intakeAPI = {
   getMeetingAssets: (id) => api.get(`/intake/meetings/${encodeURIComponent(id)}/assets`),
   processMeeting: (id) => api.post(`/intake/meetings/${encodeURIComponent(id)}/process`),
   importMeetings: (ids = []) => api.post('/intake/meetings/import', { ids }),
+  syncCalendarMeetings: ({ start = '', end = '', limit = 50, query = '' } = {}) => api.post('/intake/meetings/sync', {
+    start,
+    end,
+    limit,
+    query
+  }),
+  syncMeetingTranscripts: ({ start = '', end = '', endedBefore = '', limit = 50, query = '' } = {}) => api.post('/intake/meetings/sync-transcripts', {
+    start,
+    end,
+    endedBefore,
+    limit,
+    query
+  }),
 };
 
 // Integrations Proxy API (for microservice integrations)

@@ -425,6 +425,49 @@ router.post('/meetings/import', async (req, res) => {
   }
 });
 
+router.post('/meetings/sync', async (req, res) => {
+  try {
+    const profileId = req.profileId || 2;
+    const results = await importMeetingsInRange({
+      start: req.body.start,
+      end: req.body.end,
+      limit: req.body.limit || 50,
+      query: req.body.query || ''
+    }, profileId);
+
+    const imported = results.filter(result => result.imported).length;
+    const pending = results.filter(result => result.pending).length;
+    const failed = results.filter(result => result.failed).length;
+    const skipped = results.length - imported - pending - failed;
+
+    res.json({
+      success: true,
+      imported,
+      pending,
+      skipped,
+      failed,
+      results
+    });
+  } catch (error) {
+    const setupMessage = getMicrosoftSetupMessage(error);
+    if (setupMessage) {
+      return res.status(409).json({
+        success: false,
+        connected: false,
+        error: 'Microsoft not connected',
+        message: setupMessage
+      });
+    }
+
+    logger.error('Error syncing calendar meetings', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to sync calendar meetings',
+      message: error.message
+    });
+  }
+});
+
 router.post('/meetings/sync-transcripts', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
@@ -531,7 +574,11 @@ async function importMeetingsInRange(options = {}, profileId = 2) {
       const fullMeeting = await microsoftIntake.getMeeting(meeting.id, profileId);
       results.push(await importMeeting(fullMeeting, profileId));
     } catch (error) {
-      results.push(errorResult(meeting.id, error));
+      if (isTeamsTranscriptUnavailable(error)) {
+        results.push(pendingResult(meeting.id, error));
+      } else {
+        results.push(errorResult(meeting.id, error));
+      }
     }
   }
   return results;
