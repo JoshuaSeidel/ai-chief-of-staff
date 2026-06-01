@@ -1,17 +1,14 @@
 name: Create Release
 
 on:
-  # Trigger on tag pushes (v* pattern) - primary trigger
-  push:
-    tags:
-      - 'v*'
-  # Also trigger after docker build completes (for push events to main)
+  # Create releases only after Docker images are built successfully.
   workflow_run:
-    workflows: ["Build and Push Docker Images (Microservices)"]
+    workflows: ["Build and Push Docker Images"]
     types:
       - completed
     branches:
       - main
+  workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
@@ -19,12 +16,14 @@ env:
 jobs:
   create-release:
     runs-on: ubuntu-latest
-    # For workflow_run events, only proceed if the build succeeded
-    # For tag push events, always proceed
+    # Automatic releases are created only after the main Docker build succeeds.
+    # Manual dispatch is kept for recovery if a release needs to be recreated.
     if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     permissions:
+      actions: read
+      checks: read
       contents: write
       packages: read
 
@@ -33,19 +32,63 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+
+      - name: Wait for CodeQL checks
+        if: github.event_name == 'workflow_run'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const ref = context.payload.workflow_run.head_sha;
+            const requiredNames = new Set([
+              'Analyze (actions)',
+              'Analyze (go)',
+              'Analyze (javascript-typescript)',
+              'Analyze (python)'
+            ]);
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+            for (let attempt = 1; attempt <= 30; attempt += 1) {
+              const { data } = await github.rest.checks.listForRef({
+                owner,
+                repo,
+                ref,
+                per_page: 100
+              });
+              const checksByName = new Map(
+                data.check_runs
+                  .filter((run) => requiredNames.has(run.name))
+                  .map((run) => [run.name, run])
+              );
+              const missing = [...requiredNames].filter((name) => !checksByName.has(name));
+              const pending = [...checksByName.values()].filter((run) => run.status !== 'completed');
+              const failed = [...checksByName.values()].filter((run) => run.status === 'completed' && run.conclusion !== 'success');
+
+              core.info(`CodeQL check wait attempt ${attempt}: ${checksByName.size}/${requiredNames.size} found, ${pending.length} pending, ${failed.length} failed`);
+
+              if (failed.length > 0) {
+                core.setFailed(`CodeQL did not pass: ${failed.map((run) => `${run.name}=${run.conclusion}`).join(', ')}`);
+                return;
+              }
+
+              if (missing.length === 0 && pending.length === 0) {
+                core.info('All CodeQL checks passed for this commit.');
+                return;
+              }
+
+              await sleep(10000);
+            }
+
+            core.setFailed('Timed out waiting for CodeQL checks to pass for this commit.');
 
       - name: Get version and repository info
         id: version
         run: |
           VERSION=$(node -p "require('./backend/package.json').version")
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-          
-          # For tag pushes, use the tag name; otherwise use version from package.json
-          if [ "${{ github.event_name }}" == "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG_NAME="${{ github.ref_name }}"
-          else
-            TAG_NAME="v$VERSION"
-          fi
+          TAG_NAME="v$VERSION"
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
@@ -100,6 +143,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           name: Release ${{ steps.version.outputs.tag }}
           body: |
             ## Release ${{ steps.version.outputs.tag }}
