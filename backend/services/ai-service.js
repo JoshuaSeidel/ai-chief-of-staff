@@ -360,17 +360,43 @@ async function callAI(messages, systemPrompt = null, maxTokens = null, profileId
   const provider = await getAIProvider(profileId);
   
   logger.info(`Using AI provider: ${provider} for profile ${profileId}`);
-  
-  switch (provider) {
-    case PROVIDERS.ANTHROPIC:
-      return await callAnthropic(messages, systemPrompt, maxTokens, profileId);
-    case PROVIDERS.OPENAI:
-      return await callOpenAI(messages, systemPrompt, maxTokens, profileId);
-    case PROVIDERS.OLLAMA:
-      return await callOllama(messages, systemPrompt, maxTokens, profileId);
-    default:
-      throw new Error(`Unsupported AI provider: ${provider}`);
+
+  try {
+    switch (provider) {
+      case PROVIDERS.ANTHROPIC:
+        return await callAnthropic(messages, systemPrompt, maxTokens, profileId);
+      case PROVIDERS.OPENAI:
+        return await callOpenAI(messages, systemPrompt, maxTokens, profileId);
+      case PROVIDERS.OLLAMA:
+        return await callOllama(messages, systemPrompt, maxTokens, profileId);
+      default:
+        throw new Error(`Unsupported AI provider: ${provider}`);
+    }
+  } catch (error) {
+    throw normalizeProviderError(provider, error);
   }
+}
+
+function normalizeProviderError(provider, error) {
+  const message = error?.message || String(error);
+  const status = error?.status || error?.response?.status;
+  const isAuthError = status === 401
+    || /authentication_error|invalid authentication credentials|invalid api key|incorrect api key|unauthorized|401/i.test(message);
+
+  if (isAuthError) {
+    if (provider === PROVIDERS.ANTHROPIC) {
+      const normalized = new Error('Anthropic authentication failed. The stored Anthropic API key is invalid or revoked. If you intended to use OpenAI, set Default AI Provider to OpenAI in Configuration > AI Provider and save the settings for the current profile.');
+      normalized.cause = error;
+      return normalized;
+    }
+    if (provider === PROVIDERS.OPENAI) {
+      const normalized = new Error('OpenAI authentication failed. The stored OpenAI API key is invalid, revoked, or does not have access to the selected model. Update the OpenAI API key in Configuration > AI Provider, refresh models, and save.');
+      normalized.cause = error;
+      return normalized;
+    }
+  }
+
+  return error;
 }
 
 /**
@@ -434,4 +460,3 @@ module.exports = {
   getOpenAIClient,
   getOllamaBaseUrl
 };
-

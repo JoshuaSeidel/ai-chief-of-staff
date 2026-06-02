@@ -179,6 +179,10 @@ export function AISettings() {
         globalSettings.openaiApiKey = config.openaiApiKey;
       }
 
+      globalSettings.aiProvider = config.aiProvider;
+      globalSettings.claudeModel = config.claudeModel;
+      globalSettings.openaiModel = config.openaiModel;
+      globalSettings.ollamaModel = config.ollamaModel;
       globalSettings.ollamaBaseUrl = config.ollamaBaseUrl;
       globalSettings.aiMaxTokens = config.aiMaxTokens;
       globalSettings.aiTemperature = config.aiTemperature;
@@ -224,6 +228,7 @@ export function AISettings() {
       }
 
       toast.success('AI settings saved successfully');
+      await loadModelsForProvider(config.aiProvider, { notify: true, useCurrentInput: true });
     } catch (err) {
       toast.error('Failed to save AI settings');
       console.error('Failed to save AI settings:', err);

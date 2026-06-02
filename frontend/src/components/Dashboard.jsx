@@ -387,9 +387,9 @@ function Dashboard({ setActiveTab }) {
             marginBottom: '1rem' 
           }}>
             <strong>Error:</strong> {error}
-            {error.includes('API key') && (
+            {/(api key|authentication|credentials|provider)/i.test(error) && (
               <p className="text-md-mt-sm">
-                Please configure your Anthropic API key in the Configuration tab.
+                Check Configuration &gt; AI Provider. Confirm the selected provider, API key, and model are valid for the current profile.
               </p>
             )}
           </div>
