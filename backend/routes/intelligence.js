@@ -280,19 +280,14 @@ router.post('/analyze-patterns', async (req, res) => {
       logger.info('Pattern analysis completed by microservice');
       return res.json(result);
     } catch (microserviceErr) {
-      // Only fallback for connection errors, not HTTP errors
-      if (microserviceErr.message.includes('unavailable') || microserviceErr.code === 'ECONNREFUSED' || microserviceErr.code === 'ETIMEDOUT') {
-        logger.warn(`Pattern Recognition microservice unavailable (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message} - using local implementation`);
-        
-        // Fall back to local implementation
-        const { analyzeTaskPatterns } = require('./intelligence-local');
-        const result = await analyzeTaskPatterns(req, time_range || '30d');
-        return res.json(result);
-      } else {
-        // HTTP error from microservice - return it
-        logger.error(`Pattern Recognition microservice error: ${microserviceErr.message}`);
-        throw microserviceErr;
-      }
+      logger.warn(`Pattern Recognition microservice did not complete (${PATTERN_RECOGNITION_URL}): ${microserviceErr.message} - using local implementation`);
+
+      // Dashboard insights should degrade gracefully. If the microservice is
+      // unavailable or returns an HTTP error, compute the same stats locally
+      // instead of surfacing a 500 to the UI.
+      const { analyzeTaskPatterns } = require('./intelligence-local');
+      const result = await analyzeTaskPatterns(req, time_range || '30d');
+      return res.json(result);
     }
 
   } catch (err) {

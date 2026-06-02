@@ -67,7 +67,13 @@ function Dashboard({ setActiveTab }) {
       }
     } catch (err) {
       console.error('Productivity insights error:', err);
-      setProductivityInsights({ error: true, message: 'Failed to load insights' });
+      setProductivityInsights({
+        error: true,
+        message: err.response?.data?.note
+          || err.response?.data?.message
+          || err.response?.data?.error
+          || 'Failed to load insights'
+      });
     } finally {
       setLoadingInsights(false);
     }
