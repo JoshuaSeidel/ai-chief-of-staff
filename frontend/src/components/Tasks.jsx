@@ -44,6 +44,7 @@ function Commitments() {
   const [error, setError] = useState(null);
   const [syncingMicrosoft, setSyncingMicrosoft] = useState(false);
   const [microsoftConnected, setMicrosoftConnected] = useState(false);
+  const [microsoftSyncTarget, setMicrosoftSyncTarget] = useState('Microsoft');
   const [syncingJira, setSyncingJira] = useState(false);
   const [jiraConnected, setJiraConnected] = useState(false);
   const [hasFailedSyncs, setHasFailedSyncs] = useState(false);
@@ -129,7 +130,8 @@ function Commitments() {
   const checkMicrosoftPlannerStatus = async () => {
     try {
       const response = await plannerAPI.getMicrosoftStatus();
-      setMicrosoftConnected(response.data.connected);
+      setMicrosoftConnected(Boolean(response.data.connected && response.data.sync_enabled));
+      setMicrosoftSyncTarget(response.data.target_type === 'planner' ? 'Microsoft Planner' : 'Microsoft To Do');
     } catch (err) {
       console.error('Failed to check Microsoft Planner status:', err);
       setMicrosoftConnected(false);
@@ -173,7 +175,7 @@ function Commitments() {
 
   const handleSyncToMicrosoft = async () => {
     if (!microsoftConnected) {
-      toast.warning('Please connect Microsoft Planner in Settings first');
+      toast.warning('Enable Microsoft task sync in Settings first');
       return;
     }
     if (isConfirmationSuppressed('syncMicrosoft')) {
@@ -184,7 +186,7 @@ function Commitments() {
       type: 'microsoft',
       confirmationType: 'syncMicrosoft',
       dontAskAgain: false,
-      message: 'This will create Microsoft To Do tasks for all pending tasks that don\'t already have one. Continue?'
+      message: `This will create ${microsoftSyncTarget} tasks for all pending tasks that don't already have one. Continue?`
     });
   };
 
@@ -196,7 +198,7 @@ function Commitments() {
       const data = response.data;
 
       if (data.success) {
-        toast.success(`Synced ${data.synced} tasks to Microsoft Planner${data.failed > 0 ? `. ${data.failed} failed.` : ''}`);
+        toast.success(`Synced ${data.synced} tasks to ${microsoftSyncTarget}${data.failed > 0 ? `. ${data.failed} failed.` : ''}`);
         loadCommitments();
       } else {
         toast.error(`Sync failed: ${data.message || 'Unknown error'}`);
@@ -806,7 +808,7 @@ function Commitments() {
                     loading={syncingMicrosoft}
                     icon={<ClipboardList size={16} />}
                     style={{ backgroundColor: '#0078d4' }}
-                    title="Sync tasks to Microsoft Planner"
+                    title={`Sync tasks to ${microsoftSyncTarget}`}
                   >
                     {syncingMicrosoft ? 'Syncing...' : 'Sync to Microsoft'}
                   </Button>

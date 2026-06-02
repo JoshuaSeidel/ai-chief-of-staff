@@ -105,9 +105,13 @@ export const plannerAPI = {
   getJiraProjects: () => api.get('/planner/jira/projects'),
   // Microsoft Planner/To Do
   getMicrosoftStatus: () => api.get('/planner/microsoft/status'),
+  getMicrosoftConfig: () => api.get('/planner/microsoft/config'),
+  saveMicrosoftConfig: (config) => api.post('/planner/microsoft/config', config),
   disconnectMicrosoft: () => api.post('/planner/microsoft/disconnect'),
   syncMicrosoft: () => api.post('/planner/microsoft/sync'),
   getMicrosoftLists: () => api.get('/planner/microsoft/lists'),
+  getMicrosoftPlans: () => api.get('/planner/microsoft/plans'),
+  getMicrosoftBuckets: (planId) => api.get(`/planner/microsoft/plans/${encodeURIComponent(planId)}/buckets`),
 };
 
 export const connectivityAPI = {

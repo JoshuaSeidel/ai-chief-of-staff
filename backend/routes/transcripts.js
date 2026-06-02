@@ -147,8 +147,8 @@ async function syncUpdatedTaskToExternalServices(db, beforeTask, updatedTask, up
 
   if (updatedTask.microsoft_task_id) {
     try {
-      const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
-      if (isMicrosoftConnected) {
+      const isMicrosoftSyncEnabled = await microsoftPlanner.isSyncEnabled(profileId);
+      if (isMicrosoftSyncEnabled) {
         result.microsoftUpdated = await microsoftPlanner.updateTaskFromCommitment(
           updatedTask.microsoft_task_id,
           updatedTask,
@@ -438,7 +438,7 @@ async function updateAndProcessTranscript({
  */
 async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
   const profileId = req.profileId || 2;
-  const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
+  const isMicrosoftSyncEnabled = await microsoftPlanner.isSyncEnabled(profileId);
   const isJiraConnected = await jira.isConnected(profileId);
   const transcriptSource = await db.get(
     'SELECT source, content, filename FROM transcripts WHERE id = ? AND profile_id = ?',
@@ -456,7 +456,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
   const primaryUserName = profileContext.primaryUserName || userNames[0] || null;
   const autoCreateCalendarEvents = profileContext.preferences?.taskCalendarAutoCreate === true;
   const isCalendarConnected = autoCreateCalendarEvents ? await calendarSync.isConnected(profileId) : false;
-  logger.info(`Profile ${profileId} - Calendar auto-create: ${autoCreateCalendarEvents}, Calendar connected: ${isCalendarConnected}, Microsoft Planner connected: ${isMicrosoftConnected}, Jira connected: ${isJiraConnected}`);
+  logger.info(`Profile ${profileId} - Calendar auto-create: ${autoCreateCalendarEvents}, Calendar connected: ${isCalendarConnected}, Microsoft task sync enabled: ${isMicrosoftSyncEnabled}, Jira connected: ${isJiraConnected}`);
   logger.info(`Task creation review filtered extraction`, {
     accepted: review.accepted.length,
     updates: review.updates.length,
@@ -567,7 +567,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
         }
       }
 
-      if (isUserTask && !requiresConfirmation && isMicrosoftConnected) {
+      if (isUserTask && !requiresConfirmation && isMicrosoftSyncEnabled) {
         try {
           const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'commitment' }, profileId);
           await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
@@ -631,7 +631,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
         
       }
 
-      if (isUserTask && !requiresConfirmation && isMicrosoftConnected) {
+      if (isUserTask && !requiresConfirmation && isMicrosoftSyncEnabled) {
         try {
           const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, id: insertedId, task_type: 'action' }, profileId);
           await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
@@ -696,7 +696,7 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
         
       }
 
-      if (isUserTask && !requiresConfirmation && isMicrosoftConnected) {
+      if (isUserTask && !requiresConfirmation && isMicrosoftSyncEnabled) {
         try {
           const microsoftTask = await microsoftPlanner.createTaskFromCommitment({ ...item, description, id: insertedId, task_type: 'follow-up' }, profileId);
           await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);

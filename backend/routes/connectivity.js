@@ -97,6 +97,7 @@ router.get('/status', async (req, res) => {
       plannerConnected,
       jiraConnected,
       microsoftToken,
+      plannerConfig,
       googleConfigured,
       jiraConfigured
     ] = await Promise.all([
@@ -105,6 +106,7 @@ router.get('/status', async (req, res) => {
       safeCheck(() => microsoftPlanner.isConnected(profileId)),
       safeCheck(() => jira.isConnected(profileId)),
       getMicrosoftTokenInfo(profileId),
+      microsoftPlanner.getSyncConfig(profileId),
       hasConfiguredIntegration(profileId, 'calendar', 'google'),
       hasConfiguredIntegration(profileId, 'task', 'jira')
     ]);
@@ -172,20 +174,24 @@ router.get('/status', async (req, res) => {
           missing: missingScopes(microsoftToken.scopes, ['Mail.ReadWrite'])
         });
 
-    const planner = microsoftConfigured && plannerConnected && hasMicrosoftTaskScope
+    const planner = microsoftConfigured && plannerConnected && hasMicrosoftTaskScope && plannerConfig.sync_enabled
       ? statusPayload({
           connected: true,
-          provider: 'Microsoft Planner',
+          provider: plannerConfig.target_type === 'planner' ? 'Microsoft Planner' : 'Microsoft To Do',
           detail: 'Task sync ready'
         })
       : statusPayload({
-          configured: microsoftConfigured,
+          configured: microsoftConfigured || plannerConfig.sync_enabled,
           connected: false,
           warning: microsoftConfigured && plannerConnected && microsoftNeedsReconnect,
-          provider: microsoftConfigured ? 'Microsoft Planner' : null,
-          detail: microsoftConfigured && plannerConnected
-            ? 'Reconnect Microsoft to grant task access'
-            : 'Microsoft Planner not connected',
+          provider: microsoftConfigured
+            ? (plannerConfig.target_type === 'planner' ? 'Microsoft Planner' : 'Microsoft To Do')
+            : null,
+          detail: microsoftConfigured && plannerConnected && hasMicrosoftTaskScope
+            ? 'Microsoft task sync is turned off'
+            : microsoftConfigured && plannerConnected
+              ? 'Reconnect Microsoft to grant task access'
+              : 'Microsoft task sync not connected',
           reconnectRequired: microsoftConfigured && plannerConnected && microsoftNeedsReconnect,
           missing: missingScopes(microsoftToken.scopes, ['Tasks.ReadWrite'])
         });

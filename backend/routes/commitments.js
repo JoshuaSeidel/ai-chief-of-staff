@@ -68,8 +68,8 @@ async function syncEditedTask(existingTask, updatedTask, updateNote, profileId) 
 
   if (updatedTask.microsoft_task_id) {
     try {
-      const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
-      if (isMicrosoftConnected) {
+      const isMicrosoftSyncEnabled = await microsoftPlanner.isSyncEnabled(profileId);
+      if (isMicrosoftSyncEnabled) {
         await microsoftPlanner.updateTaskFromCommitment(updatedTask.microsoft_task_id, updatedTask, updateNote, profileId);
       }
     } catch (msError) {
@@ -118,8 +118,8 @@ async function cleanupExternalTaskLinks(task, profileId, deletionResults = creat
 
   if (task.microsoft_task_id) {
     try {
-      const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
-      if (isMicrosoftConnected) {
+      const isMicrosoftSyncEnabled = await microsoftPlanner.isSyncEnabled(profileId);
+      if (isMicrosoftSyncEnabled) {
         await microsoftPlanner.deleteTask(task.microsoft_task_id, profileId);
         deletionResults.microsoft = 'success';
         logger.info(`Deleted Microsoft task ${task.microsoft_task_id}`);
@@ -473,8 +473,8 @@ router.put('/:id', async (req, res) => {
     // Complete Microsoft Planner task if task is completed and has a Microsoft task ID
     if (status === 'completed' && updatedTask && updatedTask.microsoft_task_id) {
       try {
-        const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
-        if (isMicrosoftConnected) {
+        const isMicrosoftSyncEnabled = await microsoftPlanner.isSyncEnabled(req.profileId);
+        if (isMicrosoftSyncEnabled) {
           await microsoftPlanner.completeTask(updatedTask.microsoft_task_id, req.body.completion_note, req.profileId);
           logger.info(`Completed Microsoft task ${updatedTask.microsoft_task_id} for completed task ${id}`);
         }
@@ -777,8 +777,8 @@ router.post('/', async (req, res) => {
     
     // Create Microsoft task tracking item if applicable (only for confirmed user tasks, not risks)
     if (taskType !== 'risk' && isUserTask && !requiresConfirmation) {
-      const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
-      if (isMicrosoftConnected) {
+      const isMicrosoftSyncEnabled = await microsoftPlanner.isSyncEnabled(req.profileId);
+      if (isMicrosoftSyncEnabled) {
         try {
           const microsoftTask = await microsoftPlanner.createTaskFromCommitment(taskData, req.profileId);
           await db.run('UPDATE commitments SET microsoft_task_id = ? WHERE id = ? AND profile_id = ?', [microsoftTask.id, insertedId, req.profileId]);
@@ -931,8 +931,8 @@ router.post('/:id/confirm', async (req, res) => {
 
       if ((task.task_type || 'commitment') !== 'risk' && !task.microsoft_task_id) {
         try {
-          const isMicrosoftConnected = await microsoftPlanner.isConnected(req.profileId);
-          if (isMicrosoftConnected) {
+          const isMicrosoftSyncEnabled = await microsoftPlanner.isSyncEnabled(req.profileId);
+          if (isMicrosoftSyncEnabled) {
             const microsoftTask = await microsoftPlanner.createTaskFromCommitment({
               ...task,
               task_type: task.task_type || 'commitment'

@@ -7,6 +7,61 @@ const { getMicrosoftIdentityBaseUrl, requireMicrosoftTenantId, resolveMicrosoftT
 
 const logger = createModuleLogger('MICROSOFT-PLANNER');
 
+const DEFAULT_SYNC_CONFIG = {
+  sync_enabled: false,
+  target_type: 'todo',
+  todo_list_id: '',
+  todo_list_name: '',
+  planner_plan_id: '',
+  planner_plan_title: '',
+  planner_bucket_id: '',
+  planner_bucket_name: '',
+  assign_to_self: true
+};
+
+function parseJsonSafely(value, fallback = {}) {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    logger.warn(`Invalid Microsoft Planner config JSON: ${error.message}`);
+    return fallback;
+  }
+}
+
+function normalizeSyncConfig(config = {}) {
+  const targetType = config.target_type === 'planner' ? 'planner' : 'todo';
+
+  return {
+    ...DEFAULT_SYNC_CONFIG,
+    ...config,
+    sync_enabled: config.sync_enabled === true || config.sync_enabled === 'true' || config.sync_enabled === 1,
+    target_type: targetType,
+    todo_list_id: String(config.todo_list_id || '').trim(),
+    todo_list_name: String(config.todo_list_name || '').trim(),
+    planner_plan_id: String(config.planner_plan_id || '').trim(),
+    planner_plan_title: String(config.planner_plan_title || '').trim(),
+    planner_bucket_id: String(config.planner_bucket_id || '').trim(),
+    planner_bucket_name: String(config.planner_bucket_name || '').trim(),
+    assign_to_self: config.assign_to_self !== false && config.assign_to_self !== 'false'
+  };
+}
+
+function getRawMicrosoftTaskId(taskId) {
+  const raw = String(taskId || '');
+  if (raw.startsWith('planner:')) {
+    return { targetType: 'planner', id: raw.slice('planner:'.length) };
+  }
+  if (raw.startsWith('todo:')) {
+    return { targetType: 'todo', id: raw.slice('todo:'.length) };
+  }
+  return { targetType: null, id: raw };
+}
+
+function getPlannerTaskTitle(taskData) {
+  return String(taskData.title || taskData.description || 'Untitled task').trim().slice(0, 255);
+}
+
 // Custom authentication provider for Microsoft Graph
 class CustomAuthProvider {
   constructor(initialTokens, refreshCallback) {
@@ -258,6 +313,61 @@ async function isConnected(profileId = 2) {
   return !!(tokenRow && tokenRow.token_data);
 }
 
+async function getSyncConfig(profileId = 2) {
+  const db = getDb();
+  const configRow = await db.get(
+    'SELECT config FROM profile_integrations WHERE profile_id = ? AND integration_type = ? AND integration_name = ?',
+    [profileId, 'planner', 'microsoft']
+  );
+  const config = normalizeSyncConfig(parseJsonSafely(configRow?.config, {}));
+
+  if (!config.todo_list_id) {
+    const listIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftTaskListId']);
+    if (listIdRow?.value) {
+      config.todo_list_id = listIdRow.value;
+    }
+  }
+
+  return config;
+}
+
+async function saveSyncConfig(config = {}, profileId = 2) {
+  const db = getDb();
+  const normalized = normalizeSyncConfig(config);
+
+  if (normalized.sync_enabled && normalized.target_type === 'planner' && !normalized.planner_plan_id) {
+    throw new Error('Select a Microsoft Planner plan before enabling Planner sync.');
+  }
+
+  await db.run(
+    `INSERT INTO profile_integrations (profile_id, integration_type, integration_name, token_data, config, is_enabled, created_date, updated_date)
+     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+     ON CONFLICT (profile_id, integration_type, integration_name)
+     DO UPDATE SET config = ?, is_enabled = ?, updated_date = CURRENT_TIMESTAMP`,
+    [
+      profileId,
+      'planner',
+      'microsoft',
+      null,
+      JSON.stringify(normalized),
+      true,
+      JSON.stringify(normalized),
+      true
+    ]
+  );
+
+  return normalized;
+}
+
+async function isSyncEnabled(profileId = 2) {
+  const [connected, config] = await Promise.all([
+    isConnected(profileId),
+    getSyncConfig(profileId)
+  ]);
+
+  return Boolean(connected && config.sync_enabled);
+}
+
 /**
  * Disconnect Microsoft for a profile (removes shared Microsoft 365 token)
  * @param {number} profileId - Profile ID to disconnect
@@ -284,17 +394,32 @@ async function listTaskLists(profileId = 2) {
   return taskLists.value || [];
 }
 
+async function listPlannerPlans(profileId = 2) {
+  const client = await getGraphClient(profileId);
+  const plans = await client.api('/me/planner/plans').get();
+  return plans.value || [];
+}
+
+async function listPlannerBuckets(planId, profileId = 2) {
+  if (!planId) {
+    throw new Error('Planner plan ID is required');
+  }
+
+  const client = await getGraphClient(profileId);
+  const buckets = await client.api(`/planner/plans/${planId}/buckets`).get();
+  return buckets.value || [];
+}
+
 /**
  * Get configured task list ID or default to "My Tasks"
  * @param {number} profileId - Profile ID to use
  */
 async function getTaskListId(profileId = 2) {
-  const db = getDb();
-  const listIdRow = await db.get('SELECT value FROM config WHERE key = ?', ['microsoftTaskListId']);
+  const syncConfig = await getSyncConfig(profileId);
   
-  if (listIdRow && listIdRow.value) {
-    logger.info(`Using configured Microsoft To Do list ID: ${listIdRow.value}`);
-    return listIdRow.value;
+  if (syncConfig.todo_list_id) {
+    logger.info(`Using configured Microsoft To Do list ID: ${syncConfig.todo_list_id}`);
+    return syncConfig.todo_list_id;
   }
   
   // Fallback: get default list
@@ -315,7 +440,7 @@ async function getTaskListId(profileId = 2) {
  * @param {object} taskData - Task data
  * @param {number} profileId - Profile ID to use
  */
-async function createTask(taskData, profileId = 2) {
+async function createTodoTask(taskData, profileId = 2) {
   const client = await getGraphClient(profileId);
   
   const {
@@ -352,6 +477,74 @@ async function createTask(taskData, profileId = 2) {
   
   logger.info(`Microsoft task created: ${createdTask.id}`);
   return createdTask;
+}
+
+async function getSignedInUserId(client) {
+  const user = await client.api('/me').select('id').get();
+  return user.id;
+}
+
+async function createPlannerTask(taskData, profileId = 2, syncConfig = null) {
+  const client = await getGraphClient(profileId);
+  const config = syncConfig || await getSyncConfig(profileId);
+
+  if (!config.planner_plan_id) {
+    throw new Error('Microsoft Planner plan is not configured. Select a plan in Settings.');
+  }
+
+  const task = {
+    planId: config.planner_plan_id,
+    title: getPlannerTaskTitle(taskData)
+  };
+
+  if (config.planner_bucket_id) {
+    task.bucketId = config.planner_bucket_id;
+  }
+
+  if (taskData.dueDate) {
+    task.dueDateTime = new Date(taskData.dueDate).toISOString();
+  }
+
+  if (config.assign_to_self) {
+    try {
+      const userId = await getSignedInUserId(client);
+      if (userId) {
+        task.assignments = {
+          [userId]: {
+            '@odata.type': '#microsoft.graph.plannerAssignment',
+            orderHint: ' !'
+          }
+        };
+      }
+    } catch (error) {
+      logger.warn(`Unable to assign Planner task to signed-in user: ${error.message}`);
+    }
+  }
+
+  logger.info(`Creating Planner task: ${task.title} in plan ${config.planner_plan_id}`);
+  const createdTask = await client.api('/planner/tasks').post(task);
+  logger.info(`Planner task created: ${createdTask.id}`);
+
+  return {
+    ...createdTask,
+    id: `planner:${createdTask.id}`,
+    graph_id: createdTask.id,
+    sync_target_type: 'planner'
+  };
+}
+
+async function createTask(taskData, profileId = 2) {
+  const syncConfig = await getSyncConfig(profileId);
+
+  if (!syncConfig.sync_enabled) {
+    throw new Error('Microsoft task sync is turned off in Settings.');
+  }
+
+  if (syncConfig.target_type === 'planner') {
+    return createPlannerTask(taskData, profileId, syncConfig);
+  }
+
+  return createTodoTask(taskData, profileId);
 }
 
 /**
@@ -416,6 +609,29 @@ function mapCommitmentStatus(status) {
   return statusMap[status] || 'notStarted';
 }
 
+function mapCommitmentPercentComplete(status) {
+  if (status === 'completed') return 100;
+  if (status === 'in_progress') return 50;
+  return 0;
+}
+
+async function getPlannerTaskEtag(client, taskId) {
+  const task = await client.api(`/planner/tasks/${taskId}`).get();
+  const etag = task['@odata.etag'];
+  if (!etag) {
+    throw new Error('Planner task did not include an ETag for update.');
+  }
+  return etag;
+}
+
+async function patchPlannerTask(client, taskId, updateData) {
+  const etag = await getPlannerTaskEtag(client, taskId);
+  await client
+    .api(`/planner/tasks/${taskId}`)
+    .header('If-Match', etag)
+    .patch(updateData);
+}
+
 /**
  * Update a Microsoft To Do task from a local commitment.
  * @param {string} taskId - Microsoft To Do task ID
@@ -425,17 +641,38 @@ function mapCommitmentStatus(status) {
  */
 async function updateTaskFromCommitment(taskId, commitment, updateNote = '', profileId = 2) {
   try {
+    const storedTask = getRawMicrosoftTaskId(taskId);
+    const syncConfig = await getSyncConfig(profileId);
+    const targetType = storedTask.targetType || syncConfig.target_type;
     const client = await getGraphClient(profileId);
+
+    if (targetType === 'planner') {
+      const updateData = {
+        title: getPlannerTaskTitle(commitment),
+        percentComplete: mapCommitmentPercentComplete(commitment.status)
+      };
+
+      if (commitment.deadline) {
+        updateData.dueDateTime = new Date(commitment.deadline).toISOString();
+      } else {
+        updateData.dueDateTime = null;
+      }
+
+      await patchPlannerTask(client, storedTask.id, updateData);
+      logger.info(`Updated Planner task ${storedTask.id} from commitment ${commitment.id}`);
+      return true;
+    }
+
     const taskListId = await getTaskListId(profileId);
 
     let existingBody = '';
     try {
       const currentTask = await client
-        .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+        .api(`/me/todo/lists/${taskListId}/tasks/${storedTask.id}`)
         .get();
       existingBody = currentTask.body?.content || '';
     } catch (error) {
-      logger.warn(`Could not read Microsoft task ${taskId} before update: ${error.message}`);
+      logger.warn(`Could not read Microsoft task ${storedTask.id} before update: ${error.message}`);
     }
 
     const bodyParts = [existingBody || commitment.suggested_approach || commitment.description];
@@ -461,10 +698,10 @@ async function updateTaskFromCommitment(taskId, commitment, updateNote = '', pro
     }
 
     await client
-      .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+      .api(`/me/todo/lists/${taskListId}/tasks/${storedTask.id}`)
       .patch(updateData);
 
-    logger.info(`Updated Microsoft task ${taskId} from commitment ${commitment.id}`);
+    logger.info(`Updated Microsoft task ${storedTask.id} from commitment ${commitment.id}`);
     return true;
   } catch (error) {
     logger.warn(`Failed to update Microsoft task ${taskId}: ${error.message}`);
@@ -481,6 +718,28 @@ async function updateTaskFromCommitment(taskId, commitment, updateNote = '', pro
 async function updateTaskStatus(taskId, status, profileId = 2) {
   try {
     const client = await getGraphClient(profileId);
+    const storedTask = getRawMicrosoftTaskId(taskId);
+    const syncConfig = await getSyncConfig(profileId);
+    const targetType = storedTask.targetType || syncConfig.target_type;
+
+    if (targetType === 'planner') {
+      const plannerStatusMap = {
+        notStarted: 0,
+        inProgress: 50,
+        completed: 100,
+        waitingOnOthers: 50,
+        deferred: 0
+      };
+      const percentComplete = plannerStatusMap[status];
+      if (percentComplete === undefined) {
+        throw new Error(`Invalid status: ${status}. Must be one of: ${Object.keys(plannerStatusMap).join(', ')}`);
+      }
+
+      await patchPlannerTask(client, storedTask.id, { percentComplete });
+      logger.info(`Updated Planner task ${storedTask.id} percent complete to ${percentComplete}`);
+      return true;
+    }
+
     const taskListId = await getTaskListId(profileId);
     
     // Microsoft To Do API status values: notStarted, inProgress, completed, waitingOnOthers, deferred
@@ -490,12 +749,12 @@ async function updateTaskStatus(taskId, status, profileId = 2) {
     }
     
     await client
-      .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+      .api(`/me/todo/lists/${taskListId}/tasks/${storedTask.id}`)
       .patch({
         status: status
       });
     
-    logger.info(`Updated Microsoft task ${taskId} status to ${status}`);
+    logger.info(`Updated Microsoft task ${storedTask.id} status to ${status}`);
     return true;
   } catch (error) {
     logger.warn(`Failed to update Microsoft task ${taskId} status: ${error.message}`);
@@ -512,6 +771,16 @@ async function updateTaskStatus(taskId, status, profileId = 2) {
 async function completeTask(taskId, completionNote = null, profileId = 2) {
   try {
     const client = await getGraphClient(profileId);
+    const storedTask = getRawMicrosoftTaskId(taskId);
+    const syncConfig = await getSyncConfig(profileId);
+    const targetType = storedTask.targetType || syncConfig.target_type;
+
+    if (targetType === 'planner') {
+      await patchPlannerTask(client, storedTask.id, { percentComplete: 100 });
+      logger.info(`Completed Planner task ${storedTask.id}`);
+      return true;
+    }
+
     const taskListId = await getTaskListId(profileId);
     
     const updateData = {
@@ -523,7 +792,7 @@ async function completeTask(taskId, completionNote = null, profileId = 2) {
       try {
         // Get current task to preserve existing body
         const currentTask = await client
-          .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+          .api(`/me/todo/lists/${taskListId}/tasks/${storedTask.id}`)
           .get();
         
         const existingBody = currentTask.body?.content || '';
@@ -542,10 +811,10 @@ async function completeTask(taskId, completionNote = null, profileId = 2) {
     }
     
     await client
-      .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+      .api(`/me/todo/lists/${taskListId}/tasks/${storedTask.id}`)
       .patch(updateData);
     
-    logger.info(`Completed Microsoft task ${taskId}`);
+    logger.info(`Completed Microsoft task ${storedTask.id}`);
     return true;
   } catch (error) {
     logger.warn(`Failed to complete Microsoft task ${taskId}: ${error.message}`);
@@ -561,13 +830,27 @@ async function completeTask(taskId, completionNote = null, profileId = 2) {
 async function deleteTask(taskId, profileId = 2) {
   try {
     const client = await getGraphClient(profileId);
+    const storedTask = getRawMicrosoftTaskId(taskId);
+    const syncConfig = await getSyncConfig(profileId);
+    const targetType = storedTask.targetType || syncConfig.target_type;
+
+    if (targetType === 'planner') {
+      const etag = await getPlannerTaskEtag(client, storedTask.id);
+      await client
+        .api(`/planner/tasks/${storedTask.id}`)
+        .header('If-Match', etag)
+        .delete();
+      logger.info(`Deleted Planner task ${storedTask.id}`);
+      return true;
+    }
+
     const taskListId = await getTaskListId(profileId);
     
     await client
-      .api(`/me/todo/lists/${taskListId}/tasks/${taskId}`)
+      .api(`/me/todo/lists/${taskListId}/tasks/${storedTask.id}`)
       .delete();
     
-    logger.info(`Deleted Microsoft task ${taskId}`);
+    logger.info(`Deleted Microsoft task ${storedTask.id}`);
     return true;
   } catch (error) {
     logger.warn(`Failed to delete Microsoft task ${taskId}: ${error.message}`);
@@ -582,6 +865,21 @@ async function deleteTask(taskId, profileId = 2) {
  */
 async function listTasks(limit = 50, profileId = 2) {
   const client = await getGraphClient(profileId);
+  const syncConfig = await getSyncConfig(profileId);
+
+  if (syncConfig.target_type === 'planner') {
+    if (!syncConfig.planner_plan_id) {
+      throw new Error('Microsoft Planner plan is not configured. Select a plan in Settings.');
+    }
+
+    const tasks = await client
+      .api(`/planner/plans/${syncConfig.planner_plan_id}/tasks`)
+      .top(limit)
+      .get();
+
+    return tasks.value || [];
+  }
+
   const taskListId = await getTaskListId(profileId);
   
   const tasks = await client
@@ -597,8 +895,13 @@ module.exports = {
   getTokenFromCode,
   getGraphClient,
   isConnected,
+  getSyncConfig,
+  saveSyncConfig,
+  isSyncEnabled,
   disconnect,
   listTaskLists,
+  listPlannerPlans,
+  listPlannerBuckets,
   getTaskListId,
   createTask,
   createTaskFromCommitment,

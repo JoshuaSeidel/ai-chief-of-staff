@@ -95,11 +95,54 @@ router.get('/microsoft/callback', oauthCallbackLimiter, async (req, res) => {
 router.get('/microsoft/status', async (req, res) => {
   try {
     const profileId = req.profileId || 2;
-    const connected = await microsoftPlanner.isConnected(profileId);
-    res.json({ connected, profileId });
+    const [connected, syncConfig] = await Promise.all([
+      microsoftPlanner.isConnected(profileId),
+      microsoftPlanner.getSyncConfig(profileId)
+    ]);
+    res.json({
+      connected,
+      profileId,
+      sync_enabled: Boolean(connected && syncConfig.sync_enabled),
+      target_type: syncConfig.target_type,
+      config: syncConfig
+    });
   } catch (error) {
     logger.error('Error checking Microsoft Planner status', error);
     res.json({ connected: false });
+  }
+});
+
+/**
+ * Microsoft Planner - Get sync configuration
+ */
+router.get('/microsoft/config', async (req, res) => {
+  try {
+    const profileId = req.profileId || 2;
+    const config = await microsoftPlanner.getSyncConfig(profileId);
+    res.json({ success: true, profileId, config });
+  } catch (error) {
+    logger.error('Error getting Microsoft Planner config', error);
+    res.status(500).json({
+      error: 'Error getting Microsoft Planner config',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Microsoft Planner - Save sync configuration
+ */
+router.post('/microsoft/config', async (req, res) => {
+  try {
+    const profileId = req.profileId || 2;
+    const config = await microsoftPlanner.saveSyncConfig(req.body || {}, profileId);
+    res.json({ success: true, message: 'Microsoft Planner sync settings saved', config });
+  } catch (error) {
+    logger.error('Error saving Microsoft Planner config', error);
+    res.status(400).json({
+      error: 'Error saving Microsoft Planner config',
+      message: error.message
+    });
   }
 });
 
@@ -137,7 +180,7 @@ router.post('/microsoft/tasks', async (req, res) => {
       dueDate,
       importance,
       status
-    });
+    }, req.profileId || 2);
     
     res.json({ success: true, task });
   } catch (error) {
@@ -154,6 +197,14 @@ router.post('/microsoft/tasks', async (req, res) => {
  */
 router.post('/microsoft/sync', async (req, res) => {
   try {
+    const syncEnabled = await microsoftPlanner.isSyncEnabled(req.profileId);
+    if (!syncEnabled) {
+      return res.status(400).json({
+        success: false,
+        message: 'Microsoft task sync is turned off in Settings.'
+      });
+    }
+
     const { getDb } = require('../database/db');
     const db = getDb();
     
@@ -221,7 +272,7 @@ router.post('/microsoft/sync', async (req, res) => {
 router.get('/microsoft/tasks', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    const tasks = await microsoftPlanner.listTasks(limit);
+    const tasks = await microsoftPlanner.listTasks(limit, req.profileId || 2);
     res.json({ tasks });
   } catch (error) {
     logger.error('Error listing Microsoft tasks', error);
@@ -237,12 +288,44 @@ router.get('/microsoft/tasks', async (req, res) => {
  */
 router.get('/microsoft/lists', async (req, res) => {
   try {
-    const lists = await microsoftPlanner.listTaskLists();
+    const lists = await microsoftPlanner.listTaskLists(req.profileId || 2);
     res.json({ lists });
   } catch (error) {
     logger.error('Error listing Microsoft task lists', error);
     res.status(500).json({ 
       error: 'Error listing task lists',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * List available Microsoft Planner plans
+ */
+router.get('/microsoft/plans', async (req, res) => {
+  try {
+    const plans = await microsoftPlanner.listPlannerPlans(req.profileId || 2);
+    res.json({ plans });
+  } catch (error) {
+    logger.error('Error listing Microsoft Planner plans', error);
+    res.status(500).json({
+      error: 'Error listing Microsoft Planner plans',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * List buckets for a Microsoft Planner plan
+ */
+router.get('/microsoft/plans/:planId/buckets', async (req, res) => {
+  try {
+    const buckets = await microsoftPlanner.listPlannerBuckets(req.params.planId, req.profileId || 2);
+    res.json({ buckets });
+  } catch (error) {
+    logger.error('Error listing Microsoft Planner buckets', error);
+    res.status(500).json({
+      error: 'Error listing Microsoft Planner buckets',
       message: error.message
     });
   }

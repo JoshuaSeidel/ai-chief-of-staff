@@ -8,6 +8,7 @@ import {
   FileText,
   Loader2,
   NotebookTabs,
+  RefreshCw,
   Target
 } from 'lucide-react';
 import { calendarAPI, plannerAPI, integrationsAPI } from '../../services/api';
@@ -75,6 +76,18 @@ function IntegrationCard({
   );
 }
 
+const DEFAULT_MICROSOFT_TASK_SYNC_CONFIG = {
+  sync_enabled: false,
+  target_type: 'todo',
+  todo_list_id: '',
+  todo_list_name: '',
+  planner_plan_id: '',
+  planner_plan_title: '',
+  planner_bucket_id: '',
+  planner_bucket_name: '',
+  assign_to_self: true
+};
+
 export function IntegrationsSettings() {
   const { currentProfile } = useProfile();
   const toast = useToast();
@@ -110,6 +123,11 @@ export function IntegrationsSettings() {
     tenantId: '',
     redirectUri: ''
   });
+  const [microsoftTaskSyncConfig, setMicrosoftTaskSyncConfig] = useState(DEFAULT_MICROSOFT_TASK_SYNC_CONFIG);
+  const [microsoftTaskLists, setMicrosoftTaskLists] = useState([]);
+  const [microsoftPlannerPlans, setMicrosoftPlannerPlans] = useState([]);
+  const [microsoftPlannerBuckets, setMicrosoftPlannerBuckets] = useState([]);
+  const [loadingMicrosoftTargets, setLoadingMicrosoftTargets] = useState(false);
 
   // Config states for non-OAuth integrations
   const [jiraConfig, setJiraConfig] = useState({
@@ -180,7 +198,8 @@ export function IntegrationsSettings() {
     setCheckingMicrosoft(true);
     try {
       const response = await calendarAPI.getMicrosoftStatus();
-      setMicrosoftConnected(response.data.connected);
+      const isConnected = Boolean(response.data.connected);
+      setMicrosoftConnected(isConnected);
 
       // Load Microsoft OAuth config
       const configResponse = await calendarAPI.getMicrosoftConfig();
@@ -192,11 +211,69 @@ export function IntegrationsSettings() {
           redirectUri: configResponse.data.redirect_uri || ''
         });
       }
+
+      const plannerConfigResponse = await plannerAPI.getMicrosoftConfig();
+      const savedTaskConfig = {
+        ...DEFAULT_MICROSOFT_TASK_SYNC_CONFIG,
+        ...(plannerConfigResponse.data?.config || {})
+      };
+      setMicrosoftTaskSyncConfig(savedTaskConfig);
+
+      if (isConnected) {
+        await loadMicrosoftTaskTargets(savedTaskConfig.planner_plan_id, false);
+      } else {
+        setMicrosoftTaskLists([]);
+        setMicrosoftPlannerPlans([]);
+        setMicrosoftPlannerBuckets([]);
+      }
     } catch (err) {
       console.error('Failed to check Microsoft status:', err);
       setMicrosoftConnected(false);
     } finally {
       setCheckingMicrosoft(false);
+    }
+  };
+
+  const loadMicrosoftTaskTargets = async (planId = microsoftTaskSyncConfig.planner_plan_id, notify = true) => {
+    setLoadingMicrosoftTargets(true);
+    try {
+      const [listsResponse, plansResponse] = await Promise.allSettled([
+        plannerAPI.getMicrosoftLists(),
+        plannerAPI.getMicrosoftPlans()
+      ]);
+
+      if (listsResponse.status === 'fulfilled') {
+        setMicrosoftTaskLists(listsResponse.value.data.lists || []);
+      } else {
+        setMicrosoftTaskLists([]);
+        console.error('Failed to load Microsoft To Do lists:', listsResponse.reason);
+      }
+
+      if (plansResponse.status === 'fulfilled') {
+        setMicrosoftPlannerPlans(plansResponse.value.data.plans || []);
+      } else {
+        setMicrosoftPlannerPlans([]);
+        console.error('Failed to load Microsoft Planner plans:', plansResponse.reason);
+      }
+
+      if (planId) {
+        try {
+          const bucketsResponse = await plannerAPI.getMicrosoftBuckets(planId);
+          setMicrosoftPlannerBuckets(bucketsResponse.data.buckets || []);
+        } catch (err) {
+          setMicrosoftPlannerBuckets([]);
+          console.error('Failed to load Microsoft Planner buckets:', err);
+        }
+      } else {
+        setMicrosoftPlannerBuckets([]);
+      }
+
+      if (notify) toast.success('Microsoft task targets refreshed');
+    } catch (err) {
+      console.error('Failed to load Microsoft task targets:', err);
+      if (notify) toast.error('Failed to refresh Microsoft task targets');
+    } finally {
+      setLoadingMicrosoftTargets(false);
     }
   };
 
@@ -376,6 +453,66 @@ export function IntegrationsSettings() {
       }
     } catch (err) {
       toast.error('Failed to connect to Microsoft: ' + err.message);
+    }
+  };
+
+  const handleMicrosoftTaskListChange = (listId) => {
+    const list = microsoftTaskLists.find(item => item.id === listId);
+    setMicrosoftTaskSyncConfig({
+      ...microsoftTaskSyncConfig,
+      todo_list_id: listId,
+      todo_list_name: list?.displayName || ''
+    });
+  };
+
+  const handleMicrosoftPlannerPlanChange = (planId) => {
+    const plan = microsoftPlannerPlans.find(item => item.id === planId);
+    setMicrosoftTaskSyncConfig({
+      ...microsoftTaskSyncConfig,
+      planner_plan_id: planId,
+      planner_plan_title: plan?.title || '',
+      planner_bucket_id: '',
+      planner_bucket_name: ''
+    });
+    if (planId && microsoftConnected) {
+      loadMicrosoftTaskTargets(planId, false);
+    } else {
+      setMicrosoftPlannerBuckets([]);
+    }
+  };
+
+  const handleMicrosoftPlannerBucketChange = (bucketId) => {
+    const bucket = microsoftPlannerBuckets.find(item => item.id === bucketId);
+    setMicrosoftTaskSyncConfig({
+      ...microsoftTaskSyncConfig,
+      planner_bucket_id: bucketId,
+      planner_bucket_name: bucket?.name || ''
+    });
+  };
+
+  const handleMicrosoftTaskSyncSave = async () => {
+    if (microsoftTaskSyncConfig.sync_enabled && !microsoftConnected) {
+      toast.warning('Connect Microsoft 365 before enabling task sync');
+      return;
+    }
+
+    if (microsoftTaskSyncConfig.sync_enabled && microsoftTaskSyncConfig.target_type === 'planner' && !microsoftTaskSyncConfig.planner_plan_id) {
+      toast.warning('Select a Microsoft Planner plan before enabling sync');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await plannerAPI.saveMicrosoftConfig(microsoftTaskSyncConfig);
+      setMicrosoftTaskSyncConfig({
+        ...DEFAULT_MICROSOFT_TASK_SYNC_CONFIG,
+        ...(response.data.config || microsoftTaskSyncConfig)
+      });
+      toast.success('Microsoft task sync settings saved');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save Microsoft task sync settings');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -651,6 +788,121 @@ export function IntegrationsSettings() {
               Connect to Microsoft
             </Button>
           )}
+        </div>
+
+        <div className="settings-divider" />
+
+        <div className="settings-subsection">
+          <h4 className="settings-subsection-title">Task Sync</h4>
+          <label className="notification-toggle-item mb-md">
+            <div className="notification-toggle-info">
+              <span className="notification-toggle-label"><ClipboardList size={16} /> Sync tasks to Microsoft</span>
+              <span className="notification-toggle-desc">Controls automatic task creation and manual sync from Task Management</span>
+            </div>
+            <input
+              type="checkbox"
+              checked={microsoftTaskSyncConfig.sync_enabled}
+              onChange={(e) => setMicrosoftTaskSyncConfig({
+                ...microsoftTaskSyncConfig,
+                sync_enabled: e.target.checked
+              })}
+              className="toggle-checkbox"
+            />
+          </label>
+
+          <div className="form-group">
+            <label className="form-label">Sync Target</label>
+            <select
+              value={microsoftTaskSyncConfig.target_type}
+              onChange={(e) => setMicrosoftTaskSyncConfig({
+                ...microsoftTaskSyncConfig,
+                target_type: e.target.value
+              })}
+              className="form-select"
+            >
+              <option value="todo">Microsoft To Do list</option>
+              <option value="planner">Microsoft Planner plan</option>
+            </select>
+          </div>
+
+          {microsoftTaskSyncConfig.target_type === 'todo' ? (
+            <div className="form-group">
+              <label className="form-label">To Do List</label>
+              <select
+                value={microsoftTaskSyncConfig.todo_list_id}
+                onChange={(e) => handleMicrosoftTaskListChange(e.target.value)}
+                className="form-select"
+                disabled={!microsoftConnected || loadingMicrosoftTargets}
+              >
+                <option value="">Default list</option>
+                {microsoftTaskLists.map((list) => (
+                  <option key={list.id} value={list.id}>{list.displayName}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <>
+              <div className="form-group">
+                <label className="form-label">Planner Plan</label>
+                <select
+                  value={microsoftTaskSyncConfig.planner_plan_id}
+                  onChange={(e) => handleMicrosoftPlannerPlanChange(e.target.value)}
+                  className="form-select"
+                  disabled={!microsoftConnected || loadingMicrosoftTargets}
+                >
+                  <option value="">Select a plan</option>
+                  {microsoftPlannerPlans.map((plan) => (
+                    <option key={plan.id} value={plan.id}>{plan.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Planner Bucket</label>
+                <select
+                  value={microsoftTaskSyncConfig.planner_bucket_id}
+                  onChange={(e) => handleMicrosoftPlannerBucketChange(e.target.value)}
+                  className="form-select"
+                  disabled={!microsoftConnected || loadingMicrosoftTargets || !microsoftTaskSyncConfig.planner_plan_id}
+                >
+                  <option value="">Plan default bucket</option>
+                  {microsoftPlannerBuckets.map((bucket) => (
+                    <option key={bucket.id} value={bucket.id}>{bucket.name}</option>
+                  ))}
+                </select>
+              </div>
+              <label className="notification-toggle-item mb-md">
+                <div className="notification-toggle-info">
+                  <span className="notification-toggle-label">Assign tasks to me</span>
+                  <span className="notification-toggle-desc">New Planner tasks will be assigned to the signed-in Microsoft account</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={microsoftTaskSyncConfig.assign_to_self}
+                  onChange={(e) => setMicrosoftTaskSyncConfig({
+                    ...microsoftTaskSyncConfig,
+                    assign_to_self: e.target.checked
+                  })}
+                  className="toggle-checkbox"
+                />
+              </label>
+            </>
+          )}
+
+          <div className="button-group">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => loadMicrosoftTaskTargets(microsoftTaskSyncConfig.planner_plan_id)}
+              disabled={!microsoftConnected || loadingMicrosoftTargets}
+              loading={loadingMicrosoftTargets}
+              icon={<RefreshCw size={15} />}
+            >
+              Refresh Targets
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleMicrosoftTaskSyncSave} loading={saving}>
+              Save Task Sync
+            </Button>
+          </div>
         </div>
       </IntegrationCard>
 

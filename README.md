@@ -7,19 +7,218 @@ context, and daily priorities.
 The application is designed to run privately, connect to Microsoft 365 and task
 systems, and keep sensitive operational data under your control.
 
+## Product Overview
+
+AI Chief of Staff helps an operator, manager, founder, or executive turn the
+daily stream of meetings, messages, notes, and follow-ups into an organized
+work system. It is not just a transcript uploader or a task list. It combines:
+
+- Intake from meetings, email, Teams artifacts, manual notes, recordings, and
+  uploaded files.
+- AI review that extracts only relevant commitments, action items, follow-ups,
+  and risks.
+- A task command center for confirming, editing, prioritizing, completing,
+  ignoring, bulk-managing, and syncing work.
+- Daily briefs and productivity insights that summarize active work and surface
+  what needs attention.
+- Integrations with Microsoft 365, Google Calendar, Jira, Microsoft Planner,
+  Microsoft To Do, Trello, Monday.com, and CalDAV-style calendars.
+- Profile-specific configuration for different work contexts, prompts, AI
+  providers, and integration behavior.
+
+The product is intentionally conservative about creating work. It tries to
+avoid creating tasks from spam, automated email, ambiguous assignment language,
+or commitments that belong to someone else. When new input looks like existing
+work, it updates or suppresses duplicates instead of flooding the task list.
+
 ## What It Handles
 
 | Area | Capabilities |
 | --- | --- |
-| Dashboard | Daily brief, productivity signals, connection health, quick actions |
-| Transcripts | Upload text, meeting notes, and supported audio/video files |
-| Email | Pull Microsoft 365 mailbox messages and process them like meeting records |
-| Meetings | Pull Microsoft 365 meetings and capture Teams transcripts/recordings when tenant permissions allow it |
-| Tasks | Track commitments, actions, follow-ups, risks, priorities, deadlines, completion, duplicate prevention, and AI update notes |
-| Calendar | Google Calendar and Microsoft Calendar connection flows, with task calendar events off by default |
-| Planning | Jira and Microsoft Planner/To Do task-system integrations |
-| AI | Task extraction, update-first deduplication, effort/energy analysis, grouping, patterns, and brief generation |
-| Admin | Cache clearing and protected history wipe for starting fresh |
+| Dashboard | Morning brief generation, weekly deliverables view, productivity signals, work stats, connection health, and quick navigation |
+| Email Intake | Search Microsoft 365 mailbox messages, filter unread mail, preview messages, and process selected email into task/context records |
+| Meeting Intake | Search Microsoft 365 meetings, import single or bulk meetings, detect Teams meetings, and process meeting artifacts |
+| Transcripts | Paste notes, upload transcript/audio/video files, record audio in the browser, reprocess records, view generated meeting notes, and track processing progress |
+| Tasks | Manage commitments, actions, follow-ups, and risks with confirmation queues, filters, quick add, bulk delete, ignore-similar learning, duplicate prevention, completion notes, and external sync |
+| Calendar | View Google or Microsoft calendar events, create manual time blocks, and add selected task deadlines to calendars without auto-flooding availability |
+| Integrations | Configure Microsoft 365, Google Calendar, Jira, Microsoft Planner/To Do, Trello, Monday.com, and CalDAV/Radicale/Nextcloud |
+| AI Tools | Estimate effort, classify energy, cluster related tasks, parse natural-language tasks, extract commitments, transcribe audio, search context, and analyze work patterns |
+| Settings | Configure AI providers, named credentials, profile-specific preferences, prompts, user aliases, notifications, themes, storage, and system health |
+| Admin | Cache clearing, version/service visibility, protected history wipe, profile-aware data reset, and production auth controls |
+
+## Core Product Workflows
+
+1. Capture the signal.
+   Import Microsoft email, Microsoft meetings, Teams transcripts/recordings,
+   pasted notes, uploaded transcripts, or recorded audio.
+
+2. Let AI extract and reconcile work.
+   The system reviews the content for tasks, risks, commitments, follow-ups,
+   owners, deadlines, urgency, and context. It checks against recent active work
+   before creating new tasks.
+
+3. Confirm and manage.
+   Review tasks that need confirmation, edit details, complete work with notes,
+   ignore noisy patterns, filter by type, bulk-delete, or add selected deadlines
+   to a calendar.
+
+4. Sync outward when desired.
+   Push tasks to Jira, Microsoft To Do, or a selected Microsoft Planner plan and
+   bucket. Calendar event creation is opt-in, so task tracking does not
+   automatically pollute your schedule.
+
+5. Review the operating picture.
+   Generate a daily brief, scan deliverables, review productivity insights, and
+   use the Dashboard to jump into the next workflow.
+
+## Feature Details
+
+### Dashboard
+
+- Generates a morning brief from current tasks, context, transcripts, and recent
+  activity.
+- Parses the weekly deliverables section into a readable table when the brief
+  includes structured deliverables.
+- Shows productivity insights such as completion rate, completed work, overdue
+  work, and most productive day when enough history exists.
+- Shows counts for context items, commitments, and transcripts.
+- Provides quick actions for Tasks, Transcripts, Calendar, and Settings.
+- Displays connectivity status so configured services are visible without
+  cluttering the header with unused integrations.
+
+### Email And Meeting Intake
+
+- Connects to Microsoft 365 for mailbox and calendar-based intake.
+- Searches and filters email by query, unread status, and result limit.
+- Previews sender, subject, importance, unread state, body preview, and links
+  back to Microsoft 365.
+- Processes individual emails into the same task extraction pipeline used for
+  meetings and transcripts.
+- Searches meetings by date range, query, and limit.
+- Detects online/Teams meetings, attendee count, organizer, and meeting links.
+- Supports single-meeting processing and bulk meeting import.
+- Captures Teams transcripts and recordings when Microsoft Graph permissions,
+  tenant policy, and artifact availability allow it.
+- Keeps pending Teams artifacts in a retryable state when recordings or
+  transcripts are not available yet.
+
+### Transcripts, Notes, And Recordings
+
+- Uploads supported transcript, audio, and video files.
+- Pastes manual meeting notes with filename, source, and meeting date metadata.
+- Records audio in the browser and sends it through the transcription pipeline.
+- Tracks live processing state, progress percentage, pending retries, failures,
+  and completed transcripts.
+- Reprocesses existing transcripts after prompt or provider changes.
+- Generates and displays meeting notes from processed transcripts.
+- Syncs recent Microsoft email and Teams meetings into the transcript/history
+  pipeline.
+
+### Task Management
+
+- Tracks four work types: commitments, action items, follow-ups, and risks.
+- Separates tasks needing confirmation from active work.
+- Filters by type and supports select-all, bulk delete, and individual delete.
+- Adds manual tasks with task type, assignee, deadline, and priority.
+- Provides a natural-language quick add bar for fast task creation.
+- Marks tasks complete with optional completion notes.
+- Adds selected non-risk tasks with deadlines to connected calendars.
+- Syncs tasks to Jira and to Microsoft task targets when enabled.
+- Retries failed Jira syncs.
+- Removes or closes synced external records where possible when local tasks are
+  deleted or completed.
+- Records "Ignore Similar" patterns so future matching tasks or emails can be
+  suppressed.
+- Supports "do not ask again" confirmation preferences for repetitive task
+  actions.
+- Uses AI task clustering to show related work and reduce duplicate noise.
+
+### AI Task Learning
+
+- Creates commitments and action items only when the configured user appears to
+  be responsible for the work.
+- Skips work assigned to other people or with ambiguous ownership.
+- Allows follow-ups when the configured user needs to check, unblock, request,
+  or verify someone else's work.
+- Skips risks from automated email when the signal is likely spam or system
+  noise.
+- Looks for similar active tasks across threads and content sources before
+  creating new work.
+- Updates existing tasks with new deadlines, priority, descriptions, and system
+  notes when later emails or meetings refine the same work.
+- Learns from ignored/deleted/rejected items and configurable prompt guidance.
+
+### Calendar
+
+- Connects to Google Calendar and Microsoft Calendar.
+- Lists upcoming events from the connected provider.
+- Creates manual calendar blocks from the app.
+- Adds task deadlines to the calendar only when the user chooses to do so, or
+  when profile-specific auto-create behavior is explicitly enabled.
+- Keeps existing task-linked calendar events aligned when task deadlines change.
+- Treats risks as informational records rather than calendar events.
+
+### Integrations
+
+- Microsoft 365: shared OAuth connection for email intake, meeting intake,
+  Microsoft Calendar, Teams artifacts, Microsoft To Do, and Microsoft Planner.
+- Microsoft task sync: enable/disable task sync, choose Microsoft To Do or
+  Microsoft Planner, select a To Do list, choose a Planner plan and bucket, and
+  optionally assign Planner tasks to the signed-in Microsoft user.
+- Jira: configure site, email, API token, project key, issue creation, update
+  notes, retries, and close/delete behavior.
+- Google Calendar: configure OAuth credentials, connect/disconnect, and use as a
+  calendar event provider.
+- Trello: configure API key, token, and board for task-card workflows through
+  the integrations service.
+- Monday.com: configure API token and board for task-item workflows through the
+  integrations service.
+- CalDAV/Radicale/Nextcloud: configure server URL, username, password, and
+  optional calendar path for self-hosted calendar workflows.
+
+### AI Tools
+
+- Effort estimation with complexity, confidence, reasoning, breakdown, and risk
+  notes.
+- Energy classification with cognitive load, best-time guidance, and duration
+  recommendations.
+- Semantic task clustering and recommended grouping.
+- Natural-language task parsing with title, deadline, priority, assignee,
+  estimated hours, tags, and confidence.
+- Quick add parsing for short task snippets.
+- Commitment extraction from meeting notes or email text.
+- Audio transcription for supported audio/video formats.
+- Context retrieval and text search across stored context.
+- Pattern recognition for completion rate, overdue work, productive days,
+  completion timing, and productivity insights.
+
+### Profiles, Prompts, And Settings
+
+- Multiple profiles for separating work, personal, client, or role-specific
+  operating contexts.
+- Profile-specific AI provider and model preferences.
+- Named AI credentials for Anthropic, OpenAI, and Ollama/local workflows.
+- Editable prompts for task extraction and task learning behavior.
+- User alias, role, company, and department settings so ownership detection can
+  distinguish "my work" from "someone mentioned work".
+- Notification settings and browser push notification support.
+- Theme selection, service health, version details, storage configuration, and
+  microservice health checks.
+- Protected history wipe that can reset all profiles or only the current
+  profile while preserving configuration.
+
+### Deployment And Operations
+
+- Self-hosted Docker Compose stack for the frontend, backend, database, cache,
+  and microservices.
+- PostgreSQL support for production data storage.
+- Redis-backed cache and coordination.
+- Internal service TLS support for backend-to-microservice traffic.
+- Reverse-proxy-friendly configuration for SWAG, Nginx Proxy Manager, Traefik,
+  or similar setups.
+- API token protection for browser access and destructive admin operations.
+- Environment-driven OAuth, database, CORS, proxy, and service discovery
+  settings.
 
 ## Interface Preview
 

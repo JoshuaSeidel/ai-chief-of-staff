@@ -11,6 +11,80 @@ const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('INTELLIGENCE-LOCAL');
 
+function getAiResponseText(aiResponse) {
+  return String(aiResponse?.text || aiResponse?.content || '').trim();
+}
+
+function parseDatabaseDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const text = String(value).trim();
+  if (!text) return null;
+
+  const hasExplicitTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(text);
+  const looksLikeSqliteTimestamp = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(text);
+  const normalized = looksLikeSqliteTimestamp && !hasExplicitTimezone
+    ? `${text.replace(' ', 'T')}Z`
+    : text;
+  const parsed = new Date(normalized);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDateForPrompt(value) {
+  const parsed = parseDatabaseDate(value);
+  return parsed ? parsed.toLocaleDateString('en-US') : 'unknown';
+}
+
+function isKnownAiProviderFailure(error) {
+  return /api key|not configured|authentication|unauthorized|forbidden|rate limit|timeout|network|econn|unavailable|overload|quota/i
+    .test(error?.message || '');
+}
+
+function aiFallbackMetadata(error) {
+  return {
+    ai_analysis_available: false,
+    ai_analysis_error: error?.message || 'AI provider unavailable'
+  };
+}
+
+function buildFallbackPatternInsights({
+  days,
+  allTasks,
+  completedTasks,
+  pendingTasks,
+  overdueTasks,
+  completionRate,
+  avgCompletionTime,
+  mostProductiveDay,
+  maxTasks,
+  error
+}) {
+  const reason = /api key|not configured|authentication|unauthorized/i.test(error?.message || '')
+    ? 'AI insights are unavailable because the AI provider is not configured.'
+    : 'AI insights are unavailable right now.';
+
+  return [
+    `**Computed Summary (${days} days)**`,
+    '',
+    reason,
+    '',
+    `- Completion rate: ${completionRate}%`,
+    `- Completed tasks: ${completedTasks.length} of ${allTasks.length}`,
+    `- Pending tasks: ${pendingTasks.length}`,
+    `- Overdue tasks: ${overdueTasks.length}`,
+    `- Average completion time: ${avgCompletionTime} days`,
+    maxTasks > 0 ? `- Most productive day: ${mostProductiveDay} (${maxTasks} completed)` : null,
+    '',
+    overdueTasks.length > 0
+      ? 'Review overdue work first, then complete or reschedule stale tasks so the dashboard reflects current priorities.'
+      : 'Keep completing tasks to build enough history for richer trend analysis.'
+  ].filter(Boolean).join('\n');
+}
+
 /**
  * Analyze task completion patterns from database
  */
@@ -47,7 +121,7 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
       }
     });
     const allTasks = Array.from(taskMap.values()).sort((a, b) => 
-      new Date(b.created_date) - new Date(a.created_date)
+      (parseDatabaseDate(b.created_date)?.getTime() || 0) - (parseDatabaseDate(a.created_date)?.getTime() || 0)
     );
     
     // Get completed tasks (completed in time range, regardless of when created)
@@ -94,10 +168,13 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
     const completionTimes = completedTasks
       .filter(t => t.completed_date && t.created_date)
       .map(t => {
-        const completed = new Date(t.completed_date);
-        const created = new Date(t.created_date);
-        return (completed - created) / (1000 * 60 * 60 * 24); // days
-      });
+        const completed = parseDatabaseDate(t.completed_date);
+        const created = parseDatabaseDate(t.created_date);
+        if (!completed || !created) return null;
+        const daysToCompletion = (completed - created) / (1000 * 60 * 60 * 24);
+        return Math.max(0, daysToCompletion);
+      })
+      .filter(Number.isFinite);
     
     const avgCompletionTime = completionTimes.length > 0
       ? (completionTimes.reduce((a, b) => a + b, 0) / completionTimes.length).toFixed(1)
@@ -106,8 +183,9 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
     // Group tasks by day of week
     const tasksByDay = {};
     completedTasks.forEach(task => {
-      if (task.completed_date) {
-        const day = new Date(task.completed_date).toLocaleDateString('en-US', { weekday: 'long' });
+      const completed = parseDatabaseDate(task.completed_date);
+      if (completed) {
+        const day = completed.toLocaleDateString('en-US', { weekday: 'long' });
         tasksByDay[day] = (tasksByDay[day] || 0) + 1;
       }
     });
@@ -135,12 +213,12 @@ Task Statistics (Last ${days} days):
 - Most productive day: ${mostProductiveDay} (${maxTasks} tasks)
 
 Recent Completed Tasks:
-${completedTasks.slice(0, 10).map(t => `- ${t.description} (completed: ${new Date(t.completed_date).toLocaleDateString()})`).join('\n')}
+${completedTasks.slice(0, 10).map(t => `- ${t.description} (completed: ${formatDateForPrompt(t.completed_date)})`).join('\n')}
 
 Recent Pending Tasks:
-${pendingTasks.slice(0, 10).map(t => `- ${t.description} (deadline: ${t.deadline ? new Date(t.deadline).toLocaleDateString() : 'none'})`).join('\n')}
+${pendingTasks.slice(0, 10).map(t => `- ${t.description} (deadline: ${t.deadline ? formatDateForPrompt(t.deadline) : 'none'})`).join('\n')}
 
-${overdueTasks.length > 0 ? `Overdue Tasks:\n${overdueTasks.slice(0, 5).map(t => `- ${t.description} (deadline: ${new Date(t.deadline).toLocaleDateString()})`).join('\n')}` : ''}
+${overdueTasks.length > 0 ? `Overdue Tasks:\n${overdueTasks.slice(0, 5).map(t => `- ${t.description} (deadline: ${formatDateForPrompt(t.deadline)})`).join('\n')}` : ''}
 
 Provide a productivity analysis with:
 1. **Working Patterns**: What patterns do you see in task completion?
@@ -152,15 +230,40 @@ Provide a productivity analysis with:
 Format as markdown with sections. Be specific and actionable.`;
 
     logger.info('Generating AI insights for pattern analysis');
-    
-    const aiResponse = await callAI(
-      [{ role: 'user', content: prompt }],
-      null,
-      2048,
-      req.profileId
-    );
-    
-    const insights = aiResponse.content;
+
+    let insights;
+    let aiInsightsAvailable = true;
+    let aiInsightsError = null;
+
+    try {
+      const aiResponse = await callAI(
+        [{ role: 'user', content: prompt }],
+        null,
+        2048,
+        req.profileId
+      );
+
+      insights = getAiResponseText(aiResponse);
+      if (!insights) {
+        throw new Error('AI provider returned an empty response');
+      }
+    } catch (aiError) {
+      aiInsightsAvailable = false;
+      aiInsightsError = aiError.message;
+      logger.warn(`AI insights unavailable for pattern analysis: ${aiError.message}`);
+      insights = buildFallbackPatternInsights({
+        days,
+        allTasks,
+        completedTasks,
+        pendingTasks,
+        overdueTasks,
+        completionRate,
+        avgCompletionTime,
+        mostProductiveDay,
+        maxTasks,
+        error: aiError
+      });
+    }
     
     return {
       success: true,
@@ -176,6 +279,8 @@ Format as markdown with sections. Be specific and actionable.`;
         tasks_by_day: tasksByDay
       },
       insights: insights,
+      ai_insights_available: aiInsightsAvailable,
+      ai_insights_error: aiInsightsAvailable ? null : aiInsightsError,
       analysis_date: new Date().toISOString()
     };
     
@@ -226,17 +331,31 @@ Format as JSON:
     // Try to parse JSON from response
     let result;
     try {
-      const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
+      const responseText = getAiResponseText(aiResponse);
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       result = jsonMatch ? JSON.parse(jsonMatch[0]) : { 
         estimated_time: "Unable to parse",
-        raw_response: aiResponse.content 
+        raw_response: responseText
       };
     } catch (parseErr) {
-      result = { estimated_time: "Unable to parse", raw_response: aiResponse.content };
+      result = { estimated_time: "Unable to parse", raw_response: getAiResponseText(aiResponse) };
     }
     
     return { success: true, ...result };
   } catch (error) {
+    if (isKnownAiProviderFailure(error)) {
+      logger.warn(`AI effort estimation unavailable: ${error.message}`);
+      return {
+        success: true,
+        estimated_time: 'Unknown',
+        complexity: 'Medium',
+        reasoning: 'AI effort estimation is unavailable right now.',
+        breakdown: [],
+        risks: [],
+        ...aiFallbackMetadata(error)
+      };
+    }
+
     logger.error('Error estimating effort:', error);
     throw error;
   }
@@ -277,17 +396,30 @@ Respond with JSON:
     
     let result;
     try {
-      const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
+      const responseText = getAiResponseText(aiResponse);
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       result = jsonMatch ? JSON.parse(jsonMatch[0]) : { 
         energy_level: "Medium",
-        raw_response: aiResponse.content 
+        raw_response: responseText
       };
     } catch (parseErr) {
-      result = { energy_level: "Medium", raw_response: aiResponse.content };
+      result = { energy_level: "Medium", raw_response: getAiResponseText(aiResponse) };
     }
     
     return { success: true, ...result };
   } catch (error) {
+    if (isKnownAiProviderFailure(error)) {
+      logger.warn(`AI energy classification unavailable: ${error.message}`);
+      return {
+        success: true,
+        energy_level: 'Medium',
+        reasoning: 'AI energy classification is unavailable right now.',
+        best_time: 'When you have a normal focus block available',
+        duration_recommendation: 'Use your regular task block.',
+        ...aiFallbackMetadata(error)
+      };
+    }
+
     logger.error('Error classifying energy:', error);
     throw error;
   }
@@ -337,17 +469,28 @@ Respond with JSON:
 
     let result;
     try {
-      const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
+      const responseText = getAiResponseText(aiResponse);
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       result = jsonMatch ? JSON.parse(jsonMatch[0]) : {
         clusters: [],
-        raw_response: aiResponse.content
+        raw_response: responseText
       };
     } catch (parseErr) {
-      result = { clusters: [], raw_response: aiResponse.content };
+      result = { clusters: [], raw_response: getAiResponseText(aiResponse) };
     }
 
     return { success: true, ...result };
   } catch (error) {
+    if (isKnownAiProviderFailure(error)) {
+      logger.warn(`AI task clustering unavailable: ${error.message}`);
+      return {
+        success: true,
+        clusters: [],
+        recommendations: 'AI task clustering is unavailable right now.',
+        ...aiFallbackMetadata(error)
+      };
+    }
+
     logger.error('Error clustering tasks:', error);
     throw error;
   }
@@ -393,22 +536,37 @@ Respond with JSON:
     
     let result;
     try {
-      const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
+      const responseText = getAiResponseText(aiResponse);
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       result = jsonMatch ? JSON.parse(jsonMatch[0]) : { 
         title: text.substring(0, 80),
         description: text,
-        raw_response: aiResponse.content 
+        raw_response: responseText
       };
     } catch (parseErr) {
       result = { 
         title: text.substring(0, 80),
         description: text,
-        raw_response: aiResponse.content 
+        raw_response: getAiResponseText(aiResponse)
       };
     }
     
     return { success: true, ...result };
   } catch (error) {
+    if (isKnownAiProviderFailure(error)) {
+      logger.warn(`AI task parsing unavailable: ${error.message}`);
+      return {
+        success: true,
+        title: text.substring(0, 80),
+        description: text,
+        deadline: 'none',
+        priority: 'Medium',
+        tags: [],
+        assignee: 'unassigned',
+        ...aiFallbackMetadata(error)
+      };
+    }
+
     logger.error('Error parsing task:', error);
     throw error;
   }
@@ -447,17 +605,27 @@ Respond with JSON:
     
     let result;
     try {
-      const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
+      const responseText = getAiResponseText(aiResponse);
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       result = jsonMatch ? JSON.parse(jsonMatch[0]) : { 
         dates: [],
-        raw_response: aiResponse.content 
+        raw_response: responseText
       };
     } catch (parseErr) {
-      result = { dates: [], raw_response: aiResponse.content };
+      result = { dates: [], raw_response: getAiResponseText(aiResponse) };
     }
     
     return { success: true, ...result };
   } catch (error) {
+    if (isKnownAiProviderFailure(error)) {
+      logger.warn(`AI date extraction unavailable: ${error.message}`);
+      return {
+        success: true,
+        dates: [],
+        ...aiFallbackMetadata(error)
+      };
+    }
+
     logger.error('Error extracting dates:', error);
     throw error;
   }
