@@ -3,7 +3,7 @@ Pattern Recognition Service - AI Chief of Staff
 Detects behavioral patterns, productivity insights, and anomalies
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
@@ -280,14 +280,17 @@ async def health_check():
     }
 
 @app.post("/analyze-patterns")
-async def analyze_patterns(request: dict):
+async def analyze_patterns(request: dict, http_request: Request):
     """
     Analyze task patterns from database
     Queries commitments table and generates insights using AI
     """
     try:
         time_range = request.get("time_range", "30d")
-        logger.info(f"Analyzing patterns for time range: {time_range}")
+        mode = "fast" if request.get("mode") == "fast" else "full"
+        reasoning_effort = request.get("reasoning_effort", "high")
+        profile_id = int(http_request.headers.get("X-Profile-Id", "2"))
+        logger.info(f"Analyzing patterns for profile {profile_id}, time range: {time_range}, mode: {mode}, reasoning: {reasoning_effort}")
         
         if not db_pool:
             raise HTTPException(status_code=503, detail="Database not available")
@@ -300,29 +303,29 @@ async def analyze_patterns(request: dict):
         async with db_pool.acquire() as conn:
             # Get all tasks
             all_tasks = await conn.fetch(
-                "SELECT * FROM commitments WHERE created_date >= $1 ORDER BY created_date DESC",
-                start_date
+                "SELECT * FROM commitments WHERE created_date >= $1 AND profile_id = $2 ORDER BY created_date DESC",
+                start_date, profile_id
             )
             
             # Get completed tasks - include ALL completed tasks for pattern analysis
             # Don't filter by date - we want historical completion patterns even outside time window
             completed_tasks = await conn.fetch(
-                "SELECT * FROM commitments WHERE status = $1 ORDER BY completed_date DESC",
-                'completed'
+                "SELECT * FROM commitments WHERE status = $1 AND profile_id = $2 ORDER BY completed_date DESC",
+                'completed', profile_id
             )
             
             # Get pending tasks within time range
             pending_tasks = await conn.fetch(
-                "SELECT * FROM commitments WHERE status = $1 AND created_date >= $2 ORDER BY created_date DESC",
-                'pending', start_date
+                "SELECT * FROM commitments WHERE status = $1 AND created_date >= $2 AND profile_id = $3 ORDER BY created_date DESC",
+                'pending', start_date, profile_id
             )
             
             # Get overdue tasks
             # Note: deadline column is TEXT (ISO string), not TIMESTAMP
             now = datetime.utcnow().isoformat()
             overdue_tasks = await conn.fetch(
-                "SELECT * FROM commitments WHERE status != $1 AND deadline < $2 AND deadline IS NOT NULL",
-                'completed', now
+                "SELECT * FROM commitments WHERE status != $1 AND deadline < $2 AND deadline IS NOT NULL AND profile_id = $3",
+                'completed', now, profile_id
             )
         
         logger.info(f"Found {len(all_tasks)} total, {len(completed_tasks)} completed, {len(pending_tasks)} pending, {len(overdue_tasks)} overdue")
@@ -364,6 +367,22 @@ async def analyze_patterns(request: dict):
         
         most_productive_day = tasks_by_day.most_common(1)[0][0] if tasks_by_day else "N/A"
         
+        completed_limit = 5 if mode == "fast" else 10
+        pending_limit = 5 if mode == "fast" else 10
+        overdue_limit = 3 if mode == "fast" else 5
+        output_instructions = """Provide a concise dashboard summary in markdown with:
+1. **Working Pattern**: 1-2 bullets
+2. **Risks**: 1-2 bullets
+3. **Next Best Actions**: 3 bullets
+
+Keep the response under 180 words. Use high-quality reasoning, but do not expose chain-of-thought.""" if mode == "fast" else """Provide:
+1. **Working Patterns**: What patterns emerge from completion data?
+2. **Productivity Trends**: Is performance improving or declining?
+3. **Time Management**: Are deadlines being met?
+4. **Recommendations**: 3-5 specific actionable suggestions
+
+Format as markdown with clear sections."""
+
         # Generate AI insights
         prompt = f"""Analyze this task completion data and provide actionable productivity insights.
 
@@ -377,20 +396,14 @@ Task Overview:
 - Most productive day: {most_productive_day}
 
 Recent Completed Tasks:
-{chr(10).join([f"- {task['description'][:100]}" for task in list(completed_tasks)[:10]])}
+{chr(10).join([f"- {task['description'][:100]}" for task in list(completed_tasks)[:completed_limit]])}
 
 Recent Pending Tasks:
-{chr(10).join([f"- {task['description'][:100]} (deadline: {task['deadline'] or 'none'})" for task in list(pending_tasks)[:10]])}
+{chr(10).join([f"- {task['description'][:100]} (deadline: {task['deadline'] or 'none'})" for task in list(pending_tasks)[:pending_limit]])}
 
-{"Overdue Tasks:" + chr(10) + chr(10).join([f"- {task['description'][:100]}" for task in list(overdue_tasks)[:5]]) if overdue_tasks else ""}
+{"Overdue Tasks:" + chr(10) + chr(10).join([f"- {task['description'][:100]}" for task in list(overdue_tasks)[:overdue_limit]]) if overdue_tasks else ""}
 
-Provide:
-1. **Working Patterns**: What patterns emerge from completion data?
-2. **Productivity Trends**: Is performance improving or declining?
-3. **Time Management**: Are deadlines being met?
-4. **Recommendations**: 3-5 specific actionable suggestions
-
-Format as markdown with clear sections."""
+{output_instructions}"""
 
         # Get model and API key from database configuration
         model = get_ai_model(provider="anthropic")
@@ -407,7 +420,7 @@ Format as markdown with clear sections."""
         
         response = client.messages.create(
             model=model,
-            max_tokens=1024,  # Reduced for faster responses
+            max_tokens=512 if mode == "fast" else 1024,
             temperature=0.7,  # Slightly creative but focused
             messages=[{"role": "user", "content": prompt}]
         )
@@ -428,6 +441,8 @@ Format as markdown with clear sections."""
                 "tasks_by_day": dict(tasks_by_day)
             },
             "insights": insights,
+            "mode": mode,
+            "reasoning_effort": reasoning_effort,
             "analysis_date": datetime.utcnow().isoformat()
         }
         

@@ -270,7 +270,22 @@ function supportsTemperature(model = '') {
   return !/^(o\d|o[1-9]|gpt-5)/i.test(String(model));
 }
 
-function buildOpenAIChatParams({ model, messages, systemPrompt, tokens, temperature, tokenParameter = 'max_completion_tokens', omitTemperature = false }) {
+function normalizeReasoningEffort(value) {
+  if (value === 'low' || value === 'medium' || value === 'high') return value;
+  if (value === 'extra_high') return 'high';
+  return null;
+}
+
+function buildOpenAIChatParams({
+  model,
+  messages,
+  systemPrompt,
+  tokens,
+  temperature,
+  tokenParameter = 'max_completion_tokens',
+  omitTemperature = false,
+  reasoningEffort = null
+}) {
   const messageArray = [];
   
   if (systemPrompt) {
@@ -295,6 +310,11 @@ function buildOpenAIChatParams({ model, messages, systemPrompt, tokens, temperat
     params.temperature = temperature;
   }
 
+  const normalizedReasoningEffort = normalizeReasoningEffort(reasoningEffort);
+  if (normalizedReasoningEffort && usesDeveloperMessageRole(model)) {
+    params.reasoning_effort = normalizedReasoningEffort;
+  }
+
   return params;
 }
 
@@ -304,27 +324,30 @@ function isOpenAIUnsupportedParameterError(error, parameterName) {
     && message.toLowerCase().includes(String(parameterName).toLowerCase());
 }
 
-async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
+async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profileId = 2, options = {}) {
   const { client, credential } = await createOpenAIClient(profileId);
   const model = await getModel(PROVIDERS.OPENAI, profileId);
   const tokens = maxTokens || await getMaxTokens(profileId);
   const temperature = await getTemperature(profileId);
+  const reasoningEffort = options.reasoningEffort || options.reasoning_effort || null;
 
   let params = buildOpenAIChatParams({
     model,
     messages,
     systemPrompt,
     tokens,
-    temperature
+    temperature,
+    reasoningEffort
   });
 
-  logger.info(`Calling OpenAI API with model: ${model}, token_parameter: ${params.max_completion_tokens ? 'max_completion_tokens' : 'max_tokens'}, tokens: ${tokens}, temperature: ${params.temperature ?? 'default'}, credential: ${credential.name || credential.credentialId || 'default'}`);
+  logger.info(`Calling OpenAI API with model: ${model}, token_parameter: ${params.max_completion_tokens ? 'max_completion_tokens' : 'max_tokens'}, tokens: ${tokens}, temperature: ${params.temperature ?? 'default'}, reasoning_effort: ${params.reasoning_effort || 'default'}, credential: ${credential.name || credential.credentialId || 'default'}`);
 
   let response;
   let triedLegacyTokenParameter = false;
   let triedOmittingTemperature = !('temperature' in params);
+  let triedOmittingReasoningEffort = !('reasoning_effort' in params);
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
     try {
       response = await client.chat.completions.create(params);
       break;
@@ -338,7 +361,8 @@ async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profi
           tokens,
           temperature,
           tokenParameter: 'max_tokens',
-          omitTemperature: triedOmittingTemperature
+          omitTemperature: triedOmittingTemperature,
+          reasoningEffort
         });
         logger.warn(`OpenAI model ${model} rejected max_completion_tokens; retrying with max_tokens`);
         continue;
@@ -354,9 +378,27 @@ async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profi
           tokens,
           temperature,
           tokenParameter,
-          omitTemperature: true
+          omitTemperature: true,
+          reasoningEffort
         });
         logger.warn(`OpenAI model ${model} rejected temperature; retrying with provider default temperature`);
+        continue;
+      }
+
+      if (!triedOmittingReasoningEffort && isOpenAIUnsupportedParameterError(error, 'reasoning_effort')) {
+        triedOmittingReasoningEffort = true;
+        const tokenParameter = params.max_tokens ? 'max_tokens' : 'max_completion_tokens';
+        params = buildOpenAIChatParams({
+          model,
+          messages,
+          systemPrompt,
+          tokens,
+          temperature,
+          tokenParameter,
+          omitTemperature: triedOmittingTemperature,
+          reasoningEffort: null
+        });
+        logger.warn(`OpenAI model ${model} rejected reasoning_effort; retrying without reasoning_effort`);
         continue;
       }
 
@@ -444,7 +486,7 @@ async function callOllama(messages, systemPrompt = null, maxTokens = null, profi
  * @param {number} maxTokens - Optional max tokens override
  * @param {number} profileId - Profile ID for preferences (default: 2)
  */
-async function callAI(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
+async function callAI(messages, systemPrompt = null, maxTokens = null, profileId = 2, options = {}) {
   const provider = await getAIProvider(profileId);
   
   logger.info(`Using AI provider: ${provider} for profile ${profileId}`);
@@ -454,7 +496,7 @@ async function callAI(messages, systemPrompt = null, maxTokens = null, profileId
       case PROVIDERS.ANTHROPIC:
         return await callAnthropic(messages, systemPrompt, maxTokens, profileId);
       case PROVIDERS.OPENAI:
-        return await callOpenAI(messages, systemPrompt, maxTokens, profileId);
+        return await callOpenAI(messages, systemPrompt, maxTokens, profileId, options);
       case PROVIDERS.OLLAMA:
         return await callOllama(messages, systemPrompt, maxTokens, profileId);
       default:
@@ -494,9 +536,9 @@ function normalizeProviderError(provider, error) {
  * @param {number} maxTokens - Optional max tokens override
  * @param {number} profileId - Profile ID for preferences (default: 2)
  */
-async function generateResponse(prompt, systemPrompt = null, maxTokens = null, profileId = 2) {
+async function generateResponse(prompt, systemPrompt = null, maxTokens = null, profileId = 2, options = {}) {
   const messages = [{ role: 'user', content: prompt }];
-  const result = await callAI(messages, systemPrompt, maxTokens, profileId);
+  const result = await callAI(messages, systemPrompt, maxTokens, profileId, options);
   return result.text;
 }
 
@@ -548,5 +590,6 @@ module.exports = {
   getOpenAIClient,
   getOllamaBaseUrl,
   buildOpenAIChatParams,
+  normalizeReasoningEffort,
   isOpenAIUnsupportedParameterError
 };

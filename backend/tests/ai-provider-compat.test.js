@@ -4,6 +4,7 @@ const sqlite3 = require('sqlite3').verbose();
 
 const {
   buildOpenAIChatParams,
+  normalizeReasoningEffort,
   isOpenAIUnsupportedParameterError
 } = require('../services/ai-service');
 const migration009 = require('../database/migrations/009_ai_provider_credentials');
@@ -26,12 +27,14 @@ test('OpenAI chat params use max_completion_tokens and developer role for curren
     systemPrompt: 'Follow system instructions.',
     messages: [{ role: 'user', content: 'Generate a brief.' }],
     tokens: 1200,
-    temperature: 0.7
+    temperature: 0.7,
+    reasoningEffort: 'extra_high'
   });
 
   assert.equal(params.max_completion_tokens, 1200);
   assert.equal(params.max_tokens, undefined);
   assert.equal(params.temperature, undefined);
+  assert.equal(params.reasoning_effort, 'high');
   assert.equal(params.messages[0].role, 'developer');
 });
 
@@ -68,6 +71,14 @@ test('OpenAI unsupported parameter detection reads provider error messages', () 
 
   assert.equal(isOpenAIUnsupportedParameterError(error, 'max_tokens'), true);
   assert.equal(isOpenAIUnsupportedParameterError(error, 'temperature'), false);
+});
+
+test('OpenAI reasoning effort normalization supports extra high requests safely', () => {
+  assert.equal(normalizeReasoningEffort('low'), 'low');
+  assert.equal(normalizeReasoningEffort('medium'), 'medium');
+  assert.equal(normalizeReasoningEffort('high'), 'high');
+  assert.equal(normalizeReasoningEffort('extra_high'), 'high');
+  assert.equal(normalizeReasoningEffort('banana'), null);
 });
 
 test('migration 009 creates named AI credentials from legacy config rows', async () => {

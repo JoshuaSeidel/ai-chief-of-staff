@@ -234,8 +234,13 @@ export const intelligenceAPI = {
     api.post('/intelligence/extract-dates', { text }),
   
   // Pattern Recognition Service (ML)
-  analyzePatterns: (userId = null, timeRange = '30d') => 
-    api.post('/intelligence/analyze-patterns', { user_id: userId, time_range: timeRange }, { timeout: 120000 }),
+  analyzePatterns: (userId = null, timeRange = '30d', options = {}) =>
+    api.post('/intelligence/analyze-patterns', {
+      user_id: userId,
+      time_range: timeRange,
+      mode: options.mode || 'full',
+      reasoning_effort: options.reasoningEffort || options.reasoning_effort
+    }, { timeout: options.timeout || 60000 }),
   getInsights: (user_id) => 
     api.get('/intelligence/insights', { params: { user_id } }),
   predictCompletion: (task_description, user_id) => 

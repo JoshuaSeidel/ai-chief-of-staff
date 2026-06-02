@@ -37,12 +37,12 @@ const getAgent = () => getHttpsAgent();
 /**
  * Helper function to call microservices with error handling
  */
-async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = null, params = null, headers = {}) {
+async function callMicroservice(serviceUrl, endpoint, method = 'POST', data = null, params = null, headers = {}, options = {}) {
   try {
     const config = {
       method,
       url: `${serviceUrl}${endpoint}`,
-      timeout: MICROSERVICE_TIMEOUT,
+      timeout: options.timeout || MICROSERVICE_TIMEOUT,
       httpsAgent: getAgent(),
       headers: {
         'Content-Type': 'application/json',
@@ -262,10 +262,14 @@ router.post('/parse-task', async (req, res) => {
  */
 router.post('/analyze-patterns', async (req, res) => {
   try {
-    const { user_id, time_range } = req.body;
+    const { user_id, time_range, mode, reasoning_effort } = req.body;
     const profileId = req.profileId || 2;
+    const analysisMode = mode === 'fast' ? 'fast' : 'full';
+    const reasoningEffort = ['low', 'medium', 'high', 'extra_high'].includes(reasoning_effort)
+      ? reasoning_effort
+      : 'high';
 
-    logger.info(`Analyzing patterns for profile ${profileId}, time_range: ${time_range || '30d'}`);
+    logger.info(`Analyzing patterns for profile ${profileId}, time_range: ${time_range || '30d'}, mode: ${analysisMode}, reasoning: ${reasoningEffort}`);
 
     // Try microservice first (has direct database access)
     try {
@@ -273,9 +277,14 @@ router.post('/analyze-patterns', async (req, res) => {
         PATTERN_RECOGNITION_URL,
         '/analyze-patterns',
         'POST',
-        { time_range: time_range || '30d' },
+        {
+          time_range: time_range || '30d',
+          mode: analysisMode,
+          reasoning_effort: reasoningEffort
+        },
         null,
-        { 'X-Profile-Id': profileId.toString() }
+        { 'X-Profile-Id': profileId.toString() },
+        { timeout: analysisMode === 'fast' ? 15000 : MICROSERVICE_TIMEOUT }
       );
       logger.info('Pattern analysis completed by microservice');
       return res.json(result);
@@ -286,7 +295,10 @@ router.post('/analyze-patterns', async (req, res) => {
       // unavailable or returns an HTTP error, compute the same stats locally
       // instead of surfacing a 500 to the UI.
       const { analyzeTaskPatterns } = require('./intelligence-local');
-      const result = await analyzeTaskPatterns(req, time_range || '30d');
+      const result = await analyzeTaskPatterns(req, time_range || '30d', {
+        mode: analysisMode,
+        reasoningEffort
+      });
       return res.json(result);
     }
 

@@ -88,9 +88,11 @@ function buildFallbackPatternInsights({
 /**
  * Analyze task completion patterns from database
  */
-async function analyzeTaskPatterns(req, time_range = '30d') {
+async function analyzeTaskPatterns(req, time_range = '30d', options = {}) {
   try {
     const db = getDb();
+    const mode = options.mode === 'fast' ? 'fast' : 'full';
+    const reasoningEffort = options.reasoningEffort || 'high';
     
     // Parse time range
     const daysMatch = time_range.match(/(\d+)d/);
@@ -98,7 +100,7 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
     
-    logger.info(`Analyzing patterns for last ${days} days`);
+    logger.info(`Analyzing patterns for last ${days} days with mode=${mode}, reasoning=${reasoningEffort}`);
     
     // Get all tasks that were either created OR completed in the time range
     // This ensures we capture all relevant activity for accurate completion rate
@@ -201,6 +203,25 @@ async function analyzeTaskPatterns(req, time_range = '30d') {
     });
     
     // Use AI to generate insights
+    const completedLimit = mode === 'fast' ? 5 : 10;
+    const pendingLimit = mode === 'fast' ? 5 : 10;
+    const overdueLimit = mode === 'fast' ? 3 : 5;
+    const outputInstructions = mode === 'fast'
+      ? `Provide a concise dashboard summary in markdown with:
+1. **Working Pattern**: 1-2 bullets
+2. **Risks**: 1-2 bullets
+3. **Next Best Actions**: 3 bullets
+
+Keep the response under 180 words. Use high-quality reasoning, but do not expose chain-of-thought.`
+      : `Provide a productivity analysis with:
+1. **Working Patterns**: What patterns do you see in task completion?
+2. **Focus Time**: When is productivity highest?
+3. **Completion Trends**: Are tasks being completed on time?
+4. **Recommendations**: 3-5 specific actionable suggestions to improve productivity
+5. **Risk Alerts**: Any concerning patterns or overdue items?
+
+Format as markdown with sections. Be specific and actionable.`;
+
     const prompt = `You are a productivity analyst. Analyze the following task completion data and provide actionable insights.
 
 Task Statistics (Last ${days} days):
@@ -213,21 +234,14 @@ Task Statistics (Last ${days} days):
 - Most productive day: ${mostProductiveDay} (${maxTasks} tasks)
 
 Recent Completed Tasks:
-${completedTasks.slice(0, 10).map(t => `- ${t.description} (completed: ${formatDateForPrompt(t.completed_date)})`).join('\n')}
+${completedTasks.slice(0, completedLimit).map(t => `- ${t.description} (completed: ${formatDateForPrompt(t.completed_date)})`).join('\n')}
 
 Recent Pending Tasks:
-${pendingTasks.slice(0, 10).map(t => `- ${t.description} (deadline: ${t.deadline ? formatDateForPrompt(t.deadline) : 'none'})`).join('\n')}
+${pendingTasks.slice(0, pendingLimit).map(t => `- ${t.description} (deadline: ${t.deadline ? formatDateForPrompt(t.deadline) : 'none'})`).join('\n')}
 
-${overdueTasks.length > 0 ? `Overdue Tasks:\n${overdueTasks.slice(0, 5).map(t => `- ${t.description} (deadline: ${formatDateForPrompt(t.deadline)})`).join('\n')}` : ''}
+${overdueTasks.length > 0 ? `Overdue Tasks:\n${overdueTasks.slice(0, overdueLimit).map(t => `- ${t.description} (deadline: ${formatDateForPrompt(t.deadline)})`).join('\n')}` : ''}
 
-Provide a productivity analysis with:
-1. **Working Patterns**: What patterns do you see in task completion?
-2. **Focus Time**: When is productivity highest?
-3. **Completion Trends**: Are tasks being completed on time?
-4. **Recommendations**: 3-5 specific actionable suggestions to improve productivity
-5. **Risk Alerts**: Any concerning patterns or overdue items?
-
-Format as markdown with sections. Be specific and actionable.`;
+${outputInstructions}`;
 
     logger.info('Generating AI insights for pattern analysis');
 
@@ -239,8 +253,9 @@ Format as markdown with sections. Be specific and actionable.`;
       const aiResponse = await callAI(
         [{ role: 'user', content: prompt }],
         null,
-        2048,
-        req.profileId
+        mode === 'fast' ? 768 : 2048,
+        req.profileId,
+        { reasoningEffort }
       );
 
       insights = getAiResponseText(aiResponse);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BarChart3,
   CalendarDays,
@@ -11,6 +11,13 @@ import { briefAPI, intelligenceAPI } from '../services/api';
 import ReactMarkdown from 'react-markdown';
 import { PullToRefresh } from './PullToRefresh';
 
+const INSIGHTS_PROGRESS_MESSAGES = [
+  'Loading task history...',
+  'Running pattern recognition...',
+  'Asking AI for productivity insights...',
+  'Finalizing dashboard insights...'
+];
+
 function Dashboard({ setActiveTab }) {
   const [brief, setBrief] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -19,13 +26,42 @@ function Dashboard({ setActiveTab }) {
   const [stats, setStats] = useState(null);
   const [productivityInsights, setProductivityInsights] = useState(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [insightsProgressMessage, setInsightsProgressMessage] = useState('');
   const [, setLastInsightsDate] = useState(null);
   const [lastCompletedCount, setLastCompletedCount] = useState(null);
+  const insightsProgressTimerRef = useRef(null);
 
   useEffect(() => {
     loadTodaysBrief();
     loadProductivityInsights();
   }, []);
+
+  useEffect(() => () => {
+    if (insightsProgressTimerRef.current) {
+      clearInterval(insightsProgressTimerRef.current);
+    }
+  }, []);
+
+  const startInsightsProgress = () => {
+    if (insightsProgressTimerRef.current) {
+      clearInterval(insightsProgressTimerRef.current);
+    }
+
+    let step = 0;
+    setInsightsProgressMessage(INSIGHTS_PROGRESS_MESSAGES[step]);
+    insightsProgressTimerRef.current = setInterval(() => {
+      step = Math.min(step + 1, INSIGHTS_PROGRESS_MESSAGES.length - 1);
+      setInsightsProgressMessage(INSIGHTS_PROGRESS_MESSAGES[step]);
+    }, 2500);
+  };
+
+  const stopInsightsProgress = () => {
+    if (insightsProgressTimerRef.current) {
+      clearInterval(insightsProgressTimerRef.current);
+      insightsProgressTimerRef.current = null;
+    }
+    setInsightsProgressMessage('');
+  };
 
   const loadProductivityInsights = async (forceRefresh = false) => {
     const today = new Date().toISOString().split('T')[0];
@@ -50,8 +86,13 @@ function Dashboard({ setActiveTab }) {
     }
     
     setLoadingInsights(true);
+    startInsightsProgress();
     try {
-      const response = await intelligenceAPI.analyzePatterns(null, '7d');
+      const response = await intelligenceAPI.analyzePatterns(null, '7d', {
+        mode: 'fast',
+        reasoningEffort: 'high',
+        timeout: 60000
+      });
       console.log('Pattern analysis response:', response.data);
       if (response.data && response.data.success) {
         setProductivityInsights(response.data);
@@ -76,6 +117,7 @@ function Dashboard({ setActiveTab }) {
       });
     } finally {
       setLoadingInsights(false);
+      stopInsightsProgress();
     }
   };
 
@@ -322,7 +364,7 @@ function Dashboard({ setActiveTab }) {
             borderRadius: '8px',
             marginBottom: '1rem'
           }}>
-            <div>Loading productivity insights...</div>
+            <div>{insightsProgressMessage || 'Loading productivity insights...'}</div>
           </div>
         )}
         {productivityInsights && productivityInsights.error && (
