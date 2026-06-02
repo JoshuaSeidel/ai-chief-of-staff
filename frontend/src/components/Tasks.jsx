@@ -5,6 +5,7 @@ import {
   CalendarPlus,
   CheckCircle2,
   ClipboardList,
+  EyeOff,
   Plus,
   RefreshCw,
   SquareCheckBig,
@@ -24,6 +25,18 @@ import { Button } from './common/Button';
 import { QuickAddBar } from './common/QuickAddBar';
 import { TaskListSkeleton } from './common/LoadingSkeleton';
 import { formatRelativeTime, DeadlineTime } from './common/RelativeTime';
+
+const CONFIRMATION_PREFS_KEY = 'aicos.taskConfirmationPreferences';
+
+const readConfirmationPreferences = () => {
+  if (typeof window === 'undefined') return {};
+
+  try {
+    return JSON.parse(window.localStorage.getItem(CONFIRMATION_PREFS_KEY) || '{}') || {};
+  } catch (error) {
+    return {};
+  }
+};
 
 function Commitments() {
   const [commitments, setCommitments] = useState([]);
@@ -52,11 +65,14 @@ function Commitments() {
   const [clusteringTasks, setClusteringTasks] = useState(false);
   const [completingTask, setCompletingTask] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(null);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [syncConfirm, setSyncConfirm] = useState(null);
+  const [ignoreConfirm, setIgnoreConfirm] = useState(null);
+  const [ignoringTaskId, setIgnoringTaskId] = useState(null);
+  const [confirmationPreferences, setConfirmationPreferences] = useState(readConfirmationPreferences);
 
   const toast = useToast();
 
@@ -92,8 +108,9 @@ function Commitments() {
         setShowCreateModal(false);
         setShowClusters(false);
         setDeleteConfirm(null);
-        setBulkDeleteConfirm(false);
+        setBulkDeleteConfirm(null);
         setSyncConfirm(null);
+        setIgnoreConfirm(null);
         if (selectionMode) {
           clearSelection();
         }
@@ -144,13 +161,29 @@ function Commitments() {
     }
   };
 
+  const isConfirmationSuppressed = (type) => confirmationPreferences[type] === true;
+
+  const suppressConfirmationType = (type) => {
+    setConfirmationPreferences(previous => {
+      const next = { ...previous, [type]: true };
+      window.localStorage.setItem(CONFIRMATION_PREFS_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const handleSyncToMicrosoft = async () => {
     if (!microsoftConnected) {
       toast.warning('Please connect Microsoft Planner in Settings first');
       return;
     }
+    if (isConfirmationSuppressed('syncMicrosoft')) {
+      executeMicrosoftSync();
+      return;
+    }
     setSyncConfirm({
       type: 'microsoft',
+      confirmationType: 'syncMicrosoft',
+      dontAskAgain: false,
       message: 'This will create Microsoft To Do tasks for all pending tasks that don\'t already have one. Continue?'
     });
   };
@@ -180,8 +213,14 @@ function Commitments() {
       toast.warning('Please connect Jira in Settings first');
       return;
     }
+    if (isConfirmationSuppressed('syncJira')) {
+      executeJiraSync();
+      return;
+    }
     setSyncConfirm({
       type: 'jira',
+      confirmationType: 'syncJira',
+      dontAskAgain: false,
       message: 'This will create Jira issues for all pending tasks that don\'t already have one. Continue?'
     });
   };
@@ -214,8 +253,14 @@ function Commitments() {
       toast.warning('Please connect Jira in Settings first');
       return;
     }
+    if (isConfirmationSuppressed('syncJiraFailed')) {
+      executeFailedJiraSync();
+      return;
+    }
     setSyncConfirm({
       type: 'jira-failed',
+      confirmationType: 'syncJiraFailed',
+      dontAskAgain: false,
       message: 'This will retry syncing all failed/pending tasks to Jira. Continue?'
     });
   };
@@ -428,7 +473,19 @@ function Commitments() {
   };
 
   const deleteTask = async (id, description) => {
-    setDeleteConfirm({ id, description });
+    if (isConfirmationSuppressed('deleteTask')) {
+      executeDeleteById(id);
+      return;
+    }
+    setDeleteConfirm({ id, description, dontAskAgain: false });
+  };
+
+  const ignoreTask = async (id, description) => {
+    if (isConfirmationSuppressed('ignoreSimilar')) {
+      executeIgnoreById(id);
+      return;
+    }
+    setIgnoreConfirm({ id, description, dontAskAgain: false });
   };
 
   const toggleTaskSelection = (id) => {
@@ -455,8 +512,21 @@ function Commitments() {
     }
   };
 
+  const requestBulkDelete = () => {
+    if (selectedTaskIds.length === 0) return;
+    if (isConfirmationSuppressed('bulkDelete')) {
+      executeBulkDelete();
+      return;
+    }
+    setBulkDeleteConfirm({ dontAskAgain: false });
+  };
+
   const executeBulkDelete = async () => {
     if (selectedTaskIds.length === 0) return;
+
+    if (bulkDeleteConfirm?.dontAskAgain) {
+      suppressConfirmationType('bulkDelete');
+    }
 
     setBulkDeleting(true);
     try {
@@ -471,7 +541,7 @@ function Commitments() {
 
       const suffix = removedFrom.length > 0 ? ` (also removed from ${removedFrom.join(', ')})` : '';
       toast.success(`Deleted ${data.deleted || selectedTaskIds.length} tasks${suffix}`);
-      setBulkDeleteConfirm(false);
+      setBulkDeleteConfirm(null);
       clearSelection();
       await loadCommitments();
     } catch (err) {
@@ -481,12 +551,7 @@ function Commitments() {
     }
   };
 
-  const executeDelete = async () => {
-    if (!deleteConfirm) return;
-
-    const { id } = deleteConfirm;
-    setDeleteConfirm(null);
-
+  const executeDeleteById = async (id) => {
     try {
       const response = await commitmentsAPI.delete(id);
 
@@ -509,72 +574,106 @@ function Commitments() {
     }
   };
 
+  const executeDelete = async () => {
+    if (!deleteConfirm) return;
+
+    const { id, dontAskAgain } = deleteConfirm;
+    if (dontAskAgain) {
+      suppressConfirmationType('deleteTask');
+    }
+    setDeleteConfirm(null);
+    await executeDeleteById(id);
+  };
+
+  const executeIgnoreById = async (id) => {
+    setIgnoringTaskId(id);
+    try {
+      const response = await commitmentsAPI.ignore(id);
+
+      let message = response.data?.message || 'Task ignored';
+      if (response.data?.deletionResults) {
+        const results = response.data.deletionResults;
+        const extras = [];
+        if (results.calendar === 'success') extras.push('calendar');
+        if (results.jira === 'success') extras.push('Jira');
+        if (results.microsoft === 'success') extras.push('Microsoft');
+        if (extras.length > 0) {
+          message += ` (also removed from ${extras.join(', ')})`;
+        }
+      }
+
+      toast.success(message);
+      loadCommitments();
+    } catch (err) {
+      toast.error('Failed to ignore task: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIgnoringTaskId(null);
+    }
+  };
+
+  const executeIgnore = async () => {
+    if (!ignoreConfirm) return;
+
+    const { id, dontAskAgain } = ignoreConfirm;
+    if (dontAskAgain) {
+      suppressConfirmationType('ignoreSimilar');
+    }
+    setIgnoreConfirm(null);
+    await executeIgnoreById(id);
+  };
+
   const isOverdue = (commitment) => {
     if (!commitment.deadline || commitment.status === 'completed') return false;
     return new Date(commitment.deadline) < new Date();
   };
 
-  const groupByStatus = () => {
-    const overdue = commitments.filter(c => isOverdue(c));
-    const pending = commitments.filter(c => c.status === 'pending' && !isOverdue(c));
-    const completed = commitments.filter(c => c.status === 'completed');
+  const applyStatusFilter = (items, statusFilter = filter) => {
+    if (statusFilter === 'overdue') {
+      return items.filter(c => isOverdue(c));
+    }
+    if (statusFilter === 'pending') {
+      return items.filter(c => c.status === 'pending' && !isOverdue(c));
+    }
+    if (statusFilter === 'completed') {
+      return items.filter(c => c.status === 'completed');
+    }
+    return items;
+  };
+
+  const applyTypeFilter = (items, selectedType = typeFilter) => {
+    if (selectedType === 'all') return items;
+    return items.filter(c => (c.task_type || 'commitment') === selectedType);
+  };
+
+  const groupByStatus = (items) => {
+    const overdue = items.filter(c => isOverdue(c));
+    const pending = items.filter(c => c.status === 'pending' && !isOverdue(c));
+    const completed = items.filter(c => c.status === 'completed');
     return { overdue, pending, completed };
   };
 
-  const groupByConfirmation = () => {
-    let filtered = commitments;
-    if (filter === 'overdue') {
-      filtered = commitments.filter(c => isOverdue(c));
-    } else if (filter === 'pending') {
-      filtered = commitments.filter(c => c.status === 'pending' && !isOverdue(c));
-    } else if (filter === 'completed') {
-      filtered = commitments.filter(c => c.status === 'completed');
-    }
-
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(c => (c.task_type || 'commitment') === typeFilter);
-    }
-
-    const needsConfirmation = filtered.filter(c => c.needs_confirmation === 1 || c.needs_confirmation === true);
-    const confirmed = filtered.filter(c => !c.needs_confirmation || c.needs_confirmation === 0 || c.needs_confirmation === false);
+  const groupByConfirmation = (items) => {
+    const needsConfirmation = items.filter(c => c.needs_confirmation === 1 || c.needs_confirmation === true);
+    const confirmed = items.filter(c => !c.needs_confirmation || c.needs_confirmation === 0 || c.needs_confirmation === false);
 
     return { needsConfirmation, confirmed };
   };
 
-  const groupByType = () => {
-    const filtered = typeFilter === 'all'
-      ? commitments
-      : commitments.filter(c => (c.task_type || 'commitment') === typeFilter);
-
+  const groupByType = (items) => {
     return {
-      commitments: filtered.filter(c => (c.task_type || 'commitment') === 'commitment'),
-      actions: filtered.filter(c => c.task_type === 'action'),
-      followUps: filtered.filter(c => c.task_type === 'follow-up'),
-      risks: filtered.filter(c => c.task_type === 'risk')
+      commitments: items.filter(c => (c.task_type || 'commitment') === 'commitment'),
+      actions: items.filter(c => c.task_type === 'action'),
+      followUps: items.filter(c => c.task_type === 'follow-up'),
+      risks: items.filter(c => c.task_type === 'risk')
     };
   };
 
-  const getFilteredCommitments = () => {
-    let filtered = commitments;
-
-    if (filter === 'overdue') {
-      filtered = filtered.filter(c => isOverdue(c));
-    } else if (filter === 'pending') {
-      filtered = filtered.filter(c => c.status === 'pending' && !isOverdue(c));
-    } else if (filter === 'completed') {
-      filtered = filtered.filter(c => c.status === 'completed');
-    }
-
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(c => (c.task_type || 'commitment') === typeFilter);
-    }
-
-    return filtered;
-  };
-
-  const filteredCommitments = getFilteredCommitments();
-  const grouped = groupByStatus();
-  const byType = groupByType();
+  const statusFilteredCommitments = applyStatusFilter(commitments);
+  const typeFilteredCommitments = applyTypeFilter(commitments);
+  const filteredCommitments = applyTypeFilter(statusFilteredCommitments);
+  const grouped = groupByStatus(typeFilteredCommitments);
+  const displayedGrouped = groupByStatus(filteredCommitments);
+  const byType = groupByType(statusFilteredCommitments);
   const visibleIds = filteredCommitments.map(task => task.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedTaskIds.includes(id));
 
@@ -663,6 +762,16 @@ function Commitments() {
             <Button variant="ghost" size="sm" onClick={() => deleteTask(commitment.id, commitment.description)} icon={<Trash2 size={15} />}>
               Delete
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => ignoreTask(commitment.id, commitment.description)}
+              disabled={ignoringTaskId === commitment.id}
+              loading={ignoringTaskId === commitment.id}
+              icon={<EyeOff size={15} />}
+            >
+              Ignore Similar
+            </Button>
           </div>
         </div>
       </div>
@@ -680,39 +789,6 @@ function Commitments() {
                 <Button variant="success" onClick={() => setShowCreateModal(true)} icon={<Plus size={16} />} title="Create a new task (Cmd+N)">
                   Create Task
                 </Button>
-                <Button
-                  variant={selectionMode ? 'secondary' : 'ghost'}
-                  onClick={() => {
-                    if (selectionMode) {
-                      clearSelection();
-                    } else {
-                      setSelectionMode(true);
-                    }
-                  }}
-                  icon={selectionMode ? <X size={16} /> : <SquareCheckBig size={16} />}
-                >
-                  {selectionMode ? 'Cancel Select' : 'Select'}
-                </Button>
-                {selectionMode && (
-                  <>
-                    <Button
-                      variant="secondary"
-                      onClick={toggleSelectVisible}
-                      disabled={filteredCommitments.length === 0}
-                      icon={<SquareCheckBig size={16} />}
-                    >
-                      {allVisibleSelected ? 'Clear Visible' : 'Select Visible'}
-                    </Button>
-                    <Button
-                      variant="error"
-                      onClick={() => setBulkDeleteConfirm(true)}
-                      disabled={selectedTaskIds.length === 0}
-                      icon={<Trash2 size={16} />}
-                    >
-                      Delete Selected ({selectedTaskIds.length})
-                    </Button>
-                  </>
-                )}
                 <Button
                   onClick={handleSmartGroup}
                   disabled={clusteringTasks || loading || filteredCommitments.filter(c => c.status !== 'completed').length < 2}
@@ -833,16 +909,56 @@ function Commitments() {
             {/* Task Type Filters */}
             <div className="mb-lg">
               <div className="text-sm-muted-mb-sm">Filter by Type:</div>
-              <div className="flex gap-sm flex-wrap">
-                {['all', 'commitment', 'action', 'follow-up', 'risk'].map(type => (
-                  <button
-                    key={type}
-                    onClick={() => setTypeFilter(type)}
-                    className={typeFilter === type ? 'btn-filter' : 'secondary btn-filter'}
+              <div className="task-filter-toolbar">
+                <div className="flex gap-sm flex-wrap">
+                  {['all', 'commitment', 'action', 'follow-up', 'risk'].map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setTypeFilter(type)}
+                      className={typeFilter === type ? 'btn-filter' : 'secondary btn-filter'}
+                    >
+                      {typeLabels[type]}
+                    </button>
+                  ))}
+                </div>
+                <div className="task-select-actions">
+                  <Button
+                    variant={selectionMode ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => {
+                      if (selectionMode) {
+                        clearSelection();
+                      } else {
+                        setSelectionMode(true);
+                      }
+                    }}
+                    icon={selectionMode ? <X size={16} /> : <SquareCheckBig size={16} />}
                   >
-                    {typeLabels[type]}
-                  </button>
-                ))}
+                    {selectionMode ? 'Cancel Select' : 'Select'}
+                  </Button>
+                  {selectionMode && (
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={toggleSelectVisible}
+                        disabled={filteredCommitments.length === 0}
+                        icon={<SquareCheckBig size={16} />}
+                      >
+                        {allVisibleSelected ? 'Clear Visible' : 'Select Visible'}
+                      </Button>
+                      <Button
+                        variant="error"
+                        size="sm"
+                        onClick={requestBulkDelete}
+                        disabled={selectedTaskIds.length === 0}
+                        icon={<Trash2 size={16} />}
+                      >
+                        Delete Selected ({selectedTaskIds.length})
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -856,7 +972,7 @@ function Commitments() {
 
           {/* Confirmation Section */}
           {(() => {
-            const confirmationGroup = groupByConfirmation();
+            const confirmationGroup = groupByConfirmation(filteredCommitments);
             return confirmationGroup.needsConfirmation.length > 0 && (
               <div className="card card-warning-border">
                 <h3 className="heading-warning-mb-md">Tasks Needing Confirmation</h3>
@@ -892,6 +1008,16 @@ function Commitments() {
                       <Button variant="success" size="sm" onClick={() => confirmTask(commitment.id, true)} icon={<CheckCircle2 size={15} />}>Confirm</Button>
                       <Button variant="error" size="sm" onClick={() => confirmTask(commitment.id, false)} icon={<Trash2 size={15} />}>Reject</Button>
                       <Button variant="ghost" size="sm" onClick={() => deleteTask(commitment.id, commitment.description)} icon={<Trash2 size={15} />}>Delete</Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => ignoreTask(commitment.id, commitment.description)}
+                        disabled={ignoringTaskId === commitment.id}
+                        loading={ignoringTaskId === commitment.id}
+                        icon={<EyeOff size={15} />}
+                      >
+                        Ignore Similar
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -899,33 +1025,39 @@ function Commitments() {
             );
           })()}
 
-          {/* Overdue Commitments */}
-          {grouped.overdue.length > 0 && (filter === 'all' || filter === 'overdue') && (
+          {/* Overdue Tasks */}
+          {displayedGrouped.overdue.length > 0 && (filter === 'all' || filter === 'overdue') && (
             <div className="card">
-              <h3 className="heading-error-mb-md">Overdue Commitments</h3>
-              {grouped.overdue.map(commitment => (
+              <h3 className="heading-error-mb-md">Overdue Tasks</h3>
+              {displayedGrouped.overdue.map(commitment => (
                 <TaskCard key={commitment.id} commitment={commitment} variant="overdue" />
               ))}
             </div>
           )}
 
-          {/* Pending Commitments */}
-          {grouped.pending.length > 0 && (filter === 'all' || filter === 'pending') && (
+          {/* Pending Tasks */}
+          {displayedGrouped.pending.length > 0 && (filter === 'all' || filter === 'pending') && (
             <div className="card">
-              <h3 className="text-warning-mb">Pending Commitments</h3>
-              {grouped.pending.map(commitment => (
+              <h3 className="text-warning-mb">Pending Tasks</h3>
+              {displayedGrouped.pending.map(commitment => (
                 <TaskCard key={commitment.id} commitment={commitment} variant="pending" />
               ))}
             </div>
           )}
 
-          {/* Completed Commitments */}
-          {grouped.completed.length > 0 && (filter === 'all' || filter === 'completed') && (
+          {/* Completed Tasks */}
+          {displayedGrouped.completed.length > 0 && (filter === 'all' || filter === 'completed') && (
             <div className="card">
-              <h3 style={{ color: '#34c759', marginBottom: '1rem' }}>Completed Commitments</h3>
-              {grouped.completed.map(commitment => (
+              <h3 style={{ color: '#34c759', marginBottom: '1rem' }}>Completed Tasks</h3>
+              {displayedGrouped.completed.map(commitment => (
                 <TaskCard key={commitment.id} commitment={commitment} variant="completed" />
               ))}
+            </div>
+          )}
+
+          {commitments.length > 0 && filteredCommitments.length === 0 && !loading && (
+            <div className="card task-empty-filter-state">
+              No tasks match the current filters.
             </div>
           )}
 
@@ -1078,18 +1210,39 @@ function Commitments() {
         message={deleteConfirm ? `Are you sure you want to delete this task?\n\n"${deleteConfirm.description}"\n\nThis will also remove it from connected services if synced.` : ''}
         confirmText="Delete"
         confirmVariant="error"
+        suppressLabel="Don't ask again for task deletes"
+        suppressChecked={deleteConfirm?.dontAskAgain || false}
+        onSuppressChange={(checked) => setDeleteConfirm(previous => previous ? { ...previous, dontAskAgain: checked } : previous)}
       />
 
       {/* Bulk Delete Confirmation Modal */}
       <ConfirmModal
-        isOpen={bulkDeleteConfirm}
-        onClose={() => !bulkDeleting && setBulkDeleteConfirm(false)}
+        isOpen={!!bulkDeleteConfirm}
+        onClose={() => !bulkDeleting && setBulkDeleteConfirm(null)}
         onConfirm={executeBulkDelete}
         title="Delete Selected Tasks"
         message={`Delete ${selectedTaskIds.length} selected task${selectedTaskIds.length === 1 ? '' : 's'}?\n\nThis will also remove synced items from connected calendar, Jira, and Microsoft services when possible.`}
         confirmText="Delete Selected"
         confirmVariant="error"
         loading={bulkDeleting}
+        suppressLabel="Don't ask again for bulk deletes"
+        suppressChecked={bulkDeleteConfirm?.dontAskAgain || false}
+        onSuppressChange={(checked) => setBulkDeleteConfirm(previous => previous ? { ...previous, dontAskAgain: checked } : previous)}
+      />
+
+      {/* Ignore Similar Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!ignoreConfirm}
+        onClose={() => setIgnoreConfirm(null)}
+        onConfirm={executeIgnore}
+        title="Ignore Similar Tasks"
+        message={ignoreConfirm ? `Ignore this task and suppress similar future tasks or emails?\n\n"${ignoreConfirm.description}"\n\nThis will remove the current task and teach extraction to skip similar items.` : ''}
+        confirmText="Ignore Similar"
+        confirmVariant="warning"
+        loading={ignoringTaskId === ignoreConfirm?.id}
+        suppressLabel="Don't ask again for ignore similar"
+        suppressChecked={ignoreConfirm?.dontAskAgain || false}
+        onSuppressChange={(checked) => setIgnoreConfirm(previous => previous ? { ...previous, dontAskAgain: checked } : previous)}
       />
 
       {/* Sync Confirmation Modal */}
@@ -1097,6 +1250,9 @@ function Commitments() {
         isOpen={!!syncConfirm}
         onClose={() => setSyncConfirm(null)}
         onConfirm={() => {
+          if (syncConfirm?.dontAskAgain && syncConfirm?.confirmationType) {
+            suppressConfirmationType(syncConfirm.confirmationType);
+          }
           if (syncConfirm?.type === 'microsoft') executeMicrosoftSync();
           else if (syncConfirm?.type === 'jira') executeJiraSync();
           else if (syncConfirm?.type === 'jira-failed') executeFailedJiraSync();
@@ -1104,6 +1260,9 @@ function Commitments() {
         title="Sync Tasks"
         message={syncConfirm?.message || ''}
         confirmText="Sync"
+        suppressLabel="Don't ask again for this sync"
+        suppressChecked={syncConfirm?.dontAskAgain || false}
+        onSuppressChange={(checked) => setSyncConfirm(previous => previous ? { ...previous, dontAskAgain: checked } : previous)}
       />
 
       {/* Completion Modal */}

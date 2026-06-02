@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from './Button.tsx';
 import type { ButtonVariant } from './Button.tsx';
 
@@ -52,6 +53,12 @@ interface ConfirmModalProps {
   confirmVariant?: ButtonVariant;
   /** Whether confirm action is in progress */
   loading?: boolean;
+  /** Optional checkbox label for suppressing this confirmation type */
+  suppressLabel?: string;
+  /** Whether the suppress checkbox is checked */
+  suppressChecked?: boolean;
+  /** Callback when suppress checkbox changes */
+  onSuppressChange?: (checked: boolean) => void;
 }
 
 // =============================================================================
@@ -75,6 +82,16 @@ const SIZE_CLASSES: Record<ModalSize, string> = {
   xl: 'modal-xl',
   full: 'modal-full'
 };
+
+function focusWithoutScrolling(element: HTMLElement | null | undefined) {
+  if (!element || typeof element.focus !== 'function') return;
+
+  try {
+    element.focus({ preventScroll: true });
+  } catch (error) {
+    element.focus();
+  }
+}
 
 // =============================================================================
 // Components
@@ -103,6 +120,7 @@ export function Modal({
 }: ModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  const previousScrollPosition = useRef({ x: 0, y: 0 });
 
   // Handle escape key
   const handleEscape = useCallback((e: KeyboardEvent) => {
@@ -135,27 +153,31 @@ export function Modal({
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
-      // Store current active element to restore focus later
-      previousActiveElement.current = document.activeElement as HTMLElement;
+    if (!isOpen) return undefined;
 
-      // Add event listeners
-      document.addEventListener('keydown', handleEscape);
-      document.addEventListener('keydown', handleTabKey);
-      document.body.style.overflow = 'hidden';
+    // Store current active element to restore focus later
+    previousActiveElement.current = document.activeElement as HTMLElement;
+    previousScrollPosition.current = {
+      x: window.scrollX,
+      y: window.scrollY
+    };
 
-      // Focus the modal or first focusable element
-      requestAnimationFrame(() => {
-        if (modalRef.current) {
-          const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS);
-          if (focusableElements.length > 0) {
-            focusableElements[0].focus();
-          } else {
-            modalRef.current.focus();
-          }
+    // Add event listeners
+    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleTabKey);
+    document.body.style.overflow = 'hidden';
+
+    // Focus the modal or first focusable element
+    requestAnimationFrame(() => {
+      if (modalRef.current) {
+        const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS);
+        if (focusableElements.length > 0) {
+          focusWithoutScrolling(focusableElements[0]);
+        } else {
+          focusWithoutScrolling(modalRef.current);
         }
-      });
-    }
+      }
+    });
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
@@ -164,16 +186,17 @@ export function Modal({
 
       // Restore focus to previous element
       if (previousActiveElement.current && typeof previousActiveElement.current.focus === 'function') {
-        previousActiveElement.current.focus();
+        focusWithoutScrolling(previousActiveElement.current);
       }
+      window.scrollTo(previousScrollPosition.current.x, previousScrollPosition.current.y);
     };
   }, [isOpen, handleEscape, handleTabKey]);
 
-  if (!isOpen) return null;
+  if (!isOpen || typeof document === 'undefined') return null;
 
   const sizeClass = SIZE_CLASSES[size] || SIZE_CLASSES.md;
 
-  return (
+  const modalNode = (
     <div
       className="modal-overlay"
       onClick={closeOnOverlay ? onClose : undefined}
@@ -215,6 +238,8 @@ export function Modal({
       </div>
     </div>
   );
+
+  return createPortal(modalNode, document.body);
 }
 
 /**
@@ -240,7 +265,10 @@ export function ConfirmModal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   confirmVariant = 'primary',
-  loading = false
+  loading = false,
+  suppressLabel,
+  suppressChecked = false,
+  onSuppressChange
 }: ConfirmModalProps) {
   const handleConfirm = async () => {
     await onConfirm?.();
@@ -265,6 +293,17 @@ export function ConfirmModal({
       }
     >
       <p id="confirm-modal-message" className="modal-message">{message}</p>
+      {suppressLabel && (
+        <label className="modal-checkbox-row">
+          <input
+            type="checkbox"
+            checked={suppressChecked}
+            onChange={(event) => onSuppressChange?.(event.target.checked)}
+            disabled={loading}
+          />
+          <span>{suppressLabel}</span>
+        </label>
+      )}
     </Modal>
   );
 }

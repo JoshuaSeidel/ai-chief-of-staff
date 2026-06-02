@@ -7,8 +7,11 @@ const logger = createModuleLogger('TASK-GOVERNOR');
 const DEFAULT_TASK_INSTRUCTIONS = [
   'Only create commitments and action items when the configured user is explicitly responsible for the work.',
   'Skip tasks assigned to other people, teams, or ambiguous owners.',
-  'Create follow-ups when the configured user should check status, unblock, request, or verify work that matters to their role.',
-  'Skip duplicates and near-duplicates, even when wording, deadline, or task type differs slightly.',
+  'Only create follow-ups when the configured user is the person who should check, unblock, request, or verify the work; being copied on an email is not enough.',
+  'Create risks only when they require the configured user\'s awareness or action; skip newsletter, digest, no-reply, marketing, and automated-notification risks by default.',
+  'Treat commitments as promises the configured user clearly made or accepted, not generic team discussion, "we should" statements, or someone else\'s assignment.',
+  'Skip duplicates and near-duplicates across all recent tasks, even when wording, deadline, source, or task type differs slightly.',
+  'Honor explicit ignore feedback by suppressing future similar tasks and emails.',
   'When uncertain, skip the item instead of creating a task.'
 ].join('\n');
 
@@ -33,6 +36,16 @@ const STOP_WORDS = new Set([
   'that',
   'the',
   'this',
+  'about',
+  'after',
+  'before',
+  'status',
+  'next',
+  'need',
+  'needs',
+  'needed',
+  'please',
+  'team',
   'to',
   'with',
   'will'
@@ -61,7 +74,7 @@ function normalizeTaskText(value) {
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, ' ')
     .replace(/[^a-z0-9 ]+/g, ' ')
-    .replace(/\b(follow|followup|follow up|check|review|sync|discuss|update|task|action|item|commitment)\b/g, ' ')
+    .replace(/\b(follow|followup|follow up|check|review|sync|discuss|update|task|action|item|commitment|confirm|circle|back|touch|base|ping|ask|request|send)\b/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -86,6 +99,45 @@ function tokenSimilarity(left, right) {
   return union === 0 ? 0 : intersection / union;
 }
 
+function characterTrigrams(value) {
+  const normalized = normalizeTaskText(value).replace(/\s+/g, ' ');
+  if (normalized.length < 3) return new Set(normalized ? [normalized] : []);
+
+  const trigrams = new Set();
+  for (let index = 0; index <= normalized.length - 3; index++) {
+    trigrams.add(normalized.slice(index, index + 3));
+  }
+  return trigrams;
+}
+
+function setOverlapScore(leftSet, rightSet) {
+  if (leftSet.size === 0 || rightSet.size === 0) return 0;
+
+  let intersection = 0;
+  leftSet.forEach(value => {
+    if (rightSet.has(value)) intersection++;
+  });
+
+  return (2 * intersection) / (leftSet.size + rightSet.size);
+}
+
+function trigramSimilarity(left, right) {
+  return setOverlapScore(characterTrigrams(left), characterTrigrams(right));
+}
+
+function hasMeaningfulTokenOverlap(left, right) {
+  const leftTokens = new Set(tokenizeTaskText(left).filter(token => token.length >= 5));
+  const rightTokens = new Set(tokenizeTaskText(right).filter(token => token.length >= 5));
+  if (leftTokens.size === 0 || rightTokens.size === 0) return false;
+
+  let overlap = 0;
+  leftTokens.forEach(token => {
+    if (rightTokens.has(token)) overlap++;
+  });
+
+  return overlap >= 2;
+}
+
 function isAliasMatch(value, aliases) {
   const normalized = normalizeName(value);
   if (!normalized) return false;
@@ -104,6 +156,60 @@ function isAliasMatch(value, aliases) {
 function isUnknownAssignee(value) {
   const normalized = normalizeName(value);
   return !normalized || ['tbd', 'unknown', 'unassigned', 'someone', 'team', 'we', 'us'].includes(normalized);
+}
+
+function getEmailHeader(sourceText, headerName) {
+  const pattern = new RegExp(`^${headerName}:\\s*(.*)$`, 'im');
+  const match = String(sourceText || '').match(pattern);
+  return match ? match[1].trim() : '';
+}
+
+function isEmailSource(sourceType, sourceText) {
+  return String(sourceType || '').toLowerCase() === 'email' || /^Email:/im.test(String(sourceText || ''));
+}
+
+function sourceContainsUserAlias(value, aliases) {
+  return aliases.some(alias => {
+    const normalizedAlias = normalizeName(alias);
+    if (!normalizedAlias) return false;
+    return normalizeName(value).includes(normalizedAlias);
+  });
+}
+
+function emailHasDirectUserSignal(sourceText, context) {
+  if (!isEmailSource(context.sourceType, sourceText)) return true;
+
+  const to = getEmailHeader(sourceText, 'To');
+  if (!to || /^unknown$/i.test(to)) return true;
+  if (sourceContainsUserAlias(to, context.userAliases || [])) return true;
+
+  const opening = String(sourceText || '').slice(0, 1400);
+  return sourceContainsUserAlias(opening, context.userAliases || []);
+}
+
+function isLikelyAutomatedEmail(sourceText, sourceType) {
+  if (!isEmailSource(sourceType, sourceText)) return false;
+
+  const from = getEmailHeader(sourceText, 'From');
+  const subject = getEmailHeader(sourceText, 'Email') || getEmailHeader(sourceText, 'Subject');
+  const lower = `${from}\n${subject}\n${String(sourceText || '').slice(0, 2500)}`.toLowerCase();
+
+  return [
+    /\bno[-_ ]?reply\b/,
+    /\bdonotreply\b/,
+    /\bmailer-daemon\b/,
+    /\bnotification(s)?@/,
+    /\bnewsletter\b/,
+    /\bdigest\b/,
+    /\bautomated (message|notification|email)\b/,
+    /\bdo not reply\b/,
+    /\bmanage (your )?(preferences|subscription)\b/,
+    /\bunsubscribe\b/,
+    /\bview (this )?(email|message) in (a )?browser\b/,
+    /\bmarketing\b/,
+    /\bpromotion\b/,
+    /\bspam\b/
+  ].some(pattern => pattern.test(lower));
 }
 
 function candidateDescription(candidate) {
@@ -191,6 +297,82 @@ function compactTaskForPrompt(task) {
     deadline: task.deadline,
     status: task.status,
     created_date: task.created_date
+  };
+}
+
+function parseTaskSnapshot(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return {};
+  }
+}
+
+async function getIgnoredTaskPatterns(profileId) {
+  const db = getDb();
+  let rows = [];
+
+  try {
+    rows = await db.all(
+      `SELECT task_snapshot, reason, created_at
+       FROM task_learning_events
+       WHERE profile_id = ? AND action = ?
+       ORDER BY created_at DESC
+       LIMIT 500`,
+      [profileId, 'ignore']
+    );
+  } catch (error) {
+    logger.warn(`Unable to load ignored task patterns: ${error.message}`);
+    return [];
+  }
+
+  return rows
+    .map(row => {
+      const snapshot = parseTaskSnapshot(row.task_snapshot);
+      return {
+        description: snapshot.description || '',
+        assignee: snapshot.assignee || null,
+        task_type: snapshot.task_type || null,
+        reason: row.reason || '',
+        created_at: row.created_at
+      };
+    })
+    .filter(pattern => pattern.description);
+}
+
+function findIgnoredPattern(candidate, ignoredTaskPatterns = []) {
+  const description = candidateDescription(candidate);
+
+  for (const pattern of ignoredTaskPatterns) {
+    const tokenScore = tokenSimilarity(description, pattern.description);
+    const trigramScore = trigramSimilarity(description, pattern.description);
+    const sameType = !pattern.task_type || !candidate.task_type || pattern.task_type === candidate.task_type;
+
+    if (
+      (sameType && tokenScore >= 0.46 && hasMeaningfulTokenOverlap(description, pattern.description))
+      || tokenScore >= 0.62
+      || trigramScore >= 0.76
+    ) {
+      return { pattern, score: Math.max(tokenScore, trigramScore) };
+    }
+  }
+
+  return null;
+}
+
+function sourcePromptContext(sourceText, sourceType, context) {
+  if (!sourceText && !sourceType) return null;
+
+  return {
+    type: sourceType || 'unknown',
+    email_directly_addresses_user: emailHasDirectUserSignal(sourceText, context),
+    likely_automated_email: isLikelyAutomatedEmail(sourceText, sourceType),
+    email_from: getEmailHeader(sourceText, 'From') || null,
+    email_to: getEmailHeader(sourceText, 'To') || null,
+    email_cc: getEmailHeader(sourceText, 'Cc') || null,
+    source_excerpt: String(sourceText || '').slice(0, 1800)
   };
 }
 
@@ -306,8 +488,18 @@ function findNearDuplicate(candidate, existingTasks) {
       return { task, score: 1 };
     }
 
-    const score = tokenSimilarity(description, task.description);
-    if (score >= 0.78) {
+    if (normalized.includes(taskNormalized) || taskNormalized.includes(normalized)) {
+      return { task, score: 0.95 };
+    }
+
+    const tokenScore = tokenSimilarity(description, task.description);
+    const trigramScore = trigramSimilarity(description, task.description);
+    const score = Math.max(tokenScore, trigramScore);
+    if (
+      tokenScore >= 0.62
+      || trigramScore >= 0.78
+      || (tokenScore >= 0.46 && hasMeaningfulTokenOverlap(description, task.description))
+    ) {
       return { task, score };
     }
   }
@@ -316,6 +508,16 @@ function findNearDuplicate(candidate, existingTasks) {
 }
 
 function hardGateCandidate(candidate, context, existingTasks) {
+  const ignored = findIgnoredPattern(candidate, context.ignoredTaskPatterns || []);
+  if (ignored) {
+    return {
+      decision: 'skip',
+      reason: `Matches ignored pattern from ${ignored.pattern.created_at || 'previous feedback'}`,
+      ignoredPattern: ignored.pattern,
+      score: ignored.score
+    };
+  }
+
   const duplicate = findNearDuplicate(candidate, existingTasks);
   if (duplicate) {
     return {
@@ -333,12 +535,30 @@ function hardGateCandidate(candidate, context, existingTasks) {
       };
     }
 
-    if (context.userAliases.length > 0 && !isAliasMatch(candidate.assignee, context.userAliases)) {
+    if ((context.userAliases || []).length > 0 && !isAliasMatch(candidate.assignee, context.userAliases || [])) {
       return {
         decision: 'skip',
         reason: `Assigned to ${candidate.assignee}, not the configured user`
       };
     }
+  }
+
+  if (
+    isEmailSource(context.sourceType, context.sourceText)
+    && ['commitment', 'action', 'follow-up'].includes(candidate.task_type)
+    && !emailHasDirectUserSignal(context.sourceText, context)
+  ) {
+    return {
+      decision: 'skip',
+      reason: 'Email does not directly address the configured user'
+    };
+  }
+
+  if (candidate.task_type === 'risk' && isLikelyAutomatedEmail(context.sourceText, context.sourceType)) {
+    return {
+      decision: 'skip',
+      reason: 'Risk came from an automated/no-reply style email'
+    };
   }
 
   return { decision: 'review' };
@@ -361,6 +581,7 @@ function applyAiDecisions(candidates, decisionsById) {
 
 async function runAiCreationReview(candidates, existingTasks, context, profileId) {
   if (candidates.length === 0) return new Map();
+  const sourceContext = sourcePromptContext(context.sourceText, context.sourceType, context);
 
   const prompt = `You are the AI Chief of Staff task creation gatekeeper. Decide whether each candidate should be saved as a task for the configured user.
 
@@ -373,15 +594,20 @@ Configured user:
 Editable learning instructions:
 ${context.taskExtractionInstructions}
 
+Source context:
+${sourceContext ? JSON.stringify(sourceContext, null, 2) : 'No source metadata available'}
+
 Rules:
 1. Return "create" only when the item is clearly owned by the configured user.
 2. Commitments and action items assigned to someone else, a team, "we", TBD, or no one must be skipped.
-3. Follow-ups may be created when the user should check, unblock, verify, request, or monitor someone else's work because it is relevant to the user's role.
-4. Risks may be created only when the user likely needs awareness or follow-up because of their role.
-5. Return "update" when a candidate is the same underlying work as an existing task and adds or changes useful information.
-6. Updates can include description/detail, deadline, priority/severity, assignee, task type, and notes/context.
-7. Skip exact duplicates and near-duplicates that add no new useful information.
-8. If uncertain, skip.
+3. A commitment requires evidence that the configured user personally promised, accepted, or was explicitly assigned the work. Do not infer commitments from generic meeting discussion.
+4. Follow-ups may be created only when the configured user is the action taker for the check-in. Being on To/Cc or merely seeing a status update is not enough.
+5. For email candidates, skip when the email is not directed to the configured user as the action taker.
+6. Risks may be created only when the user likely needs awareness or follow-up because of their role. Skip risks from automated, no-reply, digest, newsletter, marketing, or spam-like email unless there is a clear user-owned operational consequence.
+7. Return "update" when a candidate is the same underlying work as an existing task and adds or changes useful information.
+8. Updates can include description/detail, deadline, priority/severity, assignee, task type, and notes/context.
+9. Skip exact duplicates and near-duplicates that add no new useful information.
+10. If uncertain, skip.
 
 Existing tasks:
 ${JSON.stringify(existingTasks.map(compactTaskForPrompt), null, 2)}
@@ -437,8 +663,16 @@ Return ONLY JSON:
   }
 }
 
-async function reviewExtractedTasksForCreation(extracted, { profileId = 2 } = {}) {
+function requiresAiApproval(candidate, context) {
+  if (candidate.task_type === 'follow-up' || candidate.task_type === 'risk') return true;
+  return isEmailSource(context.sourceType, context.sourceText);
+}
+
+async function reviewExtractedTasksForCreation(extracted, { profileId = 2, sourceText = '', sourceType = '' } = {}) {
   const context = await getTaskProfileContext(profileId, { refreshMicrosoftProfile: true });
+  context.sourceText = sourceText || '';
+  context.sourceType = sourceType || '';
+  context.ignoredTaskPatterns = await getIgnoredTaskPatterns(profileId);
   const existingTasks = await getExistingTaskCandidates(profileId);
   const candidates = flattenExtractedTasks(extracted);
 
@@ -464,6 +698,14 @@ async function reviewExtractedTasksForCreation(extracted, { profileId = 2 } = {}
     }
 
     if (candidate.gateDecision === 'review') {
+      if (requiresAiApproval(candidate, context)) {
+        return {
+          ...candidate,
+          gateDecision: 'skip',
+          gateReason: 'Requires explicit AI approval for this source/type; no create decision was returned'
+        };
+      }
+
       return {
         ...candidate,
         gateDecision: 'create',
@@ -626,15 +868,21 @@ module.exports = {
   DEFAULT_TASK_INSTRUCTIONS,
   findDuplicateManualTask,
   getTaskProfileContext,
+  getIgnoredTaskPatterns,
   recordTaskLearningEvent,
   recordSystemTaskUpdate,
   reviewExtractedTasksForCreation,
   _test: {
     candidateDescription,
+    emailHasDirectUserSignal,
+    findIgnoredPattern,
     flattenExtractedTasks,
     hardGateCandidate,
     isAliasMatch,
+    isLikelyAutomatedEmail,
     normalizeTaskText,
+    requiresAiApproval,
+    trigramSimilarity,
     tokenSimilarity
   }
 };

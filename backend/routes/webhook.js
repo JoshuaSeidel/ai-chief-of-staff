@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { getDb } = require('../database/db');
 const { extractCommitments } = require('../services/claude');
+const transcriptRoutes = require('./transcripts');
 const { createModuleLogger } = require('../utils/logger');
 
 const logger = createModuleLogger('WEBHOOK');
@@ -22,7 +23,14 @@ router.post('/email', async (req, res) => {
     }
 
     // Use text content, fallback to HTML stripped of tags
-    const content = text || html.replace(/<[^>]*>/g, '');
+    const rawContent = text || html.replace(/<[^>]*>/g, '');
+    const content = [
+      `Email: ${subject || '(No subject)'}`,
+      `From: ${from || 'Unknown'}`,
+      'To: Unknown',
+      '',
+      rawContent
+    ].join('\n');
     
     logger.info(`Processing email: "${subject}" from ${from}`);
     
@@ -42,36 +50,20 @@ router.post('/email', async (req, res) => {
       // Extract commitments using Claude
       logger.info('Extracting commitments from email...');
       const extracted = await extractCommitments(content, null, req.profileId);
-      logger.info(`Extracted ${extracted.commitments?.length || 0} commitments, ${extracted.actionItems?.length || 0} action items`);
+      logger.info('Email extraction completed', {
+        commitments: extracted.commitments?.length || 0,
+        actionItems: extracted.actionItems?.length || 0,
+        followUps: extracted.followUps?.length || 0,
+        risks: extracted.risks?.length || 0
+      });
 
-      // Save commitments
-      if (extracted.commitments && extracted.commitments.length > 0) {
-        const stmt = db.prepare('INSERT INTO commitments (transcript_id, description, assignee, deadline, profile_id) VALUES (?, ?, ?, ?, ?)');
-        
-        for (const commitment of extracted.commitments) {
-          stmt.run(transcriptId, commitment.description, commitment.assignee || null, commitment.deadline || null, req.profileId);
-        }
-        
-        await stmt.finalize();
-        logger.info(`Saved ${extracted.commitments.length} commitments from email`);
-      }
-
-      // Save context items
-      if (extracted.actionItems && extracted.actionItems.length > 0) {
-        const stmt = db.prepare('INSERT INTO context (transcript_id, context_type, content, priority, profile_id) VALUES (?, ?, ?, ?, ?)');
-        
-        for (const item of extracted.actionItems) {
-          stmt.run(transcriptId, 'action_item', item.description, item.priority || 'medium', req.profileId);
-        }
-        
-        await stmt.finalize();
-        logger.info(`Saved ${extracted.actionItems.length} action items from email`);
-      }
+      const taskStats = await transcriptRoutes.saveAllTasksWithCalendar(db, transcriptId, extracted, req);
 
       res.json({
         message: 'Email processed successfully',
         transcriptId,
-        extracted
+        extracted: taskStats.byType,
+        tasks: taskStats
       });
     } catch (extractError) {
       logger.error('Error extracting commitments from email:', extractError);
@@ -113,4 +105,3 @@ router.get('/health', (req, res) => {
 });
 
 module.exports = router;
-

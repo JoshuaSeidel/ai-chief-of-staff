@@ -549,6 +549,46 @@ router.delete('/:id', async (req, res) => {
 });
 
 /**
+ * Ignore a task and suppress similar future tasks.
+ */
+router.post('/:id/ignore', async (req, res) => {
+  const id = req.params.id;
+  logger.info(`Ignoring task ID: ${id}`);
+
+  try {
+    const db = getDb();
+    const task = await db.get('SELECT * FROM commitments WHERE id = ? AND profile_id = ?', [id, req.profileId]);
+
+    if (!task) {
+      logger.warn(`Task not found for ignore: ${id}`);
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const deletionResults = await deleteCommitmentTask(db, task, req.profileId, {
+      learningAction: 'ignore',
+      learningReason: 'User ignored this task and future similar tasks/emails',
+      refineInstructions: true
+    });
+
+    if (!deletionResults.database) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Task ignored and similar future tasks will be suppressed',
+      deletionResults
+    });
+  } catch (err) {
+    logger.error(`Error ignoring task ${id}:`, err);
+    res.status(500).json({
+      error: 'Error ignoring task',
+      message: err.message
+    });
+  }
+});
+
+/**
  * Get overdue commitments
  */
 router.get('/status/overdue', async (req, res) => {

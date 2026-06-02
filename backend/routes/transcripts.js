@@ -440,8 +440,16 @@ async function saveAllTasksWithCalendar(db, transcriptId, extracted, req) {
   const profileId = req.profileId || 2;
   const isMicrosoftConnected = await microsoftPlanner.isConnected(profileId);
   const isJiraConnected = await jira.isConnected(profileId);
+  const transcriptSource = await db.get(
+    'SELECT source, content, filename FROM transcripts WHERE id = ? AND profile_id = ?',
+    [transcriptId, profileId]
+  );
 
-  const review = await reviewExtractedTasksForCreation(extracted, { profileId });
+  const review = await reviewExtractedTasksForCreation(extracted, {
+    profileId,
+    sourceText: transcriptSource?.content || '',
+    sourceType: transcriptSource?.source || ''
+  });
   extracted = review.filtered;
   const profileContext = review.context || await getTaskProfileContext(profileId);
   const userNames = profileContext.userAliases || [];
@@ -1285,5 +1293,6 @@ router.createAndProcessTranscript = createAndProcessTranscript;
 router.createPendingTranscript = createPendingTranscript;
 router.updateAndProcessTranscript = updateAndProcessTranscript;
 router.transcribeAudioBuffer = transcribeAudioBuffer;
+router.saveAllTasksWithCalendar = saveAllTasksWithCalendar;
 
 module.exports = router;

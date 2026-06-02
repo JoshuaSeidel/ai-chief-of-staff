@@ -12,8 +12,15 @@ const DEFAULT_PROMPTS = {
 {{dateContext}}
 
 Look for:
-- EXPLICIT commitments: "I will...", "I'll...", "We'll...", "Let me..."
-- IMPLICIT tasks: Problems discussed that need solutions, decisions that need follow-up, research mentioned, etc.
+- EXPLICIT commitments only when the configured user personally said or wrote "I will...", "I'll...", "Let me...", clearly accepted ownership, or was directly assigned by name
+- User-owned action items that are clearly assigned to the configured user as the action taker
+- Follow-ups only when the configured user should perform the check-in, not merely because the user was copied or informed
+- Risks only when the configured user likely needs awareness or follow-up because of their role
+- Do not extract general team work, someone else's assignment, passive status updates, FYIs, or ambiguous "we should" work as commitments/actions
+- Do not treat first-person statements as the configured user's commitments unless the speaker/writer is clearly the configured user
+- Do not create tasks for other people. If it belongs to someone else, omit it unless it should be a follow-up owned by the configured user.
+- For emails, being in To/Cc is not enough. Extract an action only when the email asks or assigns the configured user to act.
+- Skip newsletter, digest, no-reply, marketing, spam-like, and automated notification risks unless there is a clear user-owned operational consequence.
 - Assign realistic deadlines within 2 WEEKS unless a specific date/timeline is mentioned:
   * If specific date mentioned: use that date
   * If "urgent" or "ASAP": meeting date + 3 days
@@ -156,4 +163,3 @@ Keep it executive-level: clear, concise, outcome-focused.`
 };
 
 module.exports = { DEFAULT_PROMPTS };
-

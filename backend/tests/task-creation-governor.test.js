@@ -58,6 +58,53 @@ test('follow-ups are allowed through for AI relevance review', () => {
   assert.equal(result.decision, 'review');
 });
 
+test('hard gate skips actions from emails not directly addressed to the user', () => {
+  const result = _test.hardGateCandidate({
+    task_type: 'action',
+    description: 'Review the renewal quote',
+    assignee: 'Josh'
+  }, {
+    ...context,
+    sourceType: 'email',
+    sourceText: 'Email: Renewal quote\nFrom: sales@example.com\nTo: Alex Example\n\nPlease review the renewal quote.'
+  }, []);
+
+  assert.equal(result.decision, 'skip');
+  assert.match(result.reason, /does not directly address/i);
+});
+
+test('hard gate skips risks from automated email', () => {
+  const result = _test.hardGateCandidate({
+    task_type: 'risk',
+    description: 'Marketing campaign performance is at risk'
+  }, {
+    ...context,
+    sourceType: 'email',
+    sourceText: 'Email: Weekly marketing digest\nFrom: notifications@example.com\nTo: jseidel@edgeconnex.com\n\nYou are receiving this automated email. Unsubscribe here.'
+  }, []);
+
+  assert.equal(result.decision, 'skip');
+  assert.match(result.reason, /automated/i);
+});
+
+test('hard gate skips tasks matching ignored patterns', () => {
+  const result = _test.hardGateCandidate({
+    task_type: 'follow-up',
+    description: 'Check with Morgan about the recurring newsletter update',
+    with: 'Morgan'
+  }, {
+    ...context,
+    ignoredTaskPatterns: [{
+      description: 'Follow up with Morgan about recurring newsletter updates',
+      task_type: 'follow-up',
+      created_at: '2026-06-02T00:00:00.000Z'
+    }]
+  }, []);
+
+  assert.equal(result.decision, 'skip');
+  assert.match(result.reason, /ignored pattern/i);
+});
+
 test('task text similarity ignores task phrasing noise', () => {
   const score = _test.tokenSimilarity(
     'Follow up with Morgan about the customer escalation update',
@@ -65,4 +112,22 @@ test('task text similarity ignores task phrasing noise', () => {
   );
 
   assert.ok(score >= 0.4);
+});
+
+test('hard gate updates similar tasks across different phrasing', () => {
+  const result = _test.hardGateCandidate({
+    task_type: 'follow-up',
+    description: 'Check with Morgan on the customer escalation status',
+    with: 'Morgan'
+  }, context, [
+    {
+      id: 77,
+      description: 'Follow up with Morgan about the customer escalation update',
+      assignee: 'Joshua Seidel',
+      status: 'pending'
+    }
+  ]);
+
+  assert.equal(result.decision, 'update');
+  assert.equal(result.duplicateOfId, 77);
 });
