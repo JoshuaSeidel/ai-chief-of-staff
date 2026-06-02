@@ -7,6 +7,13 @@ const { execSync } = require('child_process');
 const path = require('path');
 const axios = require('axios');
 const { getHttpsAgent } = require('../utils/https-agent');
+const {
+  listCredentials,
+  upsertCredential,
+  deleteCredential,
+  resolveProviderCredential,
+  isMaskedSecret
+} = require('../services/ai-credentials');
 
 const logger = createModuleLogger('CONFIG');
 
@@ -486,6 +493,65 @@ router.get('/health', async (req, res) => {
 });
 
 /**
+ * List named AI provider credentials.
+ * Secrets are never returned; callers receive hasSecret plus metadata.
+ */
+router.get('/ai-credentials', async (req, res) => {
+  try {
+    const credentials = await listCredentials();
+    res.json({ credentials });
+  } catch (err) {
+    logger.error('Error listing AI provider credentials', err);
+    res.status(500).json({
+      error: 'Error listing AI provider credentials',
+      message: err.message
+    });
+  }
+});
+
+/**
+ * Create or update a named AI provider credential.
+ * Existing secrets are preserved when the supplied secret is empty or masked.
+ */
+router.post('/ai-credentials', async (req, res) => {
+  try {
+    const { id, provider, name, secret, apiKey, baseUrl, isDefault } = req.body || {};
+    const credential = await upsertCredential({
+      id,
+      provider,
+      name,
+      secret: secret || apiKey,
+      baseUrl,
+      isDefault
+    });
+
+    res.json({ credential });
+  } catch (err) {
+    logger.error('Error saving AI provider credential', err);
+    res.status(500).json({
+      error: 'Error saving AI provider credential',
+      message: err.message
+    });
+  }
+});
+
+router.delete('/ai-credentials/:id', async (req, res) => {
+  try {
+    const deleted = await deleteCredential(req.params.id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'AI provider credential not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    logger.error('Error deleting AI provider credential', err);
+    res.status(500).json({
+      error: 'Error deleting AI provider credential',
+      message: err.message
+    });
+  }
+});
+
+/**
  * Get specific config value from database
  */
 router.get('/:key', async (req, res) => {
@@ -569,7 +635,14 @@ function getRequestApiKey(req) {
   const candidate = req.body?.apiKey;
   if (typeof candidate !== 'string') return '';
   const trimmed = candidate.trim();
-  return isMaskedValue(trimmed) ? '' : trimmed;
+  return isMaskedValue(trimmed) || isMaskedSecret(trimmed) ? '' : trimmed;
+}
+
+function getRequestCredentialId(req) {
+  const candidate = req.body?.credentialId;
+  if (candidate === undefined || candidate === null || candidate === '') return null;
+  const credentialId = Number(candidate);
+  return Number.isInteger(credentialId) && credentialId > 0 ? credentialId : null;
 }
 
 function extractProviderError(provider, apiError) {
@@ -594,8 +667,10 @@ function extractProviderError(provider, apiError) {
     : apiError.message;
 }
 
-async function getConfiguredApiKey(db, key, providedApiKey) {
+async function getConfiguredApiKey(db, provider, key, providedApiKey, credentialId, profileId) {
   if (providedApiKey) return providedApiKey;
+  const resolved = await resolveProviderCredential(provider, profileId, { credentialId });
+  if (resolved.apiKey) return resolved.apiKey;
   const apiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', [key]);
   return apiKeyRow?.value || '';
 }
@@ -611,11 +686,13 @@ async function handleModelsRequest(req, res) {
     const { provider } = req.params;
     const db = getDb();
     const providedApiKey = getRequestApiKey(req);
+    const credentialId = getRequestCredentialId(req);
+    const profileId = req.profileId || 2;
     
     logger.info(`Fetching available models for provider: ${provider}`);
     
     if (provider === 'anthropic') {
-      const apiKey = await getConfiguredApiKey(db, 'anthropicApiKey', providedApiKey);
+      const apiKey = await getConfiguredApiKey(db, 'anthropic', 'anthropicApiKey', providedApiKey, credentialId, profileId);
       
       if (!apiKey) {
         return res.status(400).json({ 
@@ -653,7 +730,7 @@ async function handleModelsRequest(req, res) {
       }
       
     } else if (provider === 'openai') {
-      const apiKey = await getConfiguredApiKey(db, 'openaiApiKey', providedApiKey);
+      const apiKey = await getConfiguredApiKey(db, 'openai', 'openaiApiKey', providedApiKey, credentialId, profileId);
       
       logger.info(`OpenAI API key check: ${apiKey ? 'Found (length: ' + apiKey.length + ')' : 'Not found'}`);
       
@@ -703,9 +780,11 @@ async function handleModelsRequest(req, res) {
       }
       
     } else if (provider === 'ollama') {
-      // Get Ollama base URL from database
-      const baseUrlRow = await db.get('SELECT value FROM config WHERE key = ?', ['ollamaBaseUrl']);
-      const baseUrl = baseUrlRow?.value || 'http://localhost:11434';
+      const resolved = await resolveProviderCredential('ollama', profileId, {
+        credentialId,
+        baseUrl: req.body?.baseUrl
+      });
+      const baseUrl = resolved.baseUrl || 'http://localhost:11434';
       
       logger.info(`Ollama base URL: ${baseUrl}`);
       

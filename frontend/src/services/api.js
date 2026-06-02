@@ -68,6 +68,9 @@ export const configAPI = {
   bulkUpdate: (config) => api.put('/config', config),
   getByKey: (key) => api.get(`/config/${key}`),
   getModels: (provider, options = {}) => api.post(`/config/models/${provider}`, options),
+  getAICredentials: () => api.get('/config/ai-credentials'),
+  saveAICredential: (credential) => api.post('/config/ai-credentials', credential),
+  deleteAICredential: (id) => api.delete(`/config/ai-credentials/${id}`),
 };
 
 // Calendar API

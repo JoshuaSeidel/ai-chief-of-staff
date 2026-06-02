@@ -7,6 +7,12 @@ import { ScopeBadge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { FormSkeleton } from '../common/LoadingSkeleton';
 
+const DEFAULT_CREDENTIAL_NAMES = {
+  anthropic: 'Default Anthropic',
+  openai: 'Default OpenAI',
+  ollama: 'Default Ollama'
+};
+
 export function AISettings() {
   const { currentProfile } = useProfile();
   const toast = useToast();
@@ -14,10 +20,16 @@ export function AISettings() {
   const [config, setConfig] = useState({
     // Main AI Provider
     aiProvider: 'anthropic',
+    anthropicCredentialId: '',
+    anthropicCredentialName: DEFAULT_CREDENTIAL_NAMES.anthropic,
     anthropicApiKey: '',
     claudeModel: 'claude-sonnet-4-5-20250929',
+    openaiCredentialId: '',
+    openaiCredentialName: DEFAULT_CREDENTIAL_NAMES.openai,
     openaiApiKey: '',
     openaiModel: 'gpt-4o',
+    ollamaCredentialId: '',
+    ollamaCredentialName: DEFAULT_CREDENTIAL_NAMES.ollama,
     ollamaBaseUrl: 'http://localhost:11434',
     ollamaModel: 'llama3.1',
     aiMaxTokens: '4096',
@@ -49,6 +61,7 @@ export function AISettings() {
     openai: [],
     ollama: []
   });
+  const [credentials, setCredentials] = useState([]);
   const [loadingModels, setLoadingModels] = useState({});
   const [modelLoadErrors, setModelLoadErrors] = useState({});
 
@@ -65,6 +78,16 @@ export function AISettings() {
     try {
       const response = await configAPI.getAll();
       const data = response.data;
+      let credentialRows = [];
+
+      try {
+        const credentialsResponse = await configAPI.getAICredentials();
+        credentialRows = credentialsResponse.data?.credentials || [];
+        setCredentials(credentialRows);
+      } catch (err) {
+        console.warn('Failed to load AI credentials:', err);
+        setCredentials([]);
+      }
 
       // Load profile preferences
       let profilePrefs = {};
@@ -90,14 +113,34 @@ export function AISettings() {
         console.warn('Failed to load system config:', err);
       }
 
+      const getSelectedCredential = (provider) => {
+        const selectedId = profilePrefs.aiCredentialIds?.[provider] || profilePrefs[`${provider}CredentialId`];
+        const selected = selectedId
+          ? credentialRows.find(credential => String(credential.id) === String(selectedId))
+          : null;
+        const fallback = credentialRows.find(credential => credential.provider === provider && credential.isDefault)
+          || credentialRows.find(credential => credential.provider === provider);
+        return selected || fallback || null;
+      };
+
+      const anthropicCredential = getSelectedCredential('anthropic');
+      const openaiCredential = getSelectedCredential('openai');
+      const ollamaCredential = getSelectedCredential('ollama');
+
       setConfig({
         // Main AI Provider settings
         aiProvider: profilePrefs.aiProvider || profilePrefs.ai_provider || data.aiProvider || data.ai_provider || 'anthropic',
-        anthropicApiKey: data.anthropicApiKey || data.anthropic_api_key ? '••••••••' : '',
+        anthropicCredentialId: anthropicCredential?.id ? String(anthropicCredential.id) : '',
+        anthropicCredentialName: anthropicCredential?.name || DEFAULT_CREDENTIAL_NAMES.anthropic,
+        anthropicApiKey: anthropicCredential?.hasSecret || data.anthropicApiKey || data.anthropic_api_key ? '••••••••' : '',
         claudeModel: profilePrefs.claudeModel || profilePrefs.claude_model || data.claudeModel || data.claude_model || 'claude-sonnet-4-5-20250929',
-        openaiApiKey: data.openaiApiKey || data.openai_api_key ? '••••••••' : '',
+        openaiCredentialId: openaiCredential?.id ? String(openaiCredential.id) : '',
+        openaiCredentialName: openaiCredential?.name || DEFAULT_CREDENTIAL_NAMES.openai,
+        openaiApiKey: openaiCredential?.hasSecret || data.openaiApiKey || data.openai_api_key ? '••••••••' : '',
         openaiModel: profilePrefs.openaiModel || profilePrefs.openai_model || data.openaiModel || data.openai_model || 'gpt-4o',
-        ollamaBaseUrl: data.ollamaBaseUrl || data.ollama_base_url || 'http://localhost:11434',
+        ollamaCredentialId: ollamaCredential?.id ? String(ollamaCredential.id) : '',
+        ollamaCredentialName: ollamaCredential?.name || DEFAULT_CREDENTIAL_NAMES.ollama,
+        ollamaBaseUrl: ollamaCredential?.baseUrl || data.ollamaBaseUrl || data.ollama_base_url || 'http://localhost:11434',
         ollamaModel: profilePrefs.ollamaModel || profilePrefs.ollama_model || data.ollamaModel || data.ollama_model || 'llama3.1',
         aiMaxTokens: data.aiMaxTokens || data.ai_max_tokens || '4096',
         aiTemperature: data.aiTemperature || data.ai_temperature || '0.7',
@@ -132,8 +175,21 @@ export function AISettings() {
       anthropic: config.anthropicApiKey,
       openai: config.openaiApiKey
     };
+    const credentialId = config[`${provider}CredentialId`];
     const apiKey = apiKeyByProvider[provider];
-    return apiKey && !apiKey.includes('•') ? { apiKey } : {};
+    const options = {};
+
+    if (credentialId) {
+      options.credentialId = credentialId;
+    }
+    if (provider === 'ollama' && config.ollamaBaseUrl) {
+      options.baseUrl = config.ollamaBaseUrl;
+    }
+    if (apiKey && !apiKey.includes('•')) {
+      options.apiKey = apiKey;
+    }
+
+    return options;
   };
 
   const loadModelsForProvider = async (provider, { notify = false, useCurrentInput = false } = {}) => {
@@ -166,18 +222,71 @@ export function AISettings() {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
 
+  const getProviderCredentials = (provider) => credentials.filter(credential => credential.provider === provider);
+
+  const handleCredentialSelection = (provider, credentialId) => {
+    const credential = credentials.find(item => String(item.id) === String(credentialId));
+    setConfig(prev => ({
+      ...prev,
+      [`${provider}CredentialId`]: credentialId,
+      [`${provider}CredentialName`]: credential?.name || DEFAULT_CREDENTIAL_NAMES[provider],
+      ...(provider === 'ollama' && credential?.baseUrl ? { ollamaBaseUrl: credential.baseUrl } : {})
+    }));
+  };
+
+  const saveActiveProviderCredential = async () => {
+    const provider = config.aiProvider;
+    if (!['anthropic', 'openai', 'ollama'].includes(provider)) return null;
+
+    const idKey = `${provider}CredentialId`;
+    const nameKey = `${provider}CredentialName`;
+    const selectedId = config[idKey];
+    const providerCredentialCount = getProviderCredentials(provider).length;
+    const payload = {
+      provider,
+      name: config[nameKey] || DEFAULT_CREDENTIAL_NAMES[provider],
+      isDefault: providerCredentialCount === 0
+    };
+
+    if (selectedId) {
+      payload.id = Number(selectedId);
+    }
+
+    if (provider === 'ollama') {
+      payload.baseUrl = config.ollamaBaseUrl;
+    } else {
+      const secretKey = provider === 'anthropic' ? 'anthropicApiKey' : 'openaiApiKey';
+      const secret = config[secretKey];
+      if (secret && !secret.includes('•')) {
+        payload.secret = secret;
+      }
+      if (!payload.id && !payload.secret) {
+        return null;
+      }
+    }
+
+    const response = await configAPI.saveAICredential(payload);
+    const savedCredential = response.data?.credential;
+    if (!savedCredential?.id) return null;
+
+    const credentialsResponse = await configAPI.getAICredentials();
+    setCredentials(credentialsResponse.data?.credentials || []);
+    setConfig(prev => ({
+      ...prev,
+      [idKey]: String(savedCredential.id),
+      [nameKey]: savedCredential.name || prev[nameKey]
+    }));
+
+    return String(savedCredential.id);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Save global settings (API keys, storage) - only if not masked
-      const globalSettings = {};
+      const savedCredentialId = await saveActiveProviderCredential();
 
-      if (config.anthropicApiKey && !config.anthropicApiKey.includes('•')) {
-        globalSettings.anthropicApiKey = config.anthropicApiKey;
-      }
-      if (config.openaiApiKey && !config.openaiApiKey.includes('•')) {
-        globalSettings.openaiApiKey = config.openaiApiKey;
-      }
+      // Save global settings (storage and provider fallbacks)
+      const globalSettings = {};
 
       globalSettings.aiProvider = config.aiProvider;
       globalSettings.claudeModel = config.claudeModel;
@@ -206,10 +315,24 @@ export function AISettings() {
         const profileResponse = await profilesAPI.getById(currentProfile.id);
         const currentPrefs = profileResponse.data?.profile?.preferences || {};
         const parsedPrefs = typeof currentPrefs === 'string' ? JSON.parse(currentPrefs) : currentPrefs;
+        const aiCredentialIds = {
+          ...(parsedPrefs.aiCredentialIds || {}),
+          anthropic: config.anthropicCredentialId || null,
+          openai: config.openaiCredentialId || null,
+          ollama: config.ollamaCredentialId || null
+        };
+
+        if (savedCredentialId) {
+          aiCredentialIds[config.aiProvider] = savedCredentialId;
+        }
 
         const updatedPrefs = {
           ...parsedPrefs,
           aiProvider: config.aiProvider,
+          aiCredentialIds,
+          anthropicCredentialId: aiCredentialIds.anthropic,
+          openaiCredentialId: aiCredentialIds.openai,
+          ollamaCredentialId: aiCredentialIds.ollama,
           claudeModel: config.claudeModel,
           openaiModel: config.openaiModel,
           ollamaModel: config.ollamaModel,
@@ -310,6 +433,43 @@ export function AISettings() {
     );
   };
 
+  const renderCredentialControls = (provider) => {
+    const providerCredentials = getProviderCredentials(provider);
+    const idKey = `${provider}CredentialId`;
+    const nameKey = `${provider}CredentialName`;
+
+    return (
+      <div className="grid-2-col">
+        <div className="form-group">
+          <label className="form-label">
+            Credential <ScopeBadge scope="profile" />
+          </label>
+          <select
+            value={config[idKey] || ''}
+            onChange={(e) => handleCredentialSelection(provider, e.target.value)}
+            className="form-select"
+          >
+            <option value="">Create new credential</option>
+            {providerCredentials.map(credential => (
+              <option key={credential.id} value={credential.id}>
+                {credential.name}{credential.isDefault ? ' (default)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Credential Name</label>
+          <input
+            type="text"
+            value={config[nameKey] || DEFAULT_CREDENTIAL_NAMES[provider]}
+            onChange={(e) => handleChange(nameKey, e.target.value)}
+            className="form-input"
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="settings-section">
       <div className="settings-section-header">
@@ -333,6 +493,7 @@ export function AISettings() {
 
       {config.aiProvider === 'anthropic' && (
         <>
+          {renderCredentialControls('anthropic')}
           <div className="form-group">
             <label className="form-label">
               Anthropic API Key <ScopeBadge scope="global" />
@@ -359,6 +520,7 @@ export function AISettings() {
 
       {config.aiProvider === 'openai' && (
         <>
+          {renderCredentialControls('openai')}
           <div className="form-group">
             <label className="form-label">
               OpenAI API Key <ScopeBadge scope="global" />
@@ -385,6 +547,7 @@ export function AISettings() {
 
       {config.aiProvider === 'ollama' && (
         <>
+          {renderCredentialControls('ollama')}
           <div className="form-group">
             <label className="form-label">
               Ollama Base URL <ScopeBadge scope="global" />

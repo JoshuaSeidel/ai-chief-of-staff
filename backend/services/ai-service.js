@@ -2,6 +2,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const OpenAI = require('openai');
 const { getDb, getDbType } = require('../database/db');
 const { createModuleLogger } = require('../utils/logger');
+const { resolveProviderCredential } = require('./ai-credentials');
 
 const logger = createModuleLogger('AI-SERVICE');
 
@@ -44,62 +45,67 @@ async function getAIProvider(profileId = 2) {
 /**
  * Get Anthropic client
  */
-async function getAnthropicClient() {
+async function createAnthropicClient(profileId = 2) {
   try {
-    const db = getDb();
-    const row = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
+    const credential = await resolveProviderCredential(PROVIDERS.ANTHROPIC, profileId);
     
-    if (!row || !row.value || row.value.trim() === '') {
+    if (!credential.apiKey || credential.apiKey.trim() === '') {
       throw new Error('Anthropic API key not configured');
     }
     
-    const apiKey = row.value.trim();
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({ apiKey: credential.apiKey.trim() });
     
     if (!client || !client.messages || !client.messages.create) {
       throw new Error('Failed to create valid Anthropic client');
     }
     
-    return client;
+    return { client, credential };
   } catch (error) {
     logger.error('Error creating Anthropic client:', error);
     throw error;
   }
 }
 
+async function getAnthropicClient(profileId = 2) {
+  const { client } = await createAnthropicClient(profileId);
+  return client;
+}
+
 /**
  * Get OpenAI client
  */
-async function getOpenAIClient() {
+async function createOpenAIClient(profileId = 2) {
   try {
-    const db = getDb();
-    const row = await db.get('SELECT value FROM config WHERE key = ?', ['openaiApiKey']);
+    const credential = await resolveProviderCredential(PROVIDERS.OPENAI, profileId);
     
-    if (!row || !row.value || row.value.trim() === '') {
+    if (!credential.apiKey || credential.apiKey.trim() === '') {
       throw new Error('OpenAI API key not configured');
     }
     
-    const apiKey = row.value.trim();
-    const client = new OpenAI({ apiKey });
+    const client = new OpenAI({ apiKey: credential.apiKey.trim() });
     
     if (!client || !client.chat || !client.chat.completions) {
       throw new Error('Failed to create valid OpenAI client');
     }
     
-    return client;
+    return { client, credential };
   } catch (error) {
     logger.error('Error creating OpenAI client:', error);
     throw error;
   }
 }
 
+async function getOpenAIClient(profileId = 2) {
+  const { client } = await createOpenAIClient(profileId);
+  return client;
+}
+
 /**
  * Get Ollama base URL from config
  */
-async function getOllamaBaseUrl() {
-  const db = getDb();
-  const row = await db.get('SELECT value FROM config WHERE key = ?', ['ollamaBaseUrl']);
-  return row?.value?.trim() || 'http://localhost:11434'; // Default Ollama URL
+async function getOllamaBaseUrl(profileId = 2) {
+  const credential = await resolveProviderCredential(PROVIDERS.OLLAMA, profileId);
+  return credential.baseUrl?.trim() || 'http://localhost:11434'; // Default Ollama URL
 }
 
 /**
@@ -226,7 +232,7 @@ async function getTemperature(profileId = 2) {
  * Call Anthropic API
  */
 async function callAnthropic(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
-  const client = await getAnthropicClient();
+  const { client, credential } = await createAnthropicClient(profileId);
   const model = await getModel(PROVIDERS.ANTHROPIC, profileId);
   const tokens = maxTokens || await getMaxTokens(profileId);
   
@@ -243,7 +249,7 @@ async function callAnthropic(messages, systemPrompt = null, maxTokens = null, pr
     params.system = systemPrompt;
   }
   
-  logger.info(`Calling Anthropic API with model: ${model}, max_tokens: ${tokens}`);
+  logger.info(`Calling Anthropic API with model: ${model}, max_tokens: ${tokens}, credential: ${credential.name || credential.credentialId || 'default'}`);
   const response = await client.messages.create(params);
   
   return {
@@ -256,30 +262,111 @@ async function callAnthropic(messages, systemPrompt = null, maxTokens = null, pr
 /**
  * Call OpenAI API
  */
-async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
-  const client = await getOpenAIClient();
-  const model = await getModel(PROVIDERS.OPENAI, profileId);
-  const tokens = maxTokens || await getMaxTokens(profileId);
-  const temperature = await getTemperature(profileId);
-  
+function usesDeveloperMessageRole(model = '') {
+  return /^(o\d|o[1-9]|gpt-5)/i.test(String(model));
+}
+
+function supportsTemperature(model = '') {
+  return !/^(o\d|o[1-9]|gpt-5)/i.test(String(model));
+}
+
+function buildOpenAIChatParams({ model, messages, systemPrompt, tokens, temperature, tokenParameter = 'max_completion_tokens', omitTemperature = false }) {
   const messageArray = [];
   
   if (systemPrompt) {
-    messageArray.push({ role: 'system', content: systemPrompt });
+    messageArray.push({
+      role: usesDeveloperMessageRole(model) ? 'developer' : 'system',
+      content: systemPrompt
+    });
   }
   
   messageArray.push(...messages.map(msg => ({
     role: msg.role === 'assistant' ? 'assistant' : 'user',
     content: msg.content
   })));
-  
-  logger.info(`Calling OpenAI API with model: ${model}, max_tokens: ${tokens}, temperature: ${temperature}`);
-  const response = await client.chat.completions.create({
+
+  const params = {
     model,
     messages: messageArray,
-    max_tokens: tokens,
+    [tokenParameter]: tokens
+  };
+
+  if (!omitTemperature && supportsTemperature(model)) {
+    params.temperature = temperature;
+  }
+
+  return params;
+}
+
+function isOpenAIUnsupportedParameterError(error, parameterName) {
+  const message = error?.message || error?.response?.data?.error?.message || '';
+  return /unsupported parameter|unsupported_value|not supported/i.test(message)
+    && message.toLowerCase().includes(String(parameterName).toLowerCase());
+}
+
+async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
+  const { client, credential } = await createOpenAIClient(profileId);
+  const model = await getModel(PROVIDERS.OPENAI, profileId);
+  const tokens = maxTokens || await getMaxTokens(profileId);
+  const temperature = await getTemperature(profileId);
+
+  let params = buildOpenAIChatParams({
+    model,
+    messages,
+    systemPrompt,
+    tokens,
     temperature
   });
+
+  logger.info(`Calling OpenAI API with model: ${model}, token_parameter: ${params.max_completion_tokens ? 'max_completion_tokens' : 'max_tokens'}, tokens: ${tokens}, temperature: ${params.temperature ?? 'default'}, credential: ${credential.name || credential.credentialId || 'default'}`);
+
+  let response;
+  let triedLegacyTokenParameter = false;
+  let triedOmittingTemperature = !('temperature' in params);
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      response = await client.chat.completions.create(params);
+      break;
+    } catch (error) {
+      if (!triedLegacyTokenParameter && isOpenAIUnsupportedParameterError(error, 'max_completion_tokens')) {
+        triedLegacyTokenParameter = true;
+        params = buildOpenAIChatParams({
+          model,
+          messages,
+          systemPrompt,
+          tokens,
+          temperature,
+          tokenParameter: 'max_tokens',
+          omitTemperature: triedOmittingTemperature
+        });
+        logger.warn(`OpenAI model ${model} rejected max_completion_tokens; retrying with max_tokens`);
+        continue;
+      }
+
+      if (!triedOmittingTemperature && isOpenAIUnsupportedParameterError(error, 'temperature')) {
+        triedOmittingTemperature = true;
+        const tokenParameter = params.max_tokens ? 'max_tokens' : 'max_completion_tokens';
+        params = buildOpenAIChatParams({
+          model,
+          messages,
+          systemPrompt,
+          tokens,
+          temperature,
+          tokenParameter,
+          omitTemperature: true
+        });
+        logger.warn(`OpenAI model ${model} rejected temperature; retrying with provider default temperature`);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  if (!response) {
+    throw new Error(`OpenAI request failed before a response was returned for model ${model}`);
+  }
   
   return {
     text: response.choices[0].message.content,
@@ -296,7 +383,8 @@ async function callOpenAI(messages, systemPrompt = null, maxTokens = null, profi
  * Call Ollama API
  */
 async function callOllama(messages, systemPrompt = null, maxTokens = null, profileId = 2) {
-  const baseUrl = await getOllamaBaseUrl();
+  const credential = await resolveProviderCredential(PROVIDERS.OLLAMA, profileId);
+  const baseUrl = credential.baseUrl?.trim() || 'http://localhost:11434';
   const model = await getModel(PROVIDERS.OLLAMA, profileId);
   const tokens = maxTokens || await getMaxTokens(profileId);
   const temperature = await getTemperature(profileId);
@@ -313,7 +401,7 @@ async function callOllama(messages, systemPrompt = null, maxTokens = null, profi
     content: msg.content
   })));
   
-  logger.info(`Calling Ollama API at ${baseUrl} with model: ${model}, max_tokens: ${tokens}, temperature: ${temperature}`);
+  logger.info(`Calling Ollama API at ${baseUrl} with model: ${model}, max_tokens: ${tokens}, temperature: ${temperature}, credential: ${credential.name || credential.credentialId || 'default'}`);
   
   const response = await fetch(`${baseUrl}/api/chat`, {
     method: 'POST',
@@ -458,5 +546,7 @@ module.exports = {
   // Provider-specific functions (for backwards compatibility)
   getAnthropicClient,
   getOpenAIClient,
-  getOllamaBaseUrl
+  getOllamaBaseUrl,
+  buildOpenAIChatParams,
+  isOpenAIUnsupportedParameterError
 };

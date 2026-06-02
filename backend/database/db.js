@@ -923,6 +923,10 @@ async function runMigrations() {
     // Run migration 008: Task learning feedback events
     const migration008 = require('./migrations/008_task_learning_events');
     await migration008.runMigration(db, pool, dbType);
+
+    // Run migration 009: Named AI provider credentials
+    const migration009 = require('./migrations/009_ai_provider_credentials');
+    await migration009.runMigration(db, pool, dbType);
     
     if (dbType === 'postgres') {
       // Migration 1: Add urgency and suggested_approach columns to commitments table
