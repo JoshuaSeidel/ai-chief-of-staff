@@ -50,6 +50,7 @@ export function AISettings() {
     ollama: []
   });
   const [loadingModels, setLoadingModels] = useState({});
+  const [modelLoadErrors, setModelLoadErrors] = useState({});
 
   useEffect(() => {
     loadConfig();
@@ -126,14 +127,35 @@ export function AISettings() {
     }
   };
 
-  const loadModelsForProvider = async (provider) => {
+  const getProviderRefreshOptions = (provider) => {
+    const apiKeyByProvider = {
+      anthropic: config.anthropicApiKey,
+      openai: config.openaiApiKey
+    };
+    const apiKey = apiKeyByProvider[provider];
+    return apiKey && !apiKey.includes('•') ? { apiKey } : {};
+  };
+
+  const loadModelsForProvider = async (provider, { notify = false, useCurrentInput = false } = {}) => {
     setLoadingModels(prev => ({ ...prev, [provider]: true }));
+    setModelLoadErrors(prev => ({ ...prev, [provider]: '' }));
     try {
-      const response = await configAPI.getModels(provider);
+      const response = await configAPI.getModels(
+        provider,
+        useCurrentInput ? getProviderRefreshOptions(provider) : {}
+      );
       if (response.data?.models) {
         setAvailableModels(prev => ({ ...prev, [provider]: response.data.models }));
       }
+      if (notify) {
+        toast.success(`Loaded ${response.data?.models?.length || 0} ${provider} models`);
+      }
     } catch (err) {
+      const message = err.response?.data?.message || err.response?.data?.error || err.message || `Failed to load ${provider} models`;
+      setModelLoadErrors(prev => ({ ...prev, [provider]: message }));
+      if (notify) {
+        toast.error(`Could not refresh ${provider} models: ${message}`);
+      }
       console.warn(`Failed to load models for ${provider}:`, err);
     } finally {
       setLoadingModels(prev => ({ ...prev, [provider]: false }));
@@ -218,6 +240,7 @@ export function AISettings() {
     const models = availableModels[provider] || [];
     const isLoading = loadingModels[provider];
     const effectiveProvider = provider || 'anthropic';
+    const modelLoadError = modelLoadErrors[effectiveProvider];
 
     // Default models for each provider
     const defaultModels = {
@@ -269,7 +292,7 @@ export function AISettings() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => loadModelsForProvider(effectiveProvider)}
+              onClick={() => loadModelsForProvider(effectiveProvider, { notify: true, useCurrentInput: true })}
               disabled={isLoading}
               icon={<RefreshCw size={15} />}
               title="Refresh models"
@@ -277,6 +300,7 @@ export function AISettings() {
           )}
         </div>
         {isLoading && <span className="form-hint">Loading models...</span>}
+        {modelLoadError && <span className="form-error">Model refresh failed: {modelLoadError}</span>}
       </div>
     );
   };

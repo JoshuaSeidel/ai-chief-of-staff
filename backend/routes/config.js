@@ -565,27 +565,62 @@ router.get('/debug/raw/:key', async (req, res) => {
   }
 });
 
+function getRequestApiKey(req) {
+  const candidate = req.body?.apiKey;
+  if (typeof candidate !== 'string') return '';
+  const trimmed = candidate.trim();
+  return isMaskedValue(trimmed) ? '' : trimmed;
+}
+
+function extractProviderError(provider, apiError) {
+  const status = apiError.response?.status;
+  const body = apiError.response?.data;
+  const providerMessage = body?.error?.message || body?.message || body?.error;
+
+  if (status === 401) {
+    return `${provider} rejected the API key. Check that the token is valid and not revoked.`;
+  }
+  if (status === 403) {
+    return `${provider} rejected model listing permissions. Check the key scopes and organization/project access.`;
+  }
+  if (status === 429) {
+    return `${provider} rate limited model listing. Retry after the provider limit resets.`;
+  }
+  if (providerMessage) {
+    return String(providerMessage);
+  }
+  return apiError.code === 'ECONNABORTED'
+    ? `${provider} model listing timed out`
+    : apiError.message;
+}
+
+async function getConfiguredApiKey(db, key, providedApiKey) {
+  if (providedApiKey) return providedApiKey;
+  const apiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', [key]);
+  return apiKeyRow?.value || '';
+}
+
 /**
  * Get available models from AI providers
- * GET /api/config/models/:provider
- * Queries the actual API endpoints to get current model lists
+ * GET/POST /api/config/models/:provider
+ * Queries the actual API endpoints to get current model lists. POST can pass
+ * { apiKey } so a newly-entered key can be validated before saving.
  */
-router.get('/models/:provider', async (req, res) => {
+async function handleModelsRequest(req, res) {
   try {
     const { provider } = req.params;
-    const axios = require('axios');
     const db = getDb();
+    const providedApiKey = getRequestApiKey(req);
     
     logger.info(`Fetching available models for provider: ${provider}`);
     
     if (provider === 'anthropic') {
-      // Get API key from database
-      const apiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['anthropicApiKey']);
-      const apiKey = apiKeyRow?.value;
+      const apiKey = await getConfiguredApiKey(db, 'anthropicApiKey', providedApiKey);
       
       if (!apiKey) {
         return res.status(400).json({ 
           error: 'Anthropic API key not configured',
+          message: 'Enter and save an Anthropic API key, or enter one and click refresh before saving.',
           models: []
         });
       }
@@ -596,6 +631,7 @@ router.get('/models/:provider', async (req, res) => {
             'x-api-key': apiKey,
             'anthropic-version': '2023-06-01'
           },
+          httpsAgent: getAgent(),
           timeout: 10000
         });
         
@@ -611,15 +647,13 @@ router.get('/models/:provider', async (req, res) => {
         logger.error('Error fetching Anthropic models:', apiError.message);
         res.status(500).json({ 
           error: 'Failed to fetch Anthropic models',
-          message: apiError.response?.data?.error?.message || apiError.message,
+          message: extractProviderError('Anthropic', apiError),
           models: []
         });
       }
       
     } else if (provider === 'openai') {
-      // Get API key from database
-      const apiKeyRow = await db.get('SELECT value FROM config WHERE key = ?', ['openaiApiKey']);
-      const apiKey = apiKeyRow?.value;
+      const apiKey = await getConfiguredApiKey(db, 'openaiApiKey', providedApiKey);
       
       logger.info(`OpenAI API key check: ${apiKey ? 'Found (length: ' + apiKey.length + ')' : 'Not found'}`);
       
@@ -627,6 +661,7 @@ router.get('/models/:provider', async (req, res) => {
         logger.warn('OpenAI API key not configured in database');
         return res.status(400).json({ 
           error: 'OpenAI API key not configured',
+          message: 'Enter and save an OpenAI API key, or enter one and click refresh before saving.',
           models: []
         });
       }
@@ -636,18 +671,25 @@ router.get('/models/:provider', async (req, res) => {
           headers: {
             'Authorization': `Bearer ${apiKey}`
           },
+          httpsAgent: getAgent(),
           timeout: 10000
         });
         
-        // Filter to only chat/completion models (exclude embedding, audio, etc.)
         const models = response.data.data
-          .filter(model => model.id.includes('gpt') || model.id.includes('o1'))
           .map(model => ({
             id: model.id,
             name: model.id,
             created: model.created
           }))
           .sort((a, b) => b.created - a.created); // Newest first
+
+        if (models.length === 0) {
+          return res.status(502).json({
+            error: 'OpenAI returned no models',
+            message: 'OpenAI model listing succeeded but returned an empty model list for this API key.',
+            models: []
+          });
+        }
         
         logger.info(`Retrieved ${models.length} OpenAI models`);
         res.json({ provider: 'openai', models });
@@ -655,7 +697,7 @@ router.get('/models/:provider', async (req, res) => {
         logger.error('Error fetching OpenAI models:', apiError.message);
         res.status(500).json({ 
           error: 'Failed to fetch OpenAI models',
-          message: apiError.response?.data?.error?.message || apiError.message,
+          message: extractProviderError('OpenAI', apiError),
           models: []
         });
       }
@@ -669,6 +711,7 @@ router.get('/models/:provider', async (req, res) => {
       
       try {
         const response = await axios.get(`${baseUrl}/api/tags`, {
+          httpsAgent: getAgent(),
           timeout: 10000
         });
         
@@ -709,6 +752,9 @@ router.get('/models/:provider', async (req, res) => {
       provider: req.params.provider
     });
   }
-});
+}
+
+router.get('/models/:provider', handleModelsRequest);
+router.post('/models/:provider', handleModelsRequest);
 
 module.exports = router;
